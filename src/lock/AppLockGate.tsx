@@ -1,5 +1,6 @@
 import { App } from '@capacitor/app'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import Sticker from '../components/Sticker'
 import { authenticate, toAuthErrorMessage, useLockEnabled } from './appLock'
 
 const RELOCK_AFTER_MS = 60 * 1000
@@ -69,7 +70,7 @@ type LockScreenProps = {
 function LockScreen({ errorMessage, onUnlock }: LockScreenProps) {
   return (
     <div className="lock-screen">
-      <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="lock-icon" />
+      <Sticker name="default" size={120} />
       <p className="lock-title">가계부가 잠겨 있어요</p>
       {errorMessage && <p className="lock-error">{errorMessage}</p>}
       <button type="button" className="button" onClick={onUnlock}>

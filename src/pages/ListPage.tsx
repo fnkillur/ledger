@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
+import EmptyState from '../components/EmptyState'
 import PeriodHeader from '../components/PeriodHeader'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
@@ -61,7 +62,7 @@ function ListPage() {
           )}
         </section>
 
-        {transactions?.length === 0 && <p className="empty-state">이 기간의 내역이 없어요.</p>}
+        {transactions?.length === 0 && <EmptyState sticker="peek">이 기간의 내역이 없어요.</EmptyState>}
 
         {periodType === '연도별' ? (
           <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />

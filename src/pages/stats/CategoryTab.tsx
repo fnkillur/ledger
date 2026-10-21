@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import CategoryIcon from '../../components/CategoryIcon'
+import EmptyState from '../../components/EmptyState'
 import PersonAvatar from '../../components/PersonAvatar'
 import Segmented from '../../components/Segmented'
 import { useCategoryIcons } from '../../db/hooks'
@@ -35,7 +36,7 @@ function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes
   if (ranking.length === 0) {
     return (
       <section className="card">
-        <p className="empty-inline">이 기간의 지출 내역이 없어요.</p>
+        <EmptyState sticker="eat">이 기간의 지출 내역이 없어요.</EmptyState>
       </section>
     )
   }

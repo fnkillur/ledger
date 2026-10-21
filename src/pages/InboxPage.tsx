@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import EmptyState from '../components/EmptyState'
 import TopBar from '../components/TopBar'
 import TransactionRow from '../components/TransactionRow'
 import { markCapture, toTransactionInput } from '../db/captures'
@@ -74,7 +75,7 @@ function InboxPage() {
             카테고리 없는 내역 <span className="count">{uncategorized.length}</span>
           </h2>
           {uncategorized.length === 0 ? (
-            <p className="empty-inline">모두 분류됐어요.</p>
+            <EmptyState sticker="dance">모두 분류됐어요!</EmptyState>
           ) : (
             <ul className="tx-list">
               {uncategorized.map(transaction => (

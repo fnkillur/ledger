@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
 import CategoryIcon from '../../components/CategoryIcon'
+import EmptyState from '../../components/EmptyState'
+import Sticker from '../../components/Sticker'
 import PersonAvatar from '../../components/PersonAvatar'
 import { useCategoryIcons } from '../../db/hooks'
 import { TIME_SLOTS, WEEKDAYS, type CalendarDay, type MerchantStat } from '../../domain/insights'
@@ -20,11 +22,10 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
   if (!hasDetail) {
     return (
       <section className="card">
-        <h2 className="card-title">소비 패턴</h2>
-        <p className="card-description">
-          이 기간은 월 합계로 옮겨온 기록뿐이라 건별 패턴을 볼 수 없어요. 앱으로 건별 기록이 쌓이면 큰 지출, 자주 가는 곳, 요일·시간대, 무지출 데이를
-          보여드려요.
-        </p>
+        <EmptyState sticker="proud">
+          <strong>건별 기록이 쌓이면 분석해 드릴게요</strong>
+          <span>이 기간은 월 합계로 옮겨온 기록뿐이에요. 큰 지출, 자주 가는 곳, 요일·시간대, 무지출 데이를 보여드려요.</span>
+        </EmptyState>
       </section>
     )
   }
@@ -162,6 +163,7 @@ function NoSpendCalendar({ days, leadingBlanks, noSpendCount }: NoSpendCalendarP
     <section className="card">
       <h2 className="card-title">
         무지출 데이 <span className="count">🌱 {noSpendCount}일</span>
+        {noSpendCount > 0 && <Sticker name="excited" size={44} className="card-sticker" />}
       </h2>
       <div className="calendar">
         {WEEKDAYS.map(weekday => (

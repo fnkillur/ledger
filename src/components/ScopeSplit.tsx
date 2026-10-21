@@ -8,12 +8,17 @@ type ScopeSplitProps = {
 function ScopeSplit({ items }: ScopeSplitProps) {
   return (
     <span className="person-split">
-      {items.map(item => (
-        <span key={item.filter} aria-label={`${item.filter === '공동' ? '공동' : `${item.filter} 개인`} ${item.amount.toLocaleString('ko-KR')}원`}>
-          {item.filter === '공동' ? <span aria-hidden="true">👫</span> : <PersonAvatar person={item.filter} size={14} />}
-          {item.amount.toLocaleString('ko-KR')}
-        </span>
-      ))}
+      {items
+        .filter(item => item.amount !== 0)
+        .map(item => (
+          <span
+            key={item.filter}
+            aria-label={`${item.filter === '공동' ? '공동' : `${item.filter} 개인`} ${item.amount.toLocaleString('ko-KR')}원`}
+          >
+            {item.filter === '공동' ? <span aria-hidden="true">👫</span> : <PersonAvatar person={item.filter} size={14} />}
+            {item.amount.toLocaleString('ko-KR')}
+          </span>
+        ))}
     </span>
   )
 }

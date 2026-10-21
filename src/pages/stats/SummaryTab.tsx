@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import Sticker from '../../components/Sticker'
 import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace, elapsedMonthsOfYear } from '../../domain/insights'
 import { formatPreviousPeriod, type Period } from '../../domain/period'
@@ -77,7 +78,10 @@ function BudgetCard({ period, spent, budget, today }: BudgetCardProps) {
 
   return (
     <section className="card">
-      <h2 className="card-title">예산</h2>
+      <h2 className="card-title">
+        예산
+        <Sticker name={tone === 'good' ? 'victory' : 'cry'} size={52} className="card-sticker" />
+      </h2>
       <Meter ratio={ratio} tone={tone} />
       <p className="meter-caption">
         <strong>{formatWon(spent)}</strong> / {formatWon(budget)} ({ratio}%) · {spent <= budget ? `${formatWon(budget - spent)} 남음` : `${formatWon(spent - budget)} 초과`}
@@ -110,7 +114,10 @@ function SavingGoalCard({ saved, goal, isYear }: SavingGoalCardProps) {
   const ratio = percent(saved, goal)
   return (
     <section className="card">
-      <h2 className="card-title">저축 목표{isYear ? ' (올해 누적)' : ''}</h2>
+      <h2 className="card-title">
+        저축 목표{isYear ? ' (올해 누적)' : ''}
+        {ratio >= 100 && <Sticker name="jump" size={52} className="card-sticker" />}
+      </h2>
       <Meter ratio={ratio} tone={ratio >= 100 ? 'good' : 'accent'} />
       <p className="meter-caption">
         <strong>{formatWon(saved)}</strong> / {formatWon(goal)} ({ratio}%){ratio >= 100 ? ' · 🎉 달성!' : ` · ${formatWon(goal - saved)} 남음`}
