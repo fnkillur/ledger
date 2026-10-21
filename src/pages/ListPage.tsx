@@ -62,6 +62,11 @@ function ListPage() {
           )}
         </section>
 
+        <Link to="/monthly" className="monthly-link">
+          <span aria-hidden="true">📷</span> 월 합계 입력
+          <span className="monthly-link-sub">토스 캡처로 카테고리별 금액 채우기</span>
+        </Link>
+
         {transactions?.length === 0 && <EmptyState sticker="peek">이 기간의 내역이 없어요.</EmptyState>}
 
         {periodType === '연도별' ? (

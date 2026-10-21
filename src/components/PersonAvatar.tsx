@@ -1,8 +1,11 @@
 import type { Person } from '../domain/types'
 
-const PERSON_EMOJI: Record<Person, string> = {
+type AvatarTarget = Person | '공동'
+
+const PERSON_EMOJI: Record<AvatarTarget, string> = {
   쿠리만쥬: '🌰',
   우사기: '🐰',
+  공동: '👫',
 }
 
 const imageModules = import.meta.glob<string>('../assets/people/*.{png,jpg,jpeg,webp}', {
@@ -12,10 +15,10 @@ const imageModules = import.meta.glob<string>('../assets/people/*.{png,jpg,jpeg,
 
 const PERSON_IMAGE = Object.fromEntries(
   Object.entries(imageModules).map(([path, url]) => [path.split('/').pop()!.replace(/\.\w+$/, ''), url]),
-) as Partial<Record<Person, string>>
+) as Partial<Record<AvatarTarget, string>>
 
 type PersonAvatarProps = {
-  person: Person
+  person: AvatarTarget
   size?: number
 }
 

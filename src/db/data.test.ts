@@ -6,7 +6,8 @@ import { saveSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { ingestCaptures } from './captures'
 import { db } from './database'
-import { deleteTransaction, saveTransaction, splitTransaction, type TransactionInput } from './repository'
+import { deleteTransaction, saveMonthlyTotals, saveTransaction, splitTransaction, type TransactionInput } from './repository'
+import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 
 const input = (overrides: Partial<TransactionInput> = {}): TransactionInput => ({
   occurredAt: '2026-10-21T03:00:00.000Z',
@@ -46,6 +47,28 @@ describe('repository', () => {
       ['월급', 5502980],
       ['은행이자지원', 113766],
     ])
+  })
+})
+
+describe('saveMonthlyTotals', () => {
+  it('같은 달·사람을 다시 저장하면 덮어쓰고 빠진 카테고리는 지우며, 개인 기본값을 따른다', async () => {
+    await saveMonthlyTotals('2026-10', '우사기', [
+      { category: '식비', amount: 100000 },
+      { category: '미용', amount: 50000 },
+      { category: '월급', amount: 4000000 },
+    ], DEFAULT_CATEGORIES)
+    await saveMonthlyTotals('2026-10', '우사기', [
+      { category: '식비', amount: 120000 },
+      { category: '월급', amount: 4000000 },
+    ], DEFAULT_CATEGORIES)
+    await saveMonthlyTotals('2026-10', '쿠리만쥬', [{ category: '식비', amount: 1 }], DEFAULT_CATEGORIES)
+
+    const rows = await db.transactions.where('id').startsWith('monthly-2026-10-우사기-').toArray()
+    const byCategory = Object.fromEntries(rows.map(row => [row.category, row]))
+    expect(byCategory['식비']).toMatchObject({ amount: 120000, deleted: false, source: '월합계', scope: '공동', kind: '지출' })
+    expect(byCategory['미용']).toMatchObject({ deleted: true, scope: '개인' })
+    expect(byCategory['월급']).toMatchObject({ kind: '수입', deleted: false })
+    expect(await db.transactions.where('id').startsWith('monthly-2026-10-쿠리만쥬-').count()).toBe(1)
   })
 })
 

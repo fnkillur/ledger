@@ -1,4 +1,4 @@
-import { PEOPLE, type Category, type Kind, type Person, type Transaction } from './types'
+import { isAggregate, PEOPLE, type Category, type Kind, type Person, type Transaction } from './types'
 
 export const myShare = (transaction: Pick<Transaction, 'amount' | 'shareCount'>) =>
   Math.round(transaction.amount / Math.max(1, transaction.shareCount))
@@ -56,7 +56,7 @@ export const recentMonthKeys = (endMonthKey: string, count: number) => {
 
 export const topExpenses = (transactions: Transaction[], excludedCategories: Set<string>, limit: number) =>
   transactions
-    .filter(transaction => transaction.kind === '지출' && transaction.source !== '이관' && isCounted(transaction, excludedCategories))
+    .filter(transaction => transaction.kind === '지출' && !isAggregate(transaction.source) && isCounted(transaction, excludedCategories))
     .sort((left, right) => myShare(right) - myShare(left))
     .slice(0, limit)
 

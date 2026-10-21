@@ -1,11 +1,11 @@
 import { isCounted, myShare, sumByCategory, toMonthKey } from './stats'
-import type { Category, Person, Transaction } from './types'
+import { isAggregate, type Category, type Person, type Transaction } from './types'
 
 const isDetailedExpense = (transaction: Transaction, excludedCategories: Set<string>) =>
-  transaction.kind === '지출' && transaction.source !== '이관' && isCounted(transaction, excludedCategories)
+  transaction.kind === '지출' && !isAggregate(transaction.source) && isCounted(transaction, excludedCategories)
 
 export const hasDetailedData = (transactions: Transaction[]) =>
-  transactions.some(transaction => transaction.source !== '이관' && !transaction.deleted)
+  transactions.some(transaction => !isAggregate(transaction.source) && !transaction.deleted)
 
 export type CategoryChange = { category: string; current: number; previous: number; delta: number }
 

@@ -24,8 +24,7 @@ function ScopeChips({ value, onChange }: ScopeChipsProps) {
           className="chip scope-chip"
           onClick={() => onChange(filter)}
         >
-          {filter === '공동' && <span aria-hidden="true">👫</span>}
-          {filter !== '전체' && filter !== '공동' && <PersonAvatar person={filter} size={16} />}
+          {filter !== '전체' && <PersonAvatar person={filter} size={16} />}
           {labelOf(filter)}
         </button>
       ))}

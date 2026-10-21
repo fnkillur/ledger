@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
-import { UNCATEGORIZED } from '../domain/types'
+import { isAggregate, UNCATEGORIZED } from '../domain/types'
 import { db } from './database'
 
 export function useTransactionsBetween(start: string, end: string) {
@@ -31,7 +31,7 @@ export function useUncategorized() {
   return useLiveQuery(async () => {
     const transactions = await db.transactions.where('category').anyOf(UNCATEGORIZED, '').toArray()
     return transactions
-      .filter(transaction => !transaction.deleted && transaction.source !== '이관')
+      .filter(transaction => !transaction.deleted && !isAggregate(transaction.source))
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
   }) ?? []
 }

@@ -80,7 +80,7 @@ function BudgetCard({ period, spent, budget, today }: BudgetCardProps) {
     <section className="card">
       <h2 className="card-title">
         예산
-        <Sticker name={tone === 'good' ? 'victory' : 'cry'} size={52} className="card-sticker" />
+        <Sticker name={getBudgetSticker(tone)} size={52} className="card-sticker" />
       </h2>
       <Meter ratio={ratio} tone={tone} />
       <p className="meter-caption">
@@ -102,6 +102,12 @@ const getBudgetTone = (expected: number, budget: number) => {
   return 'good'
 }
 
+const getBudgetSticker = (tone: 'good' | 'warning' | 'critical') => {
+  if (tone === 'critical') return 'cry'
+  if (tone === 'warning') return 'puzzled'
+  return 'victory'
+}
+
 const getStatusIcon = (tone: 'good' | 'warning' | 'critical') => {
   if (tone === 'critical') return '🚨'
   if (tone === 'warning') return '⚠️'
@@ -116,7 +122,7 @@ function SavingGoalCard({ saved, goal, isYear }: SavingGoalCardProps) {
     <section className="card">
       <h2 className="card-title">
         저축 목표{isYear ? ' (올해 누적)' : ''}
-        {ratio >= 100 && <Sticker name="jump" size={52} className="card-sticker" />}
+        {ratio >= 100 && <Sticker name="celebrate" size={52} className="card-sticker" />}
       </h2>
       <Meter ratio={ratio} tone={ratio >= 100 ? 'good' : 'accent'} />
       <p className="meter-caption">

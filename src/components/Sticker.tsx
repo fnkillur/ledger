@@ -1,6 +1,18 @@
 import { IS_WEB_BUILD } from '../platform'
 
-export type StickerName = 'default' | 'peek' | 'proud' | 'victory' | 'dance' | 'jump' | 'cry' | 'excited' | 'eat'
+export type StickerName =
+  | 'default'
+  | 'peek'
+  | 'proud'
+  | 'thinking'
+  | 'victory'
+  | 'dance'
+  | 'done'
+  | 'celebrate'
+  | 'cry'
+  | 'puzzled'
+  | 'excited'
+  | 'eat'
 
 // 웹은 우사기 전용, 안드로이드 앱은 쿠리만쥬 위주로 꾸민다.
 const CHARACTER = IS_WEB_BUILD ? 'usagi' : 'kurimanju'
@@ -11,16 +23,20 @@ const STICKERS = Object.fromEntries(
   Object.entries(stickerModules)
     .filter(([path]) => path.includes(`/stickers/${CHARACTER}/`))
     .map(([path, url]) => [path.split('/').pop()!.replace('.webp', ''), url]),
-)
+) as Partial<Record<StickerName, string>>
 
-// 쿠리만쥬는 이미지가 적어서 비슷한 표정으로 대신한다.
+// 캐릭터마다 가진 이미지가 달라서, 없으면 비슷한 표정으로 대신한다.
 const FALLBACK: Partial<Record<StickerName, StickerName>> = {
-  proud: 'default',
+  proud: 'thinking',
+  thinking: 'proud',
   victory: 'default',
   excited: 'dance',
+  done: 'dance',
+  celebrate: 'dance',
+  puzzled: 'cry',
 }
 
-const resolve = (name: StickerName) => STICKERS[name] ?? STICKERS[FALLBACK[name] ?? 'default']
+const resolve = (name: StickerName) => STICKERS[name] ?? STICKERS[FALLBACK[name] ?? 'default'] ?? STICKERS.default
 
 type StickerProps = {
   name: StickerName

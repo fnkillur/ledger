@@ -1774,3 +1774,124 @@ a {
   width: auto;
   max-width: 96px;
 }
+
+.monthly-link {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 100ms ease-out;
+}
+
+.monthly-link:active {
+  transform: scale(0.98);
+}
+
+.monthly-link-sub {
+  color: var(--color-text-sub);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.monthly-target {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.monthly-person {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  font-weight: 600;
+}
+
+.ocr-button {
+  width: 100%;
+}
+
+.card .ocr-button + input + .card-description {
+  margin-top: 10px;
+}
+
+.ocr-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-sub);
+  font-size: 13px;
+}
+
+.ocr-progress-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ocr-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ocr-done .status {
+  flex: 1;
+  margin: 0;
+}
+
+.ocr-summary .status {
+  margin-top: 0;
+}
+
+.text-warning {
+  color: var(--color-error-text);
+}
+
+.unmatched-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--color-text-sub);
+  font-size: 13px;
+}
+
+.monthly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.monthly-row {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  align-items: center;
+  gap: 10px;
+}
+
+.monthly-label {
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.monthly-input {
+  padding: 8px 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.monthly-input.is-invalid {
+  border-color: var(--color-danger);
+}
