@@ -52,8 +52,9 @@ function SummaryTab({ period, totals, previousTotals, trend, shared }: SummaryTa
         </div>
       </section>
 
-      <BudgetCard period={period} spent={totals.지출} budget={shared.월예산 * multiplier} today={today} />
-      <SavingGoalCard saved={totals.저축} goal={shared.월저축목표 * multiplier} isYear={period.type === '연도별'} />
+      {shared.월예산 > 0 && <BudgetCard period={period} spent={totals.지출} budget={shared.월예산 * multiplier} today={today} />}
+      {shared.월저축목표 > 0 && <SavingGoalCard saved={totals.저축} goal={shared.월저축목표 * multiplier} isYear={period.type === '연도별'} />}
+      <GoalPrompt hasBudget={shared.월예산 > 0} hasSavingGoal={shared.월저축목표 > 0} />
 
       <section className="card">
         <h2 className="card-title">{period.type === '연도별' ? `${period.monthKey.slice(0, 4)}년 월별 추이` : '최근 12개월'}</h2>
@@ -67,8 +68,6 @@ function SummaryTab({ period, totals, previousTotals, trend, shared }: SummaryTa
 type BudgetCardProps = { period: Period; spent: number; budget: number; today: Date }
 
 function BudgetCard({ period, spent, budget, today }: BudgetCardProps) {
-  if (budget <= 0) return <GoalPrompt title="예산" text="월 예산을 정하면 남은 예산과 월말 예상 지출을 보여드려요." />
-
   const pace = period.type === '월별' ? budgetPace(spent, period.monthKey, today) : null
   const ratio = percent(spent, budget)
   const tone = getBudgetTone(pace?.projected ?? spent, budget)
@@ -105,8 +104,6 @@ const getStatusIcon = (tone: 'good' | 'warning' | 'critical') => {
 type SavingGoalCardProps = { saved: number; goal: number; isYear: boolean }
 
 function SavingGoalCard({ saved, goal, isYear }: SavingGoalCardProps) {
-  if (goal <= 0) return <GoalPrompt title="저축 목표" text="월 저축 목표를 정하면 달성률을 보여드려요." />
-
   const ratio = percent(saved, goal)
   return (
     <section className="card">
@@ -127,14 +124,29 @@ function Meter({ ratio, tone }: { ratio: number; tone: 'good' | 'warning' | 'cri
   )
 }
 
-function GoalPrompt({ title, text }: { title: string; text: string }) {
+const getGoalPromptText = (hasBudget: boolean, hasSavingGoal: boolean) => {
+  if (!hasBudget && !hasSavingGoal) return { title: '예산과 저축 목표 정하기', description: '남은 예산, 월말 예상 지출, 저축 달성률을 보여드려요' }
+  if (!hasBudget) return { title: '월 예산 정하기', description: '남은 예산과 월말 예상 지출을 보여드려요' }
+  return { title: '저축 목표 정하기', description: '목표 대비 저축 달성률을 보여드려요' }
+}
+
+function GoalPrompt({ hasBudget, hasSavingGoal }: { hasBudget: boolean; hasSavingGoal: boolean }) {
+  if (hasBudget && hasSavingGoal) return null
+
+  const { title, description } = getGoalPromptText(hasBudget, hasSavingGoal)
   return (
-    <section className="card">
-      <h2 className="card-title">{title}</h2>
-      <p className="card-description">
-        {text} <Link to="/settings">설정에서 정하기</Link>
-      </p>
-    </section>
+    <Link to="/settings" className="card prompt-card">
+      <span className="prompt-icon" aria-hidden="true">
+        🎯
+      </span>
+      <span className="prompt-text">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </Link>
   )
 }
 

@@ -35,38 +35,39 @@ function InboxPage() {
       <TopBar title="수집함" />
 
       <main className="page-content">
-        <section className="inbox-section">
-          <h2 className="section-title">
-            결제 알림 <span className="count">{waiting.length}</span>
-          </h2>
-          {!isCaptureSupported() && <p className="empty-inline">알림 수집은 안드로이드 앱에서만 동작해요.</p>}
-          {isCaptureSupported() && waiting.length === 0 && (
-            <p className="empty-inline">
-              새 결제 알림이 없어요. 알림 수집 설정은 <Link to="/settings">설정</Link>에서 할 수 있어요.
-            </p>
-          )}
-          <ul className="capture-list">
-            {waiting.map(capture => (
-              <CaptureCard key={capture.key} capture={capture} onRecord={handleRecord} onIgnore={handleIgnore} />
-            ))}
-          </ul>
+        {isCaptureSupported() && (
+          <section className="inbox-section">
+            <h2 className="section-title">
+              결제 알림 <span className="count">{waiting.length}</span>
+            </h2>
+            {waiting.length === 0 && (
+              <p className="empty-inline">
+                새 결제 알림이 없어요. 알림 수집 설정은 <Link to="/settings">설정</Link>에서 할 수 있어요.
+              </p>
+            )}
+            <ul className="capture-list">
+              {waiting.map(capture => (
+                <CaptureCard key={capture.key} capture={capture} onRecord={handleRecord} onIgnore={handleIgnore} />
+              ))}
+            </ul>
 
-          {duplicates.length > 0 && (
-            <details className="duplicates">
-              <summary>
-                중복으로 보이는 알림 {duplicates.length}개
-                <button type="button" className="text-button" onClick={handleIgnoreAllDuplicates}>
-                  모두 무시
-                </button>
-              </summary>
-              <ul className="capture-list">
-                {duplicates.map(capture => (
-                  <CaptureCard key={capture.key} capture={capture} onRecord={handleRecord} onIgnore={handleIgnore} />
-                ))}
-              </ul>
-            </details>
-          )}
-        </section>
+            {duplicates.length > 0 && (
+              <details className="duplicates">
+                <summary>
+                  중복으로 보이는 알림 {duplicates.length}개
+                  <button type="button" className="text-button" onClick={handleIgnoreAllDuplicates}>
+                    모두 무시
+                  </button>
+                </summary>
+                <ul className="capture-list">
+                  {duplicates.map(capture => (
+                    <CaptureCard key={capture.key} capture={capture} onRecord={handleRecord} onIgnore={handleIgnore} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        )}
 
         <section className="inbox-section">
           <h2 className="section-title">

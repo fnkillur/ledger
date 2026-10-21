@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import PeriodHeader from '../components/PeriodHeader'
-import PersonFilter from '../components/PersonFilter'
-import Segmented from '../components/Segmented'
+import UnderlineTabs from '../components/UnderlineTabs'
 import { useCategories, useSharedSettings, useTransactionsBetween } from '../db/hooks'
 import {
   categoryChanges,
@@ -121,14 +120,11 @@ function StatsPage() {
 
   return (
     <div className="page">
-      <PeriodHeader />
+      <PeriodHeader>
+        <UnderlineTabs label="통계 종류" tabs={TABS} value={tab} onChange={setTab} />
+      </PeriodHeader>
 
       <main className="page-content">
-        <PersonFilter />
-        <div className="stats-tabs">
-          <Segmented label="통계 종류" options={TABS} value={tab} onChange={setTab} />
-        </div>
-
         {tab === '요약' && (
           <SummaryTab
             period={ranges.period}

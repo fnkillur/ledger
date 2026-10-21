@@ -9,6 +9,7 @@ import { PEOPLE, type SharedSettings } from '../domain/types'
 import LockSettingSection from '../lock/LockSettingSection'
 import { isCaptureSupported, NotificationCapture, type InstalledApp } from '../native/notificationCapture'
 import { decodeConnectCode } from '../sync/connectCode'
+import { IS_WEB_BUILD } from '../platform'
 import { isSyncConfigured, saveSettings, useSettings } from '../sync/settings'
 import { resetSync, syncNow } from '../sync/sync'
 
@@ -28,23 +29,25 @@ function SettingsPage() {
       <TopBar title="설정" />
 
       <main className="page-content">
-        <SyncSection />
+        {(!IS_WEB_BUILD || !isSyncConfigured(settings)) && <SyncSection />}
 
         <GoalSection />
 
-        <section className="card">
-          <h2 className="card-title">직접 입력할 때 기본 사람</h2>
-          <Segmented
-            label="기본 사람"
-            options={PEOPLE}
-            value={settings.defaultPerson}
-            onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })}
-          />
-        </section>
+        {!IS_WEB_BUILD && (
+          <section className="card">
+            <h2 className="card-title">직접 입력할 때 기본 사람</h2>
+            <Segmented
+              label="기본 사람"
+              options={PEOPLE}
+              value={settings.defaultPerson}
+              onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })}
+            />
+          </section>
+        )}
 
         {isCaptureSupported() && <CaptureSection />}
 
-        <LockSettingSection />
+        {!IS_WEB_BUILD && <LockSettingSection />}
 
         <section className="card">
           <h2 className="card-title">카테고리</h2>

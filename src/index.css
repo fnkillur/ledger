@@ -1035,31 +1035,6 @@ a {
   text-align: center;
 }
 
-.period-toggle {
-  display: flex;
-  margin-right: 4px;
-  padding: 2px;
-  border-radius: 10px;
-  background: var(--color-pressed);
-}
-
-.period-toggle-option {
-  min-width: 34px;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--color-text-sub);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.period-toggle-option[aria-checked='true'] {
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
-}
 
 .month-list {
   margin-top: 18px;
@@ -1242,10 +1217,6 @@ a {
   border-radius: 10px;
   background: var(--color-pressed);
   line-height: 1;
-}
-
-.stats-tabs {
-  margin-top: 10px;
 }
 
 .card-header {
@@ -1543,4 +1514,199 @@ a {
 .card .field + .card-actions,
 .card .status + .card-actions {
   margin-top: 12px;
+}
+
+.period-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.period-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: var(--top-bar-height);
+  padding: 0 12px 0 8px;
+}
+
+.period-header .month-switcher {
+  margin-left: 0;
+}
+
+.period-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.period-label:active {
+  background: var(--color-pressed);
+}
+
+.period-label svg {
+  color: var(--color-text-sub);
+}
+
+.person-picker {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--color-pressed);
+}
+
+.person-picker-option {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 150ms, background 150ms, transform 100ms ease-out;
+}
+
+.person-picker-option:active {
+  transform: scale(0.92);
+}
+
+.person-picker-option[aria-checked='true'] {
+  background: var(--color-surface);
+  opacity: 1;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+}
+
+.avatar-pair {
+  display: flex;
+}
+
+.avatar-pair .avatar + .avatar {
+  margin-left: -6px;
+}
+
+.underline-tabs {
+  display: flex;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.underline-tab {
+  flex: 1;
+  padding: 10px 4px 9px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-sub);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.underline-tab[aria-selected='true'] {
+  border-bottom-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.year-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 17px;
+}
+
+.year-stepper .icon-button {
+  font-size: 26px;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.month-cell {
+  padding: 12px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 100ms ease-out;
+}
+
+.month-cell:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.month-cell[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.month-cell:disabled {
+  opacity: 0.35;
+}
+
+.prompt-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 100ms ease-out;
+}
+
+.prompt-card:active {
+  transform: scale(0.98);
+}
+
+.prompt-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-pressed);
+  font-size: 20px;
+}
+
+.prompt-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.prompt-text strong {
+  font-size: 15px;
+}
+
+.prompt-text span {
+  color: var(--color-text-sub);
+  font-size: 13px;
+}
+
+.prompt-card > svg {
+  flex-shrink: 0;
+  color: var(--color-text-sub);
 }

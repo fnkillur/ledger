@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import PeriodHeader from '../components/PeriodHeader'
-import PersonFilter from '../components/PersonFilter'
 import TransactionRow from '../components/TransactionRow'
 import { useCategories, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
@@ -44,8 +43,6 @@ function ListPage() {
       <PeriodHeader />
 
       <main className="page-content">
-        <PersonFilter />
-
         {!isSyncConfigured(settings) && (
           <Link to="/settings" className="notice">
             구글 시트와 아직 연결되지 않았어요. 설정에서 연결 코드를 붙여넣어 주세요.

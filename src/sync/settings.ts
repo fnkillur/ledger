@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Person } from '../domain/types'
+import { IS_WEB_BUILD } from '../platform'
 
 export type Settings = {
   endpoint: string
@@ -11,20 +12,24 @@ const STORAGE_KEY = 'ledger.settings'
 const EMPTY: Settings = {
   endpoint: import.meta.env.VITE_SYNC_ENDPOINT ?? '',
   token: import.meta.env.VITE_SYNC_TOKEN ?? '',
-  defaultPerson: '쿠리만쥬',
+  defaultPerson: IS_WEB_BUILD ? '우사기' : '쿠리만쥬',
 }
 
 const listeners = new Set<() => void>()
 let cache: Settings | null = null
 
-export const getSettings = (): Settings => {
-  if (cache) return cache
+const readStored = (): Partial<Settings> => {
   try {
-    cache = { ...EMPTY, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') }
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
   } catch {
-    cache = EMPTY
+    return {}
   }
-  return cache!
+}
+
+// 웹 버전은 우사기 전용이라 기본 사람을 고정한다.
+export const getSettings = (): Settings => {
+  cache ??= { ...EMPTY, ...readStored(), ...(IS_WEB_BUILD ? { defaultPerson: '우사기' as const } : {}) }
+  return cache
 }
 
 export const saveSettings = (settings: Settings) => {
