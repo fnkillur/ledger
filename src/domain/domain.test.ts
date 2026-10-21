@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { evaluateAmount } from './amountExpression'
 import { classifyMerchant } from './classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification } from './notificationParser'
-import { monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind } from './stats'
+import { monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
 import type { Transaction } from './types'
 
 describe('evaluateAmount', () => {
@@ -158,5 +158,37 @@ describe('stats', () => {
     const result = monthlyTotals([transaction({ occurredAt: '2026-10-10T03:00:00.000Z' })], ['2026-09', '2026-10'], excluded)
 
     expect(result.map(item => item.지출)).toEqual([0, 10000])
+  })
+})
+
+describe('topExpenses · toSlices', () => {
+  it('이관된 월 합계와 제외 항목을 빼고 내 몫 기준으로 큰 지출을 고른다', () => {
+    const result = topExpenses(
+      [
+        transaction({ merchant: '월 합계', amount: 900000, source: '이관' }),
+        transaction({ merchant: '여행', amount: 600000, shareCount: 3 }),
+        transaction({ merchant: '가전', amount: 300000 }),
+        transaction({ merchant: '대신 결제', amount: 500000, excluded: true }),
+        transaction({ kind: '수입', category: '월급', amount: 5000000 }),
+      ],
+      new Set(),
+      5,
+    )
+
+    expect(result.map(item => item.merchant)).toEqual(['가전', '여행'])
+  })
+
+  it('조각이 많으면 상위 N-1개와 기타로 묶는다', () => {
+    const totals = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((category, index) => ({ category, amount: 70 - index * 10 }))
+
+    expect(toSlices(totals, 6)).toEqual([
+      { label: 'a', amount: 70, isOther: false },
+      { label: 'b', amount: 60, isOther: false },
+      { label: 'c', amount: 50, isOther: false },
+      { label: 'd', amount: 40, isOther: false },
+      { label: 'e', amount: 30, isOther: false },
+      { label: '기타', amount: 30, isOther: true },
+    ])
+    expect(toSlices(totals.slice(0, 3), 6)).toHaveLength(3)
   })
 })

@@ -1,17 +1,15 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
-import MonthSwitcher from '../components/MonthSwitcher'
-import Segmented from '../components/Segmented'
-import TopBar from '../components/TopBar'
+import PeriodHeader from '../components/PeriodHeader'
+import PersonFilter from '../components/PersonFilter'
 import TransactionRow from '../components/TransactionRow'
-import { useCategories, useMonthTransactions } from '../db/hooks'
-import { matchesPerson, sumByKind, toExcludedCategories, type PersonFilter } from '../domain/stats'
+import { useCategories, useTransactionsBetween } from '../db/hooks'
+import { monthKeysOfYear, toRange } from '../domain/period'
+import { matchesPerson, monthlyTotals, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
 import type { Transaction } from '../domain/types'
-import { formatDayLabel, formatWon, toDateKey } from '../utils/format'
 import { isSyncConfigured, useSettings } from '../sync/settings'
+import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, toDateKey } from '../utils/format'
 import { updateViewState, useViewState } from '../utils/viewState'
-
-const PERSON_FILTERS: PersonFilter[] = ['합산', '쿠리만쥬', '우사기']
 
 type DayGroup = { dateKey: string; transactions: Transaction[] }
 
@@ -27,30 +25,26 @@ const groupByDay = (transactions: Transaction[]) =>
   }, [])
 
 function ListPage() {
-  const { monthKey, personFilter } = useViewState()
+  const { periodType, monthKey, personFilter } = useViewState()
   const settings = useSettings()
 
-  const transactions = useMonthTransactions(monthKey)
+  const range = toRange({ type: periodType, monthKey })
+  const transactions = useTransactionsBetween(range.start, range.end)
   const categories = useCategories()
 
+  const excludedCategories = useMemo(() => toExcludedCategories(categories), [categories])
   const filtered = useMemo(
     () => (transactions ?? []).filter(transaction => matchesPerson(transaction, personFilter)),
     [transactions, personFilter],
   )
-  const totals = useMemo(() => sumByKind(filtered, toExcludedCategories(categories)), [filtered, categories])
-  const dayGroups = useMemo(() => groupByDay(filtered), [filtered])
+  const totals = useMemo(() => sumByKind(filtered, excludedCategories), [filtered, excludedCategories])
 
   return (
     <div className="page">
-      <TopBar title={<MonthSwitcher monthKey={monthKey} onChange={value => updateViewState({ monthKey: value })} />} />
+      <PeriodHeader />
 
       <main className="page-content">
-        <Segmented
-          label="사람"
-          options={PERSON_FILTERS}
-          value={personFilter}
-          onChange={value => updateViewState({ personFilter: value })}
-        />
+        <PersonFilter />
 
         {!isSyncConfigured(settings) && (
           <Link to="/settings" className="notice">
@@ -58,27 +52,20 @@ function ListPage() {
           </Link>
         )}
 
-        <section className="summary-card" aria-label="이번 달 요약">
+        <section className="summary-card" aria-label="요약">
           <SummaryItem label="지출" amount={totals.지출} tone="지출" />
           <SummaryItem label="수입" amount={totals.수입} tone="수입" />
           <SummaryItem label="저축" amount={totals.저축} tone="저축" />
           <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출 - totals.저축} tone="남은" />
         </section>
 
-        {transactions?.length === 0 && (
-          <p className="empty-state">이 달의 내역이 없어요.</p>
-        )}
+        {transactions?.length === 0 && <p className="empty-state">이 기간의 내역이 없어요.</p>}
 
-        {dayGroups.map(group => (
-          <section key={group.dateKey} className="day-group">
-            <h2 className="day-title">{formatDayLabel(group.transactions[0].occurredAt)}</h2>
-            <ul className="tx-list">
-              {group.transactions.map(transaction => (
-                <TransactionRow key={transaction.id} transaction={transaction} />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {periodType === '연도별' ? (
+          <YearMonthList monthKey={monthKey} transactions={filtered} excludedCategories={excludedCategories} />
+        ) : (
+          <DayGroups transactions={filtered} />
+        )}
       </main>
 
       <Link to="/tx/new" className="fab" aria-label="내역 추가">
@@ -86,6 +73,68 @@ function ListPage() {
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
         </svg>
       </Link>
+    </div>
+  )
+}
+
+function DayGroups({ transactions }: { transactions: Transaction[] }) {
+  const dayGroups = useMemo(() => groupByDay(transactions), [transactions])
+
+  return dayGroups.map(group => (
+    <section key={group.dateKey} className="day-group">
+      <h2 className="day-title">{formatDayLabel(group.transactions[0].occurredAt)}</h2>
+      <ul className="tx-list">
+        {group.transactions.map(transaction => (
+          <TransactionRow key={transaction.id} transaction={transaction} />
+        ))}
+      </ul>
+    </section>
+  ))
+}
+
+type YearMonthListProps = {
+  monthKey: string
+  transactions: Transaction[]
+  excludedCategories: Set<string>
+}
+
+function YearMonthList({ monthKey, transactions, excludedCategories }: YearMonthListProps) {
+  const months = useMemo(() => {
+    const latest = currentMonthKey()
+    const monthKeys = monthKeysOfYear(monthKey).filter(key => key <= latest)
+    return monthlyTotals(transactions, monthKeys, excludedCategories).reverse()
+  }, [monthKey, transactions, excludedCategories])
+
+  return (
+    <ul className="tx-list month-list">
+      {months.map(month => (
+        <li key={month.monthKey}>
+          <button
+            type="button"
+            className="tx-row month-row"
+            onClick={() => updateViewState({ periodType: '월별', monthKey: month.monthKey })}
+          >
+            <strong className="month-row-label">{formatShortMonth(month.monthKey)}</strong>
+            <MonthRowAmounts totals={month} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function MonthRowAmounts({ totals }: { totals: KindTotals }) {
+  return (
+    <div className="month-row-amounts">
+      <span>
+        지출 <strong>{formatWon(totals.지출)}</strong>
+      </span>
+      <span>
+        수입 <strong className="amount-수입">{formatWon(totals.수입)}</strong>
+      </span>
+      <span>
+        저축 <strong>{formatWon(totals.저축)}</strong>
+      </span>
     </div>
   )
 }

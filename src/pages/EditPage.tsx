@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import ConfirmSheet from '../components/ConfirmSheet'
+import PersonAvatar from '../components/PersonAvatar'
 import Segmented from '../components/Segmented'
 import TopBar from '../components/TopBar'
 import { markCapture } from '../db/captures'
@@ -185,7 +186,21 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
 
         <div className="field">
           <span className="field-label">누구</span>
-          <Segmented label="누구" options={PEOPLE} value={draft.person} onChange={person => update({ person })} />
+          <div className="segmented" role="radiogroup" aria-label="누구">
+            {PEOPLE.map(person => (
+              <button
+                key={person}
+                type="button"
+                role="radio"
+                aria-checked={person === draft.person}
+                className="segmented-option with-avatar"
+                onClick={() => update({ person })}
+              >
+                <PersonAvatar person={person} size={18} />
+                {person}
+              </button>
+            ))}
+          </div>
         </div>
 
         <label className="field">
@@ -344,6 +359,7 @@ function CategoryChips({ categories, value, onChange }: CategoryChipsProps) {
           className="chip"
           onClick={() => onChange(category.name)}
         >
+          {category.icon && <span aria-hidden="true">{category.icon} </span>}
           {category.name}
         </button>
       ))}

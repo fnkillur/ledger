@@ -1,28 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo } from 'react'
 import { UNCATEGORIZED } from '../domain/types'
 import { db } from './database'
 
-const monthRange = (monthKey: string) => {
-  const [year, month] = monthKey.split('-').map(Number)
-  return [new Date(year, month - 1, 1).toISOString(), new Date(year, month, 1).toISOString()] as const
-}
-
-export function useMonthTransactions(monthKey: string) {
+export function useTransactionsBetween(start: string, end: string) {
   return useLiveQuery(async () => {
-    const [start, end] = monthRange(monthKey)
     const transactions = await db.transactions.where('occurredAt').between(start, end, true, false).toArray()
     return transactions
       .filter(transaction => !transaction.deleted)
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
-  }, [monthKey])
-}
-
-export function useTransactionsSince(startMonthKey: string) {
-  return useLiveQuery(async () => {
-    const [start] = monthRange(startMonthKey)
-    const transactions = await db.transactions.where('occurredAt').aboveOrEqual(start).toArray()
-    return transactions.filter(transaction => !transaction.deleted)
-  }, [startMonthKey])
+  }, [start, end])
 }
 
 export function useTransaction(id: string | undefined) {
@@ -61,4 +48,13 @@ export function useSyncStatus() {
     pendingCount: await db.outbox.count(),
     lastSyncedAt: (await db.meta.get('sync'))?.lastSyncedAt ?? null,
   }))
+}
+
+export function useSharedSettings() {
+  return useLiveQuery(async () => (await db.shared.get('shared')) ?? { key: 'shared' as const, 월예산: 0, 월저축목표: 0, updatedAt: '' })
+}
+
+export function useCategoryIcons() {
+  const categories = useCategories()
+  return useMemo(() => new Map(categories.map(category => [category.name, category.icon])), [categories])
 }

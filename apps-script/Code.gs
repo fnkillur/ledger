@@ -2,6 +2,7 @@ const SHEETS = {
   transactions: '거래내역',
   categories: '카테고리',
   rules: '분류규칙',
+  settings: '설정',
 }
 
 const TRANSACTION_COLUMNS = [
@@ -22,42 +23,49 @@ const TRANSACTION_COLUMNS = [
   '동기화시각',
 ]
 
-const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외']
+const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외', '고정비', '아이콘']
+const SETTING_COLUMNS = ['키', '값', '수정시각']
 const RULE_COLUMNS = ['키워드', '카테고리', '수정시각', '동기화시각']
 
+// [구분, 이름, 아이콘, 옵션]
 const DEFAULT_CATEGORIES = [
-  ['지출', '편의점·마트·잡화'],
-  ['지출', '여행·숙박'],
-  ['지출', '쇼핑'],
-  ['지출', '식비'],
-  ['지출', '교통·자동차'],
-  ['지출', '주거·통신'],
-  ['지출', '보험·세금·기타금융'],
-  ['지출', '의료·건강·피트니스'],
-  ['지출', '취미·여가'],
-  ['지출', '카페·간식'],
-  ['지출', '술·유흥'],
-  ['지출', '미용'],
-  ['지출', '생활'],
-  ['지출', '원두'],
-  ['지출', '과자'],
-  ['지출', '모임계'],
-  ['지출', '부모님용돈'],
-  ['지출', '선물'],
-  ['지출', '교육'],
-  ['지출', '축의금'],
-  ['지출', '카드대금'],
-  ['지출', '카테고리 없음'],
-  ['수입', '월급'],
-  ['수입', '은행이자지원'],
-  ['수입', '연말정산'],
-  ['수입', '보험금환급'],
-  ['수입', '상여(출장포함)'],
-  ['수입', '배당금'],
-  ['수입', 'K패스환급'],
-  ['수입', '인터넷환급'],
-  ['수입', '정산', true],
-  ['저축', '저축·투자'],
+  ['지출', '편의점·마트·잡화', '🛒'],
+  ['지출', '여행·숙박', '✈️'],
+  ['지출', '쇼핑', '🛍️'],
+  ['지출', '식비', '🍚'],
+  ['지출', '교통·자동차', '🚗'],
+  ['지출', '주거·통신', '🏠', { fixed: true }],
+  ['지출', '보험·세금·기타금융', '🧾', { fixed: true }],
+  ['지출', '의료·건강·피트니스', '💊'],
+  ['지출', '취미·여가', '🎮'],
+  ['지출', '카페·간식', '☕'],
+  ['지출', '술·유흥', '🍺'],
+  ['지출', '미용', '💇'],
+  ['지출', '생활', '🧺'],
+  ['지출', '원두', '🫘'],
+  ['지출', '과자', '🍪'],
+  ['지출', '모임계', '👥', { fixed: true }],
+  ['지출', '부모님용돈', '👵'],
+  ['지출', '선물', '🎁'],
+  ['지출', '교육', '📚'],
+  ['지출', '축의금', '💐'],
+  ['지출', '카드대금', '💳', { fixed: true }],
+  ['지출', '카테고리 없음', '❔'],
+  ['수입', '월급', '💼'],
+  ['수입', '은행이자지원', '🏦'],
+  ['수입', '연말정산', '🧮'],
+  ['수입', '보험금환급', '🩹'],
+  ['수입', '상여(출장포함)', '🎉'],
+  ['수입', '배당금', '📈'],
+  ['수입', 'K패스환급', '🚇'],
+  ['수입', '인터넷환급', '🌐'],
+  ['수입', '정산', '🔁', { excluded: true }],
+  ['저축', '저축·투자', '🐷'],
+]
+
+const DEFAULT_SETTINGS = [
+  ['월예산', 0],
+  ['월저축목표', 0],
 ]
 
 // 기존 연도 탭의 카테고리 이름 → 새 카테고리 (이름이 바뀐 것만)
@@ -72,8 +80,22 @@ function setup() {
   ensureSheet_(book, SHEETS.rules, RULE_COLUMNS, ['수정시각', '동기화시각'])
   const categorySheet = ensureSheet_(book, SHEETS.categories, CATEGORY_COLUMNS)
   if (categorySheet.getLastRow() === 1) {
-    const rows = DEFAULT_CATEGORIES.map(([kind, name, excluded], index) => [kind, name, index + 1, excluded === true])
+    const rows = DEFAULT_CATEGORIES.map(([kind, name, icon, options = {}], index) => [
+      kind,
+      name,
+      index + 1,
+      options.excluded === true,
+      options.fixed === true,
+      icon,
+    ])
     categorySheet.getRange(2, 1, rows.length, CATEGORY_COLUMNS.length).setValues(rows)
+  }
+  addMissingCategoryColumns_(categorySheet)
+
+  const settingSheet = ensureSheet_(book, SHEETS.settings, SETTING_COLUMNS, ['수정시각'])
+  if (settingSheet.getLastRow() === 1) {
+    const now = new Date().toISOString()
+    settingSheet.getRange(2, 1, DEFAULT_SETTINGS.length, 3).setValues(DEFAULT_SETTINGS.map(([key, value]) => [key, value, now]))
   }
 
   if (typeof API_TOKEN !== 'undefined') return
@@ -158,6 +180,22 @@ function doPost(e) {
   })
 }
 
+// 처음 배포 때 만든 카테고리 탭에는 고정비·아이콘 열이 없어서, 이름으로 기본값을 채워 넣는다.
+function addMissingCategoryColumns_(sheet) {
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+  const defaults = Object.fromEntries(DEFAULT_CATEGORIES.map(([, name, icon, options = {}]) => [name, { 고정비: options.fixed === true, 아이콘: icon }]))
+  const names = sheet.getLastRow() > 1 ? sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues().map(row => String(row[0])) : []
+
+  ;['고정비', '아이콘'].forEach(column => {
+    if (header.includes(column)) return
+    const columnIndex = sheet.getLastColumn() + 1
+    sheet.getRange(1, columnIndex).setValue(column).setFontWeight('bold')
+    if (names.length === 0) return
+    const values = names.map(name => [defaults[name] ? defaults[name][column] : column === '고정비' ? false : ''])
+    sheet.getRange(2, columnIndex, values.length, 1).setValues(values)
+  })
+}
+
 function pull_(since) {
   const book = SpreadsheetApp.getActive()
   const isNewer = row => !since || toIso_(row['동기화시각']) > since
@@ -172,7 +210,10 @@ function pull_(since) {
       name: String(row['이름']),
       order: Number(row['순서']),
       excluded: row['통계제외'] === true,
+      fixed: row['고정비'] === true,
+      icon: String(row['아이콘'] || ''),
     })),
+    settings: Object.fromEntries(readObjects_(book.getSheetByName(SHEETS.settings)).map(row => [String(row['키']), Number(row['값']) || 0])),
   }
 }
 
@@ -187,6 +228,11 @@ function push_(body) {
       book.getSheetByName(SHEETS.rules),
       '키워드',
       (body.rules || []).map(rule => [rule.keyword, rule.category, rule.updatedAt, now]),
+    )
+    upsert_(
+      book.getSheetByName(SHEETS.settings),
+      '키',
+      Object.entries(body.settings || {}).map(([key, value]) => [key, Number(value) || 0, now]),
     )
     return { serverTime: now }
   } finally {

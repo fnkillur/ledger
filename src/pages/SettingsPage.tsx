@@ -2,8 +2,10 @@ import { App } from '@capacitor/app'
 import { useEffect, useMemo, useState } from 'react'
 import Segmented from '../components/Segmented'
 import TopBar from '../components/TopBar'
-import { useSyncStatus } from '../db/hooks'
-import { PEOPLE } from '../domain/types'
+import { useSharedSettings, useSyncStatus } from '../db/hooks'
+import { saveSharedSettings } from '../db/repository'
+import { evaluateAmount } from '../domain/amountExpression'
+import { PEOPLE, type SharedSettings } from '../domain/types'
 import LockSettingSection from '../lock/LockSettingSection'
 import { isCaptureSupported, NotificationCapture, type InstalledApp } from '../native/notificationCapture'
 import { decodeConnectCode } from '../sync/connectCode'
@@ -28,6 +30,8 @@ function SettingsPage() {
       <main className="page-content">
         <SyncSection />
 
+        <GoalSection />
+
         <section className="card">
           <h2 className="card-title">직접 입력할 때 기본 사람</h2>
           <Segmented
@@ -48,6 +52,50 @@ function SettingsPage() {
         </section>
       </main>
     </div>
+  )
+}
+
+function GoalSection() {
+  const shared = useSharedSettings()
+
+  if (!shared) return null
+  return <GoalForm key={shared.updatedAt} initial={shared} />
+}
+
+function GoalForm({ initial }: { initial: SharedSettings }) {
+  const [budgetText, setBudgetText] = useState(initial.월예산 ? String(initial.월예산) : '')
+  const [goalText, setGoalText] = useState(initial.월저축목표 ? String(initial.월저축목표) : '')
+
+  const budget = budgetText.trim() ? evaluateAmount(budgetText) : 0
+  const goal = goalText.trim() ? evaluateAmount(goalText) : 0
+  const isValid = budget !== null && goal !== null && budget >= 0 && goal >= 0
+  const isChanged = budget !== initial.월예산 || goal !== initial.월저축목표
+
+  const handleSave = async () => {
+    if (!isValid) return
+    await saveSharedSettings({ 월예산: budget, 월저축목표: goal })
+    syncNow().catch(() => {})
+  }
+
+  return (
+    <section className="card">
+      <h2 className="card-title">예산·저축 목표</h2>
+      <p className="card-description">두 사람이 함께 쓰는 값이에요. 저장하면 상대방 폰에도 다음 동기화 때 반영돼요.</p>
+      <label className="field">
+        <span className="field-label">월 예산 (지출 합계 기준)</span>
+        <input className="field-input" inputMode="text" placeholder="예: 3000000" value={budgetText} onChange={event => setBudgetText(event.target.value)} />
+      </label>
+      <label className="field">
+        <span className="field-label">월 저축 목표</span>
+        <input className="field-input" inputMode="text" placeholder="예: 1000000*2" value={goalText} onChange={event => setGoalText(event.target.value)} />
+      </label>
+      {!isValid && <p className="status status-error">금액을 확인해 주세요.</p>}
+      <div className="card-actions">
+        <button type="button" className="button button-primary" disabled={!isValid || !isChanged} onClick={handleSave}>
+          저장
+        </button>
+      </div>
+    </section>
   )
 }
 

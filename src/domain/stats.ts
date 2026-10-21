@@ -58,3 +58,19 @@ export const recentMonthKeys = (endMonthKey: string, count: number) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
   })
 }
+
+export const topExpenses = (transactions: Transaction[], excludedCategories: Set<string>, limit: number) =>
+  transactions
+    .filter(transaction => transaction.kind === '지출' && transaction.source !== '이관' && isCounted(transaction, excludedCategories))
+    .sort((left, right) => myShare(right) - myShare(left))
+    .slice(0, limit)
+
+export type Slice = { label: string; amount: number; isOther: boolean }
+
+export const toSlices = (categoryTotals: { category: string; amount: number }[], maxSlices: number): Slice[] => {
+  const positive = categoryTotals.filter(item => item.amount > 0)
+  if (positive.length <= maxSlices) return positive.map(item => ({ label: item.category, amount: item.amount, isOther: false }))
+  const head = positive.slice(0, maxSlices - 1).map(item => ({ label: item.category, amount: item.amount, isOther: false }))
+  const otherAmount = positive.slice(maxSlices - 1).reduce((sum, item) => sum + item.amount, 0)
+  return [...head, { label: '기타', amount: otherAmount, isOther: true }]
+}

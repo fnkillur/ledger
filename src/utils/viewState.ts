@@ -2,9 +2,11 @@ import { useSyncExternalStore } from 'react'
 import type { PersonFilter } from '../domain/stats'
 import { currentMonthKey } from './format'
 
-type ViewState = { monthKey: string; personFilter: PersonFilter }
+export type PeriodType = '월별' | '연도별'
 
-let state: ViewState = { monthKey: currentMonthKey(), personFilter: '합산' }
+type ViewState = { periodType: PeriodType; monthKey: string; personFilter: PersonFilter }
+
+let state: ViewState = { periodType: '월별', monthKey: currentMonthKey(), personFilter: '합산' }
 const listeners = new Set<() => void>()
 
 export const updateViewState = (patch: Partial<ViewState>) => {

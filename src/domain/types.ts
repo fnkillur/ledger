@@ -27,6 +27,13 @@ export type Category = {
   name: string
   order: number
   excluded: boolean
+  fixed: boolean
+  icon: string
+}
+
+export type SharedSettings = {
+  월예산: number
+  월저축목표: number
 }
 
 export type Rule = {

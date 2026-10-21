@@ -1,4 +1,4 @@
-import type { Rule, Transaction } from '../domain/types'
+import type { Rule, SharedSettings, Transaction } from '../domain/types'
 import { db } from './database'
 
 export type TransactionInput = Omit<Transaction, 'id' | 'updatedAt' | 'deleted'>
@@ -35,5 +35,12 @@ export const saveRule = async (keyword: string, category: string) => {
   await db.transaction('rw', db.rules, db.outbox, async () => {
     await db.rules.put(rule)
     await db.outbox.put({ id: rule.keyword, type: 'rule' })
+  })
+}
+
+export const saveSharedSettings = async (settings: SharedSettings) => {
+  await db.transaction('rw', db.shared, db.outbox, async () => {
+    await db.shared.put({ key: 'shared', ...settings, updatedAt: now() })
+    await db.outbox.put({ id: 'shared', type: 'settings' })
   })
 }
