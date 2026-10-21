@@ -1,0 +1,3 @@
+# tesseract.js의 postinstall은 후원 안내 메시지뿐이라 실행하지 않는다.
+allowBuilds:
+  tesseract.js: false
