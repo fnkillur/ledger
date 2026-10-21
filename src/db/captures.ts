@@ -48,6 +48,7 @@ export const pullNativeCaptures = async () => {
 export const toTransactionInput = async (capture: CaptureItem, person: Person): Promise<TransactionInput> => {
   const rules = await db.rules.toArray()
   const category = classifyMerchant(capture.parsed.merchant, rules)
+  const isPersonal = category ? (await db.categories.get(category))?.personal === true : false
   return {
     occurredAt: capture.parsed.occurredAt,
     person,
@@ -60,6 +61,7 @@ export const toTransactionInput = async (capture: CaptureItem, person: Person): 
     source: '알림',
     memo: capture.parsed.isCancel ? '결제 취소' : '',
     rawText: `[${capture.appLabel}] ${capture.title}\n${capture.text}`,
+    scope: isPersonal ? '개인' : '공동',
   }
 }
 

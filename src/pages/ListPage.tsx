@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import PeriodHeader from '../components/PeriodHeader'
+import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
 import { useCategories, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
-import { matchesPerson, monthlyTotals, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
+import { expenseByScope, monthlyTotals, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
 import type { Transaction } from '../domain/types'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, toDateKey } from '../utils/format'
@@ -24,7 +25,7 @@ const groupByDay = (transactions: Transaction[]) =>
   }, [])
 
 function ListPage() {
-  const { periodType, monthKey, personFilter } = useViewState()
+  const { periodType, monthKey } = useViewState()
   const settings = useSettings()
 
   const range = toRange({ type: periodType, monthKey })
@@ -32,11 +33,9 @@ function ListPage() {
   const categories = useCategories()
 
   const excludedCategories = useMemo(() => toExcludedCategories(categories), [categories])
-  const filtered = useMemo(
-    () => (transactions ?? []).filter(transaction => matchesPerson(transaction, personFilter)),
-    [transactions, personFilter],
-  )
-  const totals = useMemo(() => sumByKind(filtered, excludedCategories), [filtered, excludedCategories])
+  const periodTransactions = useMemo(() => transactions ?? [], [transactions])
+  const totals = useMemo(() => sumByKind(periodTransactions, excludedCategories), [periodTransactions, excludedCategories])
+  const byScope = useMemo(() => expenseByScope(periodTransactions, excludedCategories), [periodTransactions, excludedCategories])
 
   return (
     <div className="page">
@@ -54,14 +53,20 @@ function ListPage() {
           <SummaryItem label="수입" amount={totals.수입} tone="수입" />
           <SummaryItem label="저축" amount={totals.저축} tone="저축" />
           <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출 - totals.저축} tone="남은" />
+          {totals.지출 > 0 && (
+            <div className="summary-split">
+              <span className="summary-label">지출 나눠보기</span>
+              <ScopeSplit items={byScope} />
+            </div>
+          )}
         </section>
 
         {transactions?.length === 0 && <p className="empty-state">이 기간의 내역이 없어요.</p>}
 
         {periodType === '연도별' ? (
-          <YearMonthList monthKey={monthKey} transactions={filtered} excludedCategories={excludedCategories} />
+          <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
         ) : (
-          <DayGroups transactions={filtered} />
+          <DayGroups transactions={periodTransactions} />
         )}
       </main>
 

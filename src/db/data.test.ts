@@ -20,6 +20,7 @@ const input = (overrides: Partial<TransactionInput> = {}): TransactionInput => (
   source: '수동',
   memo: '',
   rawText: '',
+  scope: '공동',
   ...overrides,
 })
 

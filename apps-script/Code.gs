@@ -21,9 +21,10 @@ const TRANSACTION_COLUMNS = [
   '삭제',
   '수정시각',
   '동기화시각',
+  '공동개인',
 ]
 
-const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외', '고정비', '아이콘']
+const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외', '고정비', '아이콘', '개인지출']
 const SETTING_COLUMNS = ['키', '값', '수정시각']
 const RULE_COLUMNS = ['키워드', '카테고리', '수정시각', '동기화시각']
 
@@ -31,23 +32,23 @@ const RULE_COLUMNS = ['키워드', '카테고리', '수정시각', '동기화시
 const DEFAULT_CATEGORIES = [
   ['지출', '편의점·마트·잡화', '🛒'],
   ['지출', '여행·숙박', '✈️'],
-  ['지출', '쇼핑', '🛍️'],
+  ['지출', '쇼핑', '🛍️', { personal: true }],
   ['지출', '식비', '🍚'],
   ['지출', '교통·자동차', '🚗'],
   ['지출', '주거·통신', '🏠', { fixed: true }],
   ['지출', '보험·세금·기타금융', '🧾', { fixed: true }],
   ['지출', '의료·건강·피트니스', '💊'],
-  ['지출', '취미·여가', '🎮'],
+  ['지출', '취미·여가', '🎮', { personal: true }],
   ['지출', '카페·간식', '☕'],
   ['지출', '술·유흥', '🍺'],
-  ['지출', '미용', '💇'],
+  ['지출', '미용', '💇', { personal: true }],
   ['지출', '생활', '🧺'],
   ['지출', '원두', '🫘'],
   ['지출', '과자', '🍪'],
-  ['지출', '모임계', '👥', { fixed: true }],
+  ['지출', '모임계', '👥', { fixed: true, personal: true }],
   ['지출', '부모님용돈', '👵'],
   ['지출', '선물', '🎁'],
-  ['지출', '교육', '📚'],
+  ['지출', '교육', '📚', { personal: true }],
   ['지출', '축의금', '💐'],
   ['지출', '카드대금', '💳', { fixed: true }],
   ['지출', '카테고리 없음', '❔'],
@@ -87,10 +88,12 @@ function setup() {
       options.excluded === true,
       options.fixed === true,
       icon,
+      options.personal === true,
     ])
     categorySheet.getRange(2, 1, rows.length, CATEGORY_COLUMNS.length).setValues(rows)
   }
   addMissingCategoryColumns_(categorySheet)
+  addMissingTransactionColumns_(book.getSheetByName(SHEETS.transactions))
 
   const settingSheet = ensureSheet_(book, SHEETS.settings, SETTING_COLUMNS, ['수정시각'])
   if (settingSheet.getLastRow() === 1) {
@@ -149,6 +152,7 @@ function migrateFromYearTabs() {
           rawText: '',
           deleted: false,
           updatedAt: now,
+          scope: '공동',
         }, now))
       })
     })
@@ -183,16 +187,28 @@ function doPost(e) {
 // 처음 배포 때 만든 카테고리 탭에는 고정비·아이콘 열이 없어서, 이름으로 기본값을 채워 넣는다.
 function addMissingCategoryColumns_(sheet) {
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-  const defaults = Object.fromEntries(DEFAULT_CATEGORIES.map(([, name, icon, options = {}]) => [name, { 고정비: options.fixed === true, 아이콘: icon }]))
+  const defaults = Object.fromEntries(
+    DEFAULT_CATEGORIES.map(([, name, icon, options = {}]) => [name, { 고정비: options.fixed === true, 아이콘: icon, 개인지출: options.personal === true }]),
+  )
   const names = sheet.getLastRow() > 1 ? sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues().map(row => String(row[0])) : []
 
-  ;['고정비', '아이콘'].forEach(column => {
+  ;['고정비', '아이콘', '개인지출'].forEach(column => {
     if (header.includes(column)) return
     const columnIndex = sheet.getLastColumn() + 1
     sheet.getRange(1, columnIndex).setValue(column).setFontWeight('bold')
     if (names.length === 0) return
-    const values = names.map(name => [defaults[name] ? defaults[name][column] : column === '고정비' ? false : ''])
+    const values = names.map(name => [defaults[name] ? defaults[name][column] : column === '아이콘' ? '' : false])
     sheet.getRange(2, columnIndex, values.length, 1).setValues(values)
+  })
+}
+
+// 공동개인 열이 없던 시절의 거래내역 탭에는 머리글만 붙인다. 빈 칸은 공동으로 읽는다.
+function addMissingTransactionColumns_(sheet) {
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+  TRANSACTION_COLUMNS.forEach((column, index) => {
+    if (header[index] === column) return
+    if (header.includes(column)) throw new Error(`거래내역 탭의 ${column} 열 위치가 예상과 달라요.`)
+    sheet.getRange(1, index + 1).setValue(column).setFontWeight('bold')
   })
 }
 
@@ -212,6 +228,7 @@ function pull_(since) {
       excluded: row['통계제외'] === true,
       fixed: row['고정비'] === true,
       icon: String(row['아이콘'] || ''),
+      personal: row['개인지출'] === true,
     })),
     settings: Object.fromEntries(readObjects_(book.getSheetByName(SHEETS.settings)).map(row => [String(row['키']), Number(row['값']) || 0])),
   }
@@ -229,6 +246,7 @@ function push_(body) {
       '키워드',
       (body.rules || []).map(rule => [rule.keyword, rule.category, rule.updatedAt, now]),
     )
+    updateCategories_(book.getSheetByName(SHEETS.categories), body.categories || [])
     upsert_(
       book.getSheetByName(SHEETS.settings),
       '키',
@@ -238,6 +256,25 @@ function push_(body) {
   } finally {
     lock.releaseLock()
   }
+}
+
+const CATEGORY_FIELDS = { personal: '개인지출', fixed: '고정비', excluded: '통계제외', icon: '아이콘' }
+
+// 이름으로 찾은 카테고리 행에서 넘겨받은 칸만 바꾼다.
+function updateCategories_(sheet, updates) {
+  if (updates.length === 0) return
+  const values = sheet.getDataRange().getValues()
+  const header = values[0]
+  const rowByName = new Map(values.slice(1).map((row, index) => [String(row[header.indexOf('이름')]), index + 2]))
+
+  updates.forEach(update => {
+    const row = rowByName.get(update.name)
+    if (!row) throw new Error(`카테고리를 찾을 수 없어요: ${update.name}`)
+    Object.entries(CATEGORY_FIELDS).forEach(([field, column]) => {
+      if (update[field] === undefined) return
+      sheet.getRange(row, header.indexOf(column) + 1).setValue(update[field])
+    })
+  })
 }
 
 function upsert_(sheet, keyColumn, rows) {
@@ -277,6 +314,7 @@ function toRow_(item, syncedAt) {
     item.deleted === true,
     item.updatedAt,
     syncedAt,
+    item.scope === '개인' ? '개인' : '공동',
   ]
 }
 
@@ -296,6 +334,7 @@ function fromRow_(row) {
     rawText: String(row['원문']),
     deleted: row['삭제'] === true,
     updatedAt: toIso_(row['수정시각']),
+    scope: row['공동개인'] === '개인' ? '개인' : '공동',
   }
 }
 

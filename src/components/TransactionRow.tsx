@@ -20,6 +20,7 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
           <strong className="tx-row-title">{title}</strong>
           <span className="tx-row-meta">
             <PersonAvatar person={transaction.person} size={14} />
+            {transaction.kind === '지출' && `${transaction.scope} · `}
             {transaction.category || '카테고리 없음'} · {formatTime(transaction.occurredAt)}
             {transaction.excluded && ' · 통계 제외'}
           </span>

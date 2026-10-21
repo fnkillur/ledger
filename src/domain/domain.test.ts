@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { evaluateAmount } from './amountExpression'
 import { classifyMerchant } from './classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification } from './notificationParser'
-import { monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
+import { expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
 import type { Transaction } from './types'
 
 describe('evaluateAmount', () => {
@@ -107,6 +107,7 @@ const transaction = (overrides: Partial<Transaction>): Transaction => ({
   rawText: '',
   deleted: false,
   updatedAt: '',
+  scope: '공동',
   ...overrides,
 })
 
@@ -190,5 +191,28 @@ describe('topExpenses · toSlices', () => {
       { label: '기타', amount: 30, isOther: true },
     ])
     expect(toSlices(totals.slice(0, 3), 6)).toHaveLength(3)
+  })
+})
+
+describe('공동·개인', () => {
+  const items = [
+    transaction({ amount: 50000, scope: '공동' }),
+    transaction({ amount: 20000, scope: '개인', person: '쿠리만쥬' }),
+    transaction({ amount: 30000, scope: '개인', person: '우사기' }),
+    transaction({ amount: 10000, scope: '공동', person: '우사기' }),
+  ]
+
+  it('범위 필터는 공동이면 결제자와 상관없이, 개인이면 그 사람 것만 고른다', () => {
+    expect(items.filter(item => matchesScope(item, '공동')).map(item => item.amount)).toEqual([50000, 10000])
+    expect(items.filter(item => matchesScope(item, '우사기')).map(item => item.amount)).toEqual([30000])
+    expect(items.filter(item => matchesScope(item, '전체'))).toHaveLength(4)
+  })
+
+  it('지출을 공동·각자 개인으로 나눈다', () => {
+    expect(expenseByScope(items, new Set())).toEqual([
+      { filter: '공동', amount: 60000 },
+      { filter: '쿠리만쥬', amount: 20000 },
+      { filter: '우사기', amount: 30000 },
+    ])
   })
 })

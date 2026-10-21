@@ -1,9 +1,12 @@
 export type Person = '쿠리만쥬' | '우사기'
 export type Kind = '지출' | '수입' | '저축'
 export type Source = '수동' | '알림' | '붙여넣기' | '이관'
+// 개인 지출은 결제한 사람(person)의 몫이다.
+export type Scope = '공동' | '개인'
 
 export const PEOPLE: Person[] = ['쿠리만쥬', '우사기']
 export const KINDS: Kind[] = ['지출', '수입', '저축']
+export const SCOPES: Scope[] = ['공동', '개인']
 
 export type Transaction = {
   id: string
@@ -20,6 +23,7 @@ export type Transaction = {
   rawText: string
   deleted: boolean
   updatedAt: string
+  scope: Scope
 }
 
 export type Category = {
@@ -29,6 +33,7 @@ export type Category = {
   excluded: boolean
   fixed: boolean
   icon: string
+  personal: boolean
 }
 
 export type SharedSettings = {

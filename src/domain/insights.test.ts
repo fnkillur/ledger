@@ -26,6 +26,7 @@ const transaction = (overrides: Partial<Transaction>): Transaction => ({
   rawText: '',
   deleted: false,
   updatedAt: '',
+  scope: '공동',
   ...overrides,
 })
 
@@ -65,13 +66,14 @@ describe('fixedVsVariable', () => {
 })
 
 describe('compareByPerson', () => {
-  it('카테고리별로 두 사람의 내 몫을 합치고 총액 순으로 자른다', () => {
+  it('개인 지출만 카테고리별로 두 사람의 내 몫을 합치고 총액 순으로 자른다', () => {
     const result = compareByPerson(
       [
-        transaction({ category: '식비', amount: 30000 }),
-        transaction({ category: '식비', person: '우사기', amount: 60000, shareCount: 2 }),
-        transaction({ category: '쇼핑', person: '우사기', amount: 100000 }),
-        transaction({ category: '카페·간식', amount: 5000 }),
+        transaction({ category: '식비', amount: 30000, scope: '개인' }),
+        transaction({ category: '식비', person: '우사기', amount: 60000, shareCount: 2, scope: '개인' }),
+        transaction({ category: '쇼핑', person: '우사기', amount: 100000, scope: '개인' }),
+        transaction({ category: '카페·간식', amount: 5000, scope: '개인' }),
+        transaction({ category: '주거·통신', amount: 900000 }),
       ],
       none,
       2,

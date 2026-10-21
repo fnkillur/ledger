@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import PeriodHeader from '../components/PeriodHeader'
+import ScopeChips from '../components/ScopeChips'
 import UnderlineTabs from '../components/UnderlineTabs'
 import { useCategories, useSharedSettings, useTransactionsBetween } from '../db/hooks'
 import {
@@ -13,7 +14,8 @@ import {
 } from '../domain/insights'
 import { formatPreviousPeriod, monthKeysOfYear, shiftPeriod, toRange, type Period } from '../domain/period'
 import {
-  matchesPerson,
+  expenseByScope,
+  matchesScope,
   monthlyTotals,
   recentMonthKeys,
   sumByCategory,
@@ -21,6 +23,7 @@ import {
   toExcludedCategories,
   toSlices,
   topExpenses,
+  type ScopeFilter,
 } from '../domain/stats'
 import { currentMonthKey } from '../utils/format'
 import { useViewState } from '../utils/viewState'
@@ -44,9 +47,10 @@ const trendMonthKeys = (period: Period) =>
 const earliest = (...isoStrings: string[]) => isoStrings.reduce((min, value) => (value < min ? value : min))
 
 function StatsPage() {
-  const { periodType, monthKey, personFilter } = useViewState()
+  const { periodType, monthKey } = useViewState()
 
   const [tab, setTab] = useState<Tab>('요약')
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('전체')
   const [today] = useState(() => new Date())
 
   const ranges = useMemo(() => {
@@ -71,51 +75,56 @@ function StatsPage() {
   const shared = useSharedSettings()
 
   const excluded = useMemo(() => toExcludedCategories(categories), [categories])
-  const scoped = useMemo(
-    () => (transactions ?? []).filter(transaction => matchesPerson(transaction, personFilter)),
-    [transactions, personFilter],
-  )
-  const current = useMemo(() => scoped.filter(transaction => inRange(transaction, ranges.range)), [scoped, ranges])
-  const previous = useMemo(() => scoped.filter(transaction => inRange(transaction, ranges.previousRange)), [scoped, ranges])
+  const loaded = useMemo(() => transactions ?? [], [transactions])
+  const current = useMemo(() => loaded.filter(transaction => inRange(transaction, ranges.range)), [loaded, ranges])
+  const previous = useMemo(() => loaded.filter(transaction => inRange(transaction, ranges.previousRange)), [loaded, ranges])
   const sameMonthLastYear = useMemo(
-    () => scoped.filter(transaction => inRange(transaction, ranges.sameMonthLastYearRange)),
-    [scoped, ranges],
+    () => loaded.filter(transaction => inRange(transaction, ranges.sameMonthLastYearRange)),
+    [loaded, ranges],
   )
 
   const summary = useMemo(() => {
     const latest = currentMonthKey()
     return {
       totals: sumByKind(current, excluded),
+      byScope: expenseByScope(current, excluded),
       previousTotals: sumByKind(previous, excluded),
-      trend: monthlyTotals(scoped, ranges.monthKeys, excluded).map(row =>
+      trend: monthlyTotals(loaded, ranges.monthKeys, excluded).map(row =>
         row.monthKey > latest ? { monthKey: row.monthKey, 수입: null, 지출: null, 저축: null } : row,
       ),
     }
-  }, [current, previous, scoped, ranges, excluded])
+  }, [current, previous, loaded, ranges, excluded])
+
+  const scopedCurrent = useMemo(() => current.filter(transaction => matchesScope(transaction, scopeFilter)), [current, scopeFilter])
+  const scopedPrevious = useMemo(() => previous.filter(transaction => matchesScope(transaction, scopeFilter)), [previous, scopeFilter])
+  const scopedLastYear = useMemo(
+    () => sameMonthLastYear.filter(transaction => matchesScope(transaction, scopeFilter)),
+    [sameMonthLastYear, scopeFilter],
+  )
 
   const categoryData = useMemo(() => {
-    const ranking = sumByCategory(current, '지출', excluded)
+    const ranking = sumByCategory(scopedCurrent, '지출', excluded)
     return {
       ranking,
       slices: toSlices(ranking, MAX_SLICES),
       changes: {
-        '이전 기간': categoryChanges(current, previous, excluded),
-        '작년 같은 달': categoryChanges(current, sameMonthLastYear, excluded),
+        '이전 기간': categoryChanges(scopedCurrent, scopedPrevious, excluded),
+        '작년 같은 달': categoryChanges(scopedCurrent, scopedLastYear, excluded),
       },
-      fixedVariable: fixedVsVariable(current, categories, excluded),
-      personComparison: personFilter === '합산' ? compareByPerson(current, excluded, PERSON_COMPARE_LIMIT) : null,
+      fixedVariable: fixedVsVariable(scopedCurrent, categories, excluded),
+      personComparison: scopeFilter === '전체' ? compareByPerson(current, excluded, PERSON_COMPARE_LIMIT) : [],
     }
-  }, [current, previous, sameMonthLastYear, categories, excluded, personFilter])
+  }, [scopedCurrent, scopedPrevious, scopedLastYear, current, categories, excluded, scopeFilter])
 
   const patternData = useMemo(
     () => ({
-      hasDetail: hasDetailedData(current),
-      biggest: topExpenses(current, excluded, TOP_COUNT),
-      merchants: topMerchants(current, excluded, MERCHANT_COUNT),
-      matrix: weekdayTimeMatrix(current, excluded),
-      calendar: periodType === '월별' ? noSpendCalendar(current, monthKey, today, excluded) : null,
+      hasDetail: hasDetailedData(scopedCurrent),
+      biggest: topExpenses(scopedCurrent, excluded, TOP_COUNT),
+      merchants: topMerchants(scopedCurrent, excluded, MERCHANT_COUNT),
+      matrix: weekdayTimeMatrix(scopedCurrent, excluded),
+      calendar: periodType === '월별' ? noSpendCalendar(scopedCurrent, monthKey, today, excluded) : null,
     }),
-    [current, excluded, periodType, monthKey, today],
+    [scopedCurrent, excluded, periodType, monthKey, today],
   )
 
   return (
@@ -125,11 +134,14 @@ function StatsPage() {
       </PeriodHeader>
 
       <main className="page-content">
+        {tab !== '요약' && <ScopeChips value={scopeFilter} onChange={setScopeFilter} />}
+
         {tab === '요약' && (
           <SummaryTab
             period={ranges.period}
             totals={summary.totals}
             previousTotals={summary.previousTotals}
+            byScope={summary.byScope}
             trend={summary.trend}
             shared={shared ?? { 월예산: 0, 월저축목표: 0 }}
           />
@@ -138,7 +150,7 @@ function StatsPage() {
           <CategoryTab
             isMonthly={periodType === '월별'}
             previousLabel={formatPreviousPeriod(ranges.period)}
-            total={summary.totals.지출}
+            total={sumByKind(scopedCurrent, excluded).지출}
             {...categoryData}
           />
         )}

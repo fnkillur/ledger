@@ -12,7 +12,7 @@ import { classifyMerchant } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { myShare } from '../domain/stats'
-import { KINDS, PEOPLE, UNCATEGORIZED, type Category, type Kind, type Transaction } from '../domain/types'
+import { KINDS, PEOPLE, SCOPES, UNCATEGORIZED, type Category, type Kind, type Transaction } from '../domain/types'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatTime, formatWon, fromLocalInputValue, toLocalInputValue } from '../utils/format'
@@ -32,6 +32,7 @@ const emptyDraft = (): TransactionInput => ({
   source: '수동',
   memo: '',
   rawText: '',
+  scope: '공동',
 })
 
 function EditPage() {
@@ -74,6 +75,11 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
 
   const update = (patch: Partial<TransactionInput>) => setDraft(previous => ({ ...previous, ...patch }))
 
+  const defaultScopeOf = (categoryName: string) =>
+    categories.find(category => category.name === categoryName)?.personal ? '개인' : '공동'
+
+  const handleCategoryChange = (category: string) => update({ category, scope: defaultScopeOf(category) })
+
   const handleKindChange = (kind: Kind) => {
     const keepsCategory = categories.some(category => category.kind === kind && category.name === draft.category)
     update({ kind, category: keepsCategory ? draft.category : '' })
@@ -82,7 +88,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const handleMerchantBlur = () => {
     if (draft.category && draft.category !== UNCATEGORIZED) return
     const matched = classifyMerchant(draft.merchant, rules)
-    if (matched) update({ category: matched })
+    if (matched) handleCategoryChange(matched)
   }
 
   const handlePasteApply = (text: string, parsed: ParsedPayment) => {
@@ -94,6 +100,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
       merchant: parsed.merchant || draft.merchant,
       occurredAt: parsed.occurredAt,
       category: matched ?? (keepsCategory ? draft.category : ''),
+      scope: defaultScopeOf(matched ?? (keepsCategory ? draft.category : '')),
       source: '붙여넣기',
       memo: parsed.isCancel ? '결제 취소' : draft.memo,
       rawText: text.trim(),
@@ -216,7 +223,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
 
         <div className="field">
           <span className="field-label">카테고리</span>
-          <CategoryChips categories={kindCategories} value={draft.category} onChange={category => update({ category })} />
+          <CategoryChips categories={kindCategories} value={draft.category} onChange={handleCategoryChange} />
           {canOfferRule && existingRuleCategory !== draft.category && (
             <label className="checkbox">
               <input type="checkbox" checked={shouldSaveRule} onChange={event => setShouldSaveRule(event.target.checked)} />
@@ -224,6 +231,16 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
             </label>
           )}
         </div>
+
+        {draft.kind === '지출' && (
+          <div className="field">
+            <span className="field-label">공동·개인</span>
+            <Segmented label="공동·개인" options={SCOPES} value={draft.scope} onChange={scope => update({ scope })} />
+            <span className="field-hint">
+              {draft.scope === '공동' ? '둘이 함께 쓴 지출이에요' : `${draft.person}의 개인 지출로 잡혀요`}
+            </span>
+          </div>
+        )}
 
         <label className="field">
           <span className="field-label">날짜·시간</span>

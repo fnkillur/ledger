@@ -1,5 +1,7 @@
 export type Period = { type: '월별' | '연도별'; monthKey: string }
 
+export const EARLIEST_MONTH_KEY = '2025-01'
+
 export type PeriodRange = { start: string; end: string }
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -33,6 +35,11 @@ export const formatPreviousPeriod = (period: Period) => {
 export const isLatestPeriod = (period: Period, currentMonthKey: string) => {
   if (period.type === '월별') return period.monthKey >= currentMonthKey
   return period.monthKey.slice(0, 4) >= currentMonthKey.slice(0, 4)
+}
+
+export const isEarliestPeriod = (period: Period) => {
+  if (period.type === '월별') return period.monthKey <= EARLIEST_MONTH_KEY
+  return period.monthKey.slice(0, 4) <= EARLIEST_MONTH_KEY.slice(0, 4)
 }
 
 export const monthKeysOfYear = (monthKey: string) => {

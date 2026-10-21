@@ -52,3 +52,18 @@ db.version(2)
         category.icon ??= defaults?.icon ?? ''
       }),
   )
+
+db.version(3).upgrade(async transaction => {
+  await transaction
+    .table('transactions')
+    .toCollection()
+    .modify((item: Transaction) => {
+      item.scope ??= '공동'
+    })
+  await transaction
+    .table('categories')
+    .toCollection()
+    .modify((category: Category) => {
+      category.personal ??= defaultsByName.get(category.name)?.personal ?? false
+    })
+})

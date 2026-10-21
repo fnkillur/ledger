@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { formatPeriod, isLatestPeriod, shiftPeriod, type Period } from '../domain/period'
+import { formatPeriod, isEarliestPeriod, isLatestPeriod, shiftPeriod, type Period } from '../domain/period'
 import { currentMonthKey } from '../utils/format'
 import PeriodPickerSheet from './PeriodPickerSheet'
 
@@ -19,8 +19,14 @@ function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
 
   return (
     <div className="month-switcher">
-      <button type="button" className="icon-button" aria-label="이전" onClick={() => onChange(shiftPeriod(period, -1))}>
-        <Chevron direction="left" />
+      <button
+        type="button"
+        className="icon-button period-arrow"
+        aria-label="이전"
+        disabled={isEarliestPeriod(period)}
+        onClick={() => onChange(shiftPeriod(period, -1))}
+      >
+        <Triangle direction="left" />
       </button>
       <button type="button" className="period-label" aria-haspopup="dialog" onClick={() => setIsPickerOpen(true)}>
         {formatPeriod(period)}
@@ -30,12 +36,12 @@ function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
       </button>
       <button
         type="button"
-        className="icon-button"
+        className="icon-button period-arrow"
         aria-label="다음"
         disabled={isLatestPeriod(period, currentMonthKey())}
         onClick={() => onChange(shiftPeriod(period, 1))}
       >
-        <Chevron direction="right" />
+        <Triangle direction="right" />
       </button>
 
       {isPickerOpen &&
@@ -44,17 +50,10 @@ function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
   )
 }
 
-function Chevron({ direction }: { direction: 'left' | 'right' }) {
+function Triangle({ direction }: { direction: 'left' | 'right' }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d={direction === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={direction === 'left' ? 'M17 4v16L5 12z' : 'M7 4v16l12-8z'} fill="currentColor" strokeLinejoin="round" />
     </svg>
   )
 }

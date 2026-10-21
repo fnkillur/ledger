@@ -26,7 +26,7 @@ type CategoryTabProps = {
   ranking: { category: string; amount: number }[]
   changes: Record<CompareTarget, { increased: CategoryChange[]; decreased: CategoryChange[] }>
   fixedVariable: { fixed: number; variable: number }
-  personComparison: PersonComparison[] | null
+  personComparison: PersonComparison[]
 }
 
 function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes, fixedVariable, personComparison }: CategoryTabProps) {
@@ -65,9 +65,9 @@ function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes
 
       <FixedVariableCard {...fixedVariable} />
 
-      {personComparison && personComparison.length > 0 && (
+      {personComparison.length > 0 && (
         <section className="card">
-          <h2 className="card-title">쿠리만쥬 vs 우사기</h2>
+          <h2 className="card-title">개인 지출 비교</h2>
           <PersonComparisonBars rows={personComparison} />
         </section>
       )}

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace, elapsedMonthsOfYear } from '../../domain/insights'
 import { formatPreviousPeriod, type Period } from '../../domain/period'
-import type { KindTotals } from '../../domain/stats'
+import type { expenseByScope, KindTotals } from '../../domain/stats'
 import type { Kind, SharedSettings } from '../../domain/types'
 import { formatShortMonth, formatWon } from '../../utils/format'
 import { formatCompactWon, percent, TOOLTIP_STYLE } from './shared'
@@ -20,6 +21,7 @@ type SummaryTabProps = {
   period: Period
   totals: KindTotals
   previousTotals: KindTotals
+  byScope: ReturnType<typeof expenseByScope>
   trend: TrendRow[]
   shared: SharedSettings
 }
@@ -27,7 +29,7 @@ type SummaryTabProps = {
 const goalMultiplier = (period: Period, today: Date) =>
   period.type === '월별' ? 1 : elapsedMonthsOfYear(Number(period.monthKey.slice(0, 4)), today)
 
-function SummaryTab({ period, totals, previousTotals, trend, shared }: SummaryTabProps) {
+function SummaryTab({ period, totals, previousTotals, byScope, trend, shared }: SummaryTabProps) {
   const [today] = useState(() => new Date())
 
   const multiplier = goalMultiplier(period, today)
@@ -44,6 +46,7 @@ function SummaryTab({ period, totals, previousTotals, trend, shared }: SummaryTa
             {formatPreviousPeriod(period)} 대비 {expenseDelta >= 0 ? '+' : '−'}
             {formatWon(Math.abs(expenseDelta))}
           </span>
+          <ScopeSplit items={byScope} />
         </div>
         <div className="stat-tile">
           <span className="stat-label">저축률</span>

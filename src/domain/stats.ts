@@ -1,4 +1,4 @@
-import type { Category, Kind, Person, Transaction } from './types'
+import { PEOPLE, type Category, type Kind, type Person, type Transaction } from './types'
 
 export const myShare = (transaction: Pick<Transaction, 'amount' | 'shareCount'>) =>
   Math.round(transaction.amount / Math.max(1, transaction.shareCount))
@@ -13,11 +13,6 @@ export const toMonthKey = (iso: string) => {
   const date = new Date(iso)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
-
-export type PersonFilter = Person | '합산'
-
-export const matchesPerson = (transaction: Transaction, filter: PersonFilter) =>
-  filter === '합산' || transaction.person === filter
 
 export type KindTotals = Record<Kind, number>
 
@@ -74,3 +69,20 @@ export const toSlices = (categoryTotals: { category: string; amount: number }[],
   const otherAmount = positive.slice(maxSlices - 1).reduce((sum, item) => sum + item.amount, 0)
   return [...head, { label: '기타', amount: otherAmount, isOther: true }]
 }
+
+export type ScopeFilter = '전체' | '공동' | Person
+
+export const matchesScope = (transaction: Transaction, filter: ScopeFilter) => {
+  if (filter === '전체') return true
+  if (filter === '공동') return transaction.scope === '공동'
+  return transaction.scope === '개인' && transaction.person === filter
+}
+
+export const expenseByScope = (transactions: Transaction[], excludedCategories: Set<string>) =>
+  (['공동', ...PEOPLE] as const).map(filter => ({
+    filter,
+    amount: sumByKind(
+      transactions.filter(transaction => matchesScope(transaction, filter)),
+      excludedCategories,
+    ).지출,
+  }))

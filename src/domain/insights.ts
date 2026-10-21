@@ -39,7 +39,7 @@ export type PersonComparison = { category: string } & Record<Person, number>
 export const compareByPerson = (transactions: Transaction[], excludedCategories: Set<string>, limit: number) => {
   const totals = new Map<string, PersonComparison>()
   transactions.forEach(transaction => {
-    if (transaction.kind !== '지출' || !isCounted(transaction, excludedCategories)) return
+    if (transaction.kind !== '지출' || transaction.scope !== '개인' || !isCounted(transaction, excludedCategories)) return
     const row = totals.get(transaction.category) ?? { category: transaction.category, 쿠리만쥬: 0, 우사기: 0 }
     row[transaction.person] += myShare(transaction)
     totals.set(transaction.category, row)
