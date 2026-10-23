@@ -5,10 +5,11 @@ import TopBar from '../components/TopBar'
 import PersonAvatar from '../components/PersonAvatar'
 import { markCapture, toTransactionInput } from '../db/captures'
 import type { CaptureItem } from '../db/database'
-import { useCategories, usePendingCaptures, useRecentInputs, useUncategorized } from '../db/hooks'
+import { useCategories, usePendingCaptures, usePersonName, useRecentInputs, useUncategorized } from '../db/hooks'
 import { saveRule, saveTransaction } from '../db/repository'
 import { UNCATEGORIZED, type Transaction } from '../domain/types'
 import { isCaptureSupported } from '../native/notificationCapture'
+import { IS_WEB_BUILD } from '../platform'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatTime, formatWon } from '../utils/format'
@@ -23,7 +24,7 @@ function InboxPage() {
   const duplicates = captures.filter(capture => capture.status === '중복')
 
   const handleRecord = async (capture: CaptureItem) => {
-    const draft = await toTransactionInput(capture, getSettings().defaultPerson)
+    const draft = await toTransactionInput(capture, capture.person ?? getSettings().defaultPerson)
     navigate('/tx/new', { state: { draft, captureKey: capture.key } })
   }
 
@@ -39,14 +40,20 @@ function InboxPage() {
       <TopBar title="수집함" />
 
       <main className="page-content">
-        {isCaptureSupported() && (
+        {(isCaptureSupported() || waiting.length > 0 || duplicates.length > 0 || IS_WEB_BUILD) && (
           <section className="inbox-section">
             <h2 className="section-title">
               결제 알림 <span className="count">{waiting.length}</span>
             </h2>
             {waiting.length === 0 && (
               <p className="empty-inline">
-                새 결제 알림이 없어요. 알림 수집 설정은 <Link to="/settings">설정</Link>에서 할 수 있어요.
+                {isCaptureSupported() ? (
+                  <>
+                    새 결제 알림이 없어요. 알림 수집 설정은 <Link to="/settings">설정</Link>에서 할 수 있어요.
+                  </>
+                ) : (
+                  '새 결제 문자가 없어요. iOS 단축어로 보낸 카드 결제 문자가 여기에 모여요.'
+                )}
               </p>
             )}
             <ul className="capture-list">
@@ -99,12 +106,17 @@ type CaptureCardProps = {
 }
 
 function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
+  const personName = usePersonName()
+
   const { parsed } = capture
 
   return (
     <li className="capture-card">
       <div className="capture-header">
-        <span className="capture-app">{capture.appLabel}</span>
+        <span className="capture-app">
+          {capture.person && <PersonAvatar person={capture.person} size={14} />}
+          {capture.person ? `${personName(capture.person)} · ${capture.appLabel}` : capture.appLabel}
+        </span>
         <span className="capture-time">
           {formatDayLabel(parsed.occurredAt)} {formatTime(parsed.occurredAt)}
         </span>

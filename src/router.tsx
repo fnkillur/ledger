@@ -1,6 +1,5 @@
-import { createHashRouter, Navigate } from 'react-router'
+import { createHashRouter } from 'react-router'
 import TabLayout from './components/TabLayout'
-import { IS_WEB_BUILD } from './platform'
 import EditPage from './pages/EditPage'
 import ImportCapturePage from './pages/ImportCapturePage'
 import InboxPage from './pages/InboxPage'
@@ -16,7 +15,7 @@ export const router = createHashRouter([
     children: [
       { path: '/', element: <ListPage /> },
       { path: '/stats', element: <StatsPage /> },
-      { path: '/inbox', element: IS_WEB_BUILD ? <Navigate to="/" replace /> : <InboxPage /> },
+      { path: '/inbox', element: <InboxPage /> },
       { path: '/settings', element: <SettingsPage /> },
     ],
   },

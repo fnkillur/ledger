@@ -1,3 +1,4 @@
+import type { SheetCapture } from '../db/captures'
 import type { Category, Rule, Transaction } from '../domain/types'
 import type { Settings } from './settings'
 
@@ -7,6 +8,7 @@ type PullResponse = {
   rules: Rule[]
   categories: Category[]
   settings?: Record<string, number | string>
+  captures?: SheetCapture[]
 }
 
 type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string }
@@ -29,7 +31,7 @@ export const pull = async (settings: Settings, since: string) => {
 // Apps Script는 CORS 사전 요청(OPTIONS)을 처리하지 못해서 text/plain으로 보낸다.
 export const push = async (
   settings: Settings,
-  payload: { transactions: Transaction[]; rules: Rule[]; settings?: Record<string, number | string> },
+  payload: { transactions: Transaction[]; rules: Rule[]; settings?: Record<string, number | string>; captures?: { key: string; status: string }[] },
 ) =>
   unwrap<{ serverTime: string }>(
     await fetch(settings.endpoint, {

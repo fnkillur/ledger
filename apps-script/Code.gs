@@ -3,6 +3,7 @@ const SHEETS = {
   categories: '카테고리',
   rules: '분류규칙',
   settings: '설정',
+  captures: '수집함',
 }
 
 const TRANSACTION_COLUMNS = [
@@ -27,6 +28,9 @@ const TRANSACTION_COLUMNS = [
 const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외', '고정비', '아이콘', '개인지출']
 const SETTING_COLUMNS = ['키', '값', '수정시각']
 const RULE_COLUMNS = ['키워드', '카테고리', '수정시각', '동기화시각']
+// iOS 단축어가 보낸 결제 문자. 앱이 확인한 뒤 기록하거나 무시하면 상태를 바꾼다.
+const CAPTURE_COLUMNS = ['키', '받은시각', '사람', '내용', '상태', '동기화시각']
+const CAPTURE_STATUSES = ['대기', '기록됨', '무시']
 
 // [구분, 이름, 아이콘, 옵션]
 const DEFAULT_CATEGORIES = [
@@ -192,6 +196,7 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents)
     authorize_(body.token)
     if (body.action === 'push') return push_(body)
+    if (body.action === 'capture') return capture_(body)
     if (body.action === 'setup') {
       setup()
       return { migrated: body.migrate ? migrateFromYearTabs(body.migrate === 'resync') : null }
@@ -247,7 +252,51 @@ function pull_(since) {
       personal: row['개인지출'] === true,
     })),
     settings: Object.fromEntries(readObjects_(book.getSheetByName(SHEETS.settings)).map(row => [String(row['키']), toSettingValue_(row['값'])])),
+    captures: book.getSheetByName(SHEETS.captures)
+      ? readObjects_(book.getSheetByName(SHEETS.captures))
+          .filter(isNewer)
+          .map(row => ({
+            key: String(row['키']),
+            receivedAt: toIso_(row['받은시각']),
+            person: String(row['사람'] || ''),
+            text: String(row['내용']),
+            status: String(row['상태']),
+          }))
+      : [],
   }
+}
+
+function captureSheet_(book) {
+  return ensureSheet_(book, SHEETS.captures, CAPTURE_COLUMNS, ['키', '받은시각', '내용', '동기화시각'])
+}
+
+function capture_(body) {
+  const text = String(body.text || '').trim()
+  if (!text) throw new Error('보낼 내용이 없어요.')
+  const lock = LockService.getScriptLock()
+  lock.waitLock(20000)
+  try {
+    const now = new Date().toISOString()
+    const key = Utilities.getUuid()
+    captureSheet_(SpreadsheetApp.getActive()).appendRow([key, now, String(body.person || ''), text, '대기', now])
+    return { key }
+  } finally {
+    lock.releaseLock()
+  }
+}
+
+// 다른 기기에도 처리 결과가 보이도록 상태만 바꾸고 동기화시각을 새로 찍는다.
+function updateCaptureStatuses_(book, captures, now) {
+  const updates = captures.filter(item => CAPTURE_STATUSES.includes(item.status))
+  if (updates.length === 0) return
+  const sheet = captureSheet_(book)
+  const values = sheet.getDataRange().getValues()
+  const rowByKey = new Map(values.slice(1).map((row, index) => [String(row[0]), index + 2]))
+  const statusColumn = CAPTURE_COLUMNS.indexOf('상태') + 1
+  updates.forEach(item => {
+    const row = rowByKey.get(String(item.key))
+    if (row) sheet.getRange(row, statusColumn, 1, 2).setValues([[item.status, now]])
+  })
 }
 
 // 예산 같은 숫자 설정과 닉네임 같은 글자 설정을 함께 저장한다.
@@ -275,6 +324,7 @@ function push_(body) {
       '키',
       Object.entries(body.settings || {}).map(([key, value]) => [key, toSettingValue_(value), now]),
     )
+    updateCaptureStatuses_(book, body.captures || [], now)
     return { serverTime: now }
   } finally {
     lock.releaseLock()

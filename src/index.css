@@ -3000,3 +3000,9 @@ a {
   margin: var(--space-3) 0 0 calc(var(--space-3) * -1);
   font-size: var(--font-sm);
 }
+
+.capture-app {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

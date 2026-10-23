@@ -148,3 +148,80 @@ describe('syncNow', () => {
     expect((await db.transactions.get('other'))?.merchant).toBe('다른 기기')
   })
 })
+
+describe('시트 수집함', () => {
+  type Row = { key: string; receivedAt: string; person: string; text: string; status: string; syncedAt: string }
+  let rows: Row[]
+  let pushedCaptures: { key: string; status: string }[]
+
+  beforeEach(() => {
+    pushedCaptures = []
+    rows = [
+      {
+        key: 'sms-1',
+        receivedAt: '2026-10-22T03:30:00.000Z',
+        person: '우사기',
+        text: '[Web발신]\n삼성3975승인 박*윤\n6,500원 일시불\n10/22 12:30 스타벅스\n누적2,330,350원',
+        status: '대기',
+        syncedAt: '2026-10-22T03:30:00.000Z',
+      },
+    ]
+    saveSettings({ endpoint: 'https://script.example/exec', token: 't', defaultPerson: '쿠리만쥬' })
+    let clock = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: URL | string, init?: RequestInit) => {
+        const serverTime = `2026-10-23T00:00:${String(clock++).padStart(2, '0')}.000Z`
+        if (init?.method === 'POST') {
+          const body = JSON.parse(String(init.body))
+          pushedCaptures.push(...(body.captures ?? []))
+          return Response.json({ ok: true, serverTime })
+        }
+        const since = new URL(url).searchParams.get('since') ?? ''
+        const captures = rows.filter(row => row.syncedAt > since)
+        return Response.json({ ok: true, serverTime, transactions: [], rules: [], categories: [], captures })
+      }),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.doUnmock('../native/notificationCapture')
+  })
+
+  it('단축어가 보낸 문자를 수집함에 넣고, 기록하면 처리 상태를 시트로 돌려보낸다', async () => {
+    const { markCapture } = await import('./captures')
+    await syncNow()
+
+    const capture = await db.captures.get('sms-1')
+    expect(capture).toMatchObject({ status: '대기', fromSheet: true, person: '우사기', parsed: { amount: 6500, merchant: '스타벅스' } })
+    expect(new Date(capture!.parsed.occurredAt).getHours()).toBe(12)
+
+    await markCapture('sms-1', '기록됨')
+    await syncNow()
+
+    expect(pushedCaptures).toEqual([{ key: 'sms-1', status: '기록됨' }])
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('다른 기기에서 이미 처리한 문자는 상태만 맞춘다', async () => {
+    await syncNow()
+    rows[0] = { ...rows[0], status: '무시', syncedAt: '2026-10-23T00:01:00.000Z' }
+    await syncNow()
+
+    expect((await db.captures.get('sms-1'))?.status).toBe('무시')
+  })
+
+  it('알림을 직접 모으는 안드로이드 앱은 시트 수집함을 받지 않는다', async () => {
+    vi.resetModules()
+    vi.doMock('../native/notificationCapture', async original => ({
+      ...(await original<typeof import('../native/notificationCapture')>()),
+      isCaptureSupported: () => true,
+    }))
+    const { syncNow: syncOnAndroid } = await import('../sync/sync')
+    const { db: androidDb } = await import('./database')
+    await syncOnAndroid()
+
+    expect(await androidDb.captures.count()).toBe(0)
+  })
+})

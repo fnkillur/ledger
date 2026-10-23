@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
-import type { Category, Rule, SharedSettings, Transaction } from '../domain/types'
+import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
 import type { CapturedNotification, ParsedPayment } from '../domain/notificationParser'
 
 export type CaptureStatus = '대기' | '중복' | '기록됨' | '무시'
@@ -9,7 +9,13 @@ export type CaptureItem = CapturedNotification & {
   parsed: ParsedPayment
   status: CaptureStatus
   transactionId?: string
+  // iOS 단축어가 시트 '수집함' 탭으로 보낸 문자. 처리 상태를 시트에도 돌려보낸다.
+  fromSheet?: boolean
+  person?: Person
+  updatedAt?: string
 }
+
+export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' }
 
 export type SharedSettingsRecord = SharedSettings & { key: 'shared'; updatedAt: string }
 
@@ -23,7 +29,7 @@ export const db = new Dexie('ledger') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
   categories: EntityTable<Category, 'name'>
   rules: EntityTable<Rule, 'keyword'>
-  outbox: EntityTable<{ id: string; type: 'transaction' | 'rule' | 'settings' }, 'id'>
+  outbox: EntityTable<OutboxItem, 'id'>
   shared: EntityTable<SharedSettingsRecord, 'key'>
   captures: EntityTable<CaptureItem, 'key'>
   meta: EntityTable<SyncMeta, 'key'>
