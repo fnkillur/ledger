@@ -2985,3 +2985,18 @@ a {
   font-size: var(--font-sm);
   line-height: 1.45;
 }
+
+/* 동기화 카드: 입력칸·안내 아래의 버튼은 한 칸 띄운다. */
+.sync-details + .card-actions,
+.status + .card-actions,
+.field + .card-actions {
+  margin-top: var(--space-4);
+}
+
+.copy-code-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0 calc(var(--space-3) * -1);
+  font-size: var(--font-sm);
+}

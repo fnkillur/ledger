@@ -1,4 +1,5 @@
 import { App } from '@capacitor/app'
+import { CopyIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import FieldHint from '../components/FieldHint'
 import PersonAvatar from '../components/PersonAvatar'
@@ -10,7 +11,7 @@ import { cleanNickname, NICKNAME_MAX_LENGTH } from '../domain/nickname'
 import { PEOPLE, type Person } from '../domain/types'
 import LockSettingSection from '../lock/LockSettingSection'
 import { isCaptureSupported, NotificationCapture, type InstalledApp } from '../native/notificationCapture'
-import { decodeConnectCode } from '../sync/connectCode'
+import { decodeConnectCode, encodeConnectCode } from '../sync/connectCode'
 import { IS_WEB_BUILD } from '../platform'
 import { isSyncConfigured, saveSettings, useSettings } from '../sync/settings'
 import { resetSync, syncNow } from '../sync/sync'
@@ -182,6 +183,16 @@ function SyncSection() {
     }
   }
 
+  // 홈 화면 앱과 Safari처럼 저장 공간이 따로인 곳을 연결할 때, 이미 연결된 기기에서 코드를 복사해 간다.
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(encodeConnectCode(settings.endpoint, settings.token))
+      setMessage({ tone: 'success', text: '연결 코드를 복사했어요. 연결할 기기의 설정에 붙여넣어 주세요.' })
+    } catch {
+      setMessage({ tone: 'error', text: '복사하지 못했어요. 다시 눌러 주세요.' })
+    }
+  }
+
   const handleSave = async () => {
     const isNewEndpoint = endpoint.trim() !== settings.endpoint
     saveSettings({ ...settings, endpoint: endpoint.trim(), token: token.trim() })
@@ -217,6 +228,13 @@ function SyncSection() {
             />
           </label>
         </>
+      )}
+
+      {isConfigured && (
+        <button type="button" className="text-button text-primary copy-code-button" onClick={handleCopyCode}>
+          <CopyIcon size={16} weight="bold" aria-hidden="true" />
+          다른 기기 연결 코드 복사
+        </button>
       )}
 
       {message && <p className={`status status-${message.tone}`}>{message.text}</p>}
