@@ -1,5 +1,6 @@
-import { useMemo, type MouseEvent } from 'react'
+import { useMemo, useState, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import ConfirmSheet from '../components/ConfirmSheet'
 import EmptyState from '../components/EmptyState'
 import TopBar from '../components/TopBar'
 import PersonAvatar from '../components/PersonAvatar'
@@ -20,6 +21,8 @@ function InboxPage() {
   const captures = usePendingCaptures()
   const uncategorized = useUncategorized()
 
+  const [isConfirmingIgnoreAll, setIsConfirmingIgnoreAll] = useState(false)
+
   const waiting = captures.filter(capture => capture.status === '대기')
   const duplicates = captures.filter(capture => capture.status === '중복')
 
@@ -28,7 +31,16 @@ function InboxPage() {
     navigate('/tx/new', { state: { draft, captureKey: capture.key } })
   }
 
-  const handleIgnore = (capture: CaptureItem) => markCapture(capture.key, '무시')
+  const handleIgnore = async (capture: CaptureItem) => {
+    await markCapture(capture.key, '무시')
+    syncNow().catch(() => {})
+  }
+
+  const handleIgnoreAll = async () => {
+    setIsConfirmingIgnoreAll(false)
+    await Promise.all(waiting.map(capture => markCapture(capture.key, '무시')))
+    syncNow().catch(() => {})
+  }
 
   const handleIgnoreAllDuplicates = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -44,6 +56,11 @@ function InboxPage() {
           <section className="inbox-section">
             <h2 className="section-title">
               결제 알림 <span className="count">{waiting.length}</span>
+              {waiting.length > 1 && (
+                <button type="button" className="text-button section-action" onClick={() => setIsConfirmingIgnoreAll(true)}>
+                  모두 무시
+                </button>
+              )}
             </h2>
             {waiting.length === 0 && (
               <p className="empty-inline">
@@ -95,6 +112,15 @@ function InboxPage() {
           )}
         </section>
       </main>
+
+      {isConfirmingIgnoreAll && (
+        <ConfirmSheet
+          message={`결제 알림 ${waiting.length}개를 모두 무시할까요?`}
+          confirmLabel="모두 무시"
+          onConfirm={handleIgnoreAll}
+          onCancel={() => setIsConfirmingIgnoreAll(false)}
+        />
+      )}
     </div>
   )
 }

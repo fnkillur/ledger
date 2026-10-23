@@ -12,12 +12,12 @@ import { useCategories, usePersonName } from '../db/hooks'
 import { saveMonthlyTotals } from '../db/repository'
 import { evaluateAmount } from '../domain/amountExpression'
 import { parseMonthlySummary, type OthersCheck } from '../domain/monthlySummary'
-import { KINDS, type Category, type Kind, type Person } from '../domain/types'
+import { isAggregate, KINDS, type Category, type Kind, type Person } from '../domain/types'
 import { recognizeImages, type OcrProgress } from '../ocr/recognize'
 import { IS_WEB_BUILD } from '../platform'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
-import { EARLIEST_MONTH_KEY } from '../domain/period'
+import { EARLIEST_MONTH_KEY, toRange } from '../domain/period'
 import { currentMonthKey, formatWon, shiftMonth } from '../utils/format'
 
 type OcrResult = {
@@ -58,6 +58,14 @@ function MonthlyPage() {
     () => db.transactions.where('id').startsWith(`monthly-${monthKey}-${person}-`).filter(row => !row.deleted).toArray(),
     [monthKey, person],
   )
+  const detailedCount = useLiveQuery(() => {
+    const { start, end } = toRange({ type: '월별', monthKey })
+    return db.transactions
+      .where('occurredAt')
+      .between(start, end)
+      .filter(row => !row.deleted && row.person === person && !isAggregate(row.source))
+      .count()
+  }, [monthKey, person])
 
   return (
     <div className="page">
@@ -81,6 +89,13 @@ function MonthlyPage() {
             <PersonToggle value={person} onChange={setPerson} />
           )}
         </div>
+
+        {(detailedCount ?? 0) > 0 && (
+          <p className="status status-warning icon-note">
+            <WarningCircleIcon size={16} weight="bold" aria-hidden="true" />
+            이 달에는 {personName(person)}의 건별 기록이 {detailedCount}건 있어요. 월 합계까지 저장하면 통계에 두 번 더해져요.
+          </p>
+        )}
 
         {existing !== undefined && categories.length > 0 && (
           <MonthlyForm

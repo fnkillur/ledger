@@ -3006,3 +3006,15 @@ a {
   align-items: center;
   gap: var(--space-1);
 }
+
+.status-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.section-action {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
