@@ -32,6 +32,13 @@ describe('parsePastedPayment', () => {
     expect(parsed).toMatchObject({ kind: '지출', amount: 32000, merchant: '올리브영' })
     expect(local(new Date(parsed!.occurredAt))).toBe('2026-10-20 19:12')
   })
+
+  it('삼성카드 문자처럼 날짜·시각 뒤에 가맹점이 오는 형식도 읽는다', () => {
+    const parsed = parsePastedPayment('[Web발신]\n삼성3975승인 박*윤\n12,000원 일시불\n10/22 12:30 스타벅스강남R점\n누적2,323,850원', now)
+
+    expect(parsed).toMatchObject({ kind: '지출', amount: 12000, merchant: '스타벅스강남R점', isCancel: false })
+    expect(local(new Date(parsed!.occurredAt))).toBe('2026-10-22 12:30')
+  })
 })
 
 describe('connect code', async () => {

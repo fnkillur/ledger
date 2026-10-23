@@ -2951,3 +2951,37 @@ a {
   gap: var(--space-1);
   min-width: 0;
 }
+
+/* 통계 요약의 '줄여볼 만한 지출' */
+.tip-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.tip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  word-break: keep-all;
+}
+
+.tip-text strong {
+  font-size: var(--font-md);
+}
+
+.tip-text span {
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+  line-height: 1.45;
+}

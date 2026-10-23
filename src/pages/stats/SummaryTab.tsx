@@ -1,9 +1,11 @@
+import { ArrowsClockwiseIcon, CoffeeIcon, MopedIcon, MoonStarsIcon, ScalesIcon, TrendUpIcon, type Icon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Sticker, { type StickerName } from '../../components/Sticker'
 import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace } from '../../domain/insights'
 import type { Period } from '../../domain/period'
+import type { SavingTip, SavingTipId } from '../../domain/savingTips'
 import { expenseRatio, ratioLevel, ratioMessage, type expenseByScope, type KindTotals, type RatioLevel } from '../../domain/stats'
 import type { Kind } from '../../domain/types'
 import { formatMonthLabel, formatWon } from '../../utils/format'
@@ -22,10 +24,11 @@ type SummaryTabProps = {
   totals: KindTotals
   previousTotals: KindTotals | null
   byScope: ReturnType<typeof expenseByScope>
+  tips: SavingTip[] | null
   trend: TrendRow[]
 }
 
-function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, trend }: SummaryTabProps) {
+function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, tips, trend }: SummaryTabProps) {
   const [today] = useState(() => new Date())
 
   const pace = period.type === '월별' ? budgetPace(totals.지출, period.monthKey, today) : null
@@ -55,6 +58,7 @@ function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, tr
         </div>
       </section>
 
+      {tips && <SavingTips tips={tips} />}
 
       <section className="card">
         <h2 className="card-title">{period.type === '연도별' ? `${period.monthKey.slice(0, 4)}년 월별 추이` : '최근 12개월'}</h2>
@@ -69,6 +73,43 @@ function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, tr
 const formatMonthTick = (monthKey: string) => String(Number(monthKey.slice(5, 7)))
 
 const roundToThousand = (amount: number) => Math.round(amount / 1000) * 1000
+
+const TIP_VISUALS: Record<SavingTipId, [Icon, string]> = {
+  wants: [ScalesIcon, 'purple'],
+  spike: [TrendUpIcon, 'orange'],
+  small: [CoffeeIcon, 'yellow'],
+  delivery: [MopedIcon, 'pink'],
+  lateNight: [MoonStarsIcon, 'blue'],
+  recurring: [ArrowsClockwiseIcon, 'teal'],
+}
+
+function SavingTips({ tips }: { tips: SavingTip[] }) {
+  return (
+    <section className="card">
+      <h2 className="card-title">줄여볼 만한 지출</h2>
+      {tips.length === 0 ? (
+        <p className="card-description">지금은 눈에 띄게 줄일 곳이 없어요. 잘하고 있어요!</p>
+      ) : (
+        <ul className="tip-list">
+          {tips.map(tip => {
+            const [Glyph, tone] = TIP_VISUALS[tip.id]
+            return (
+              <li key={tip.id} className="tip-row">
+                <span className={`category-icon tone-${tone}`} style={{ width: 36, height: 36 }} aria-hidden="true">
+                  <Glyph size={20} weight="duotone" />
+                </span>
+                <span className="tip-text">
+                  <strong>{tip.title}</strong>
+                  <span>{tip.detail}</span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
 
 function ExpenseDelta({ label, delta }: { label: string; delta: number }) {
   return (

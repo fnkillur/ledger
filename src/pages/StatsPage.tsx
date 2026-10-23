@@ -13,6 +13,7 @@ import {
   weekdayTimeMatrix,
 } from '../domain/insights'
 import { monthKeysOfYear, previousComparison, shiftPeriod, toRange, type Period } from '../domain/period'
+import { savingTips } from '../domain/savingTips'
 import {
   expenseByScope,
   matchesScope,
@@ -92,6 +93,7 @@ function StatsPage() {
       totals: sumByKind(current, excluded),
       byScope: expenseByScope(current, excluded),
       previousTotals: previous && sumByKind(previous, excluded),
+      tips: periodType === '월별' ? savingTips({ monthKey, transactions: loaded, categories, today }) : null,
       // 아직 오지 않은 달, 기록이 하나도 없는 이번 달은 선을 0으로 떨어뜨리지 않고 비워 둔다.
       trend: monthlyTotals(loaded, ranges.monthKeys, excluded).map(row =>
         row.monthKey > latest || (row.monthKey === latest && row.지출 === 0 && row.수입 === 0)
@@ -99,7 +101,7 @@ function StatsPage() {
           : row,
       ),
     }
-  }, [current, previous, loaded, ranges, excluded])
+  }, [current, previous, loaded, ranges, excluded, periodType, monthKey, categories, today])
 
   const scopedCurrent = useMemo(() => current.filter(transaction => matchesScope(transaction, scopeFilter)), [current, scopeFilter])
   const scopedPrevious = useMemo(() => (previous ?? []).filter(transaction => matchesScope(transaction, scopeFilter)), [previous, scopeFilter])
@@ -149,6 +151,7 @@ function StatsPage() {
             totals={summary.totals}
             previousTotals={summary.previousTotals}
             byScope={summary.byScope}
+            tips={summary.tips}
             trend={summary.trend}
           />
         )}

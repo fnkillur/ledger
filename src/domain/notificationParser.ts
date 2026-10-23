@@ -39,9 +39,13 @@ export const detectKind = (text: string): Kind | null => {
   return null
 }
 
+// 카드사마다 "올리브영에서" 또는 "10/20 18:23 올리브영"처럼 가맹점을 쓰는 자리가 다르다.
+const APPROVAL_LINE = /\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}\s+(.+)$/m
+
 const findMerchant = (text: string) => {
   const match = text.match(/([^\s,|\]]{2,20})\s*에서/)
-  return match ? match[1] : ''
+  if (match) return match[1]
+  return text.match(APPROVAL_LINE)?.[1].trim() ?? ''
 }
 
 export const parsePaymentText = (text: string, occurredAt: string): ParsedPayment | null => {

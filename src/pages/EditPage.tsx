@@ -1,4 +1,5 @@
 import { CaretDownIcon, CaretUpIcon, ClipboardTextIcon } from '@phosphor-icons/react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
@@ -8,6 +9,7 @@ import PersonToggle from '../components/PersonToggle'
 import Segmented from '../components/Segmented'
 import TopBar from '../components/TopBar'
 import { markCapture } from '../db/captures'
+import { buildPastedDraft } from '../db/pastedDraft'
 import { useCategories, usePersonName, useRecentInputs, useRules, useTransaction } from '../db/hooks'
 import { celebrate } from '../celebration/store'
 import { deleteTransaction, getRecordActivity, saveRule, saveTransaction, splitTransaction, type TransactionInput } from '../db/repository'
@@ -55,11 +57,14 @@ function EditPage() {
   const { id } = useParams()
   const location = useLocation()
 
+  const sharedText = new URLSearchParams(location.search).get('text')
   const transaction = useTransaction(id)
+  const sharedDraft = useLiveQuery(async () => (sharedText ? buildPastedDraft(sharedText, emptyDraft()) : null), [sharedText])
 
   if (!id) {
+    if (sharedText && sharedDraft === undefined) return null
     const state = location.state as EditLocationState
-    return <TransactionForm initial={state?.draft ?? emptyDraft()} captureKey={state?.captureKey} />
+    return <TransactionForm initial={sharedDraft ?? state?.draft ?? emptyDraft()} captureKey={state?.captureKey} />
   }
   if (transaction === undefined) return null
   if (transaction === null) return <NotFoundPage />
@@ -74,6 +79,7 @@ type TransactionFormProps = {
 
 function TransactionForm({ initial, transaction, captureKey }: TransactionFormProps) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const categories = useCategories()
   const rules = useRules()
@@ -92,6 +98,9 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const canSave = amount !== null && amount !== 0 && draft.category !== ''
 
   const update = (patch: Partial<TransactionInput>) => setDraft(previous => ({ ...previous, ...patch }))
+
+  // 단축어로 이 화면부터 열렸으면 돌아갈 화면이 없으므로 목록으로 간다.
+  const goBack = () => (location.key === 'default' ? navigate('/', { replace: true }) : navigate(-1))
 
   const defaultScopeOf = (categoryName: string) =>
     categories.find(category => category.name === categoryName)?.personal ? '개인' : '공동'
@@ -146,7 +155,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved)
     syncNow().catch(() => {})
-    navigate(-1)
+    goBack()
     if (!transaction) celebrate(cheerSubline(await getRecordActivity(draft.person)))
   }
 
@@ -154,14 +163,14 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     if (!transaction) return
     await deleteTransaction(transaction.id)
     syncNow().catch(() => {})
-    navigate(-1)
+    goBack()
   }
 
   const handleSplit = async (splitAmount: number, category: string) => {
     if (!transaction) return
     await splitTransaction({ ...transaction, ...draft, amount: amount ?? transaction.amount }, splitAmount, category)
     syncNow().catch(() => {})
-    navigate(-1)
+    goBack()
   }
 
   return (
