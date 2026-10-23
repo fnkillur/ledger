@@ -1,11 +1,13 @@
 import { App } from '@capacitor/app'
 import { useEffect, useMemo, useState } from 'react'
-import Segmented from '../components/Segmented'
+import FieldHint from '../components/FieldHint'
+import PersonAvatar from '../components/PersonAvatar'
+import PersonToggle from '../components/PersonToggle'
 import TopBar from '../components/TopBar'
 import { useSharedSettings, useSyncStatus } from '../db/hooks'
 import { saveSharedSettings } from '../db/repository'
-import { evaluateAmount } from '../domain/amountExpression'
-import { PEOPLE, type SharedSettings } from '../domain/types'
+import { cleanNickname, NICKNAME_MAX_LENGTH } from '../domain/nickname'
+import { PEOPLE, type Person } from '../domain/types'
 import LockSettingSection from '../lock/LockSettingSection'
 import { isCaptureSupported, NotificationCapture, type InstalledApp } from '../native/notificationCapture'
 import { decodeConnectCode } from '../sync/connectCode'
@@ -29,76 +31,118 @@ function SettingsPage() {
       <TopBar title="설정" />
 
       <main className="page-content">
-        {(!IS_WEB_BUILD || !isSyncConfigured(settings)) && <SyncSection />}
+        <h2 className="settings-group">동기화</h2>
+        <SyncSection />
 
-        <GoalSection />
-
+        <h2 className="settings-group">가계부</h2>
+        <NicknameSection />
         {!IS_WEB_BUILD && (
           <section className="card">
             <h2 className="card-title">직접 입력할 때 기본 사람</h2>
-            <Segmented
-              label="기본 사람"
-              options={PEOPLE}
-              value={settings.defaultPerson}
-              onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })}
-            />
+            <PersonToggle value={settings.defaultPerson} onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })} />
           </section>
         )}
 
-        {isCaptureSupported() && <CaptureSection />}
+        {isCaptureSupported() && (
+          <>
+            <h2 className="settings-group">알림 수집</h2>
+            <CaptureSection />
+          </>
+        )}
 
-        {!IS_WEB_BUILD && <LockSettingSection />}
+        {!IS_WEB_BUILD && (
+          <>
+            <h2 className="settings-group">보안</h2>
+            <LockSettingSection />
+          </>
+        )}
 
+        <h2 className="settings-group">정보</h2>
         <section className="card">
           <h2 className="card-title">카테고리</h2>
-          <p className="card-description">카테고리 추가·이름 변경·순서는 구글 시트의 "카테고리" 탭에서 바꾸면 다음 동기화 때 반영돼요.</p>
+          <p className="card-description">
+            카테고리 추가·이름·순서, 고정비·개인지출·통계제외 여부는 구글 시트의 "카테고리" 탭에서 바꾸면 다음 동기화 때 반영돼요.
+          </p>
         </section>
       </main>
     </div>
   )
 }
 
-function GoalSection() {
+function NicknameSection() {
   const shared = useSharedSettings()
 
+  const [savedPerson, setSavedPerson] = useState<Person | null>(null)
+
   if (!shared) return null
-  return <GoalForm key={shared.updatedAt} initial={shared} />
-}
 
-function GoalForm({ initial }: { initial: SharedSettings }) {
-  const [budgetText, setBudgetText] = useState(initial.월예산 ? String(initial.월예산) : '')
-  const [goalText, setGoalText] = useState(initial.월저축목표 ? String(initial.월저축목표) : '')
-
-  const budget = budgetText.trim() ? evaluateAmount(budgetText) : 0
-  const goal = goalText.trim() ? evaluateAmount(goalText) : 0
-  const isValid = budget !== null && goal !== null && budget >= 0 && goal >= 0
-  const isChanged = budget !== initial.월예산 || goal !== initial.월저축목표
-
-  const handleSave = async () => {
-    if (!isValid) return
-    await saveSharedSettings({ 월예산: budget, 월저축목표: goal })
+  const handleSave = async (person: Person, nickname: string | undefined) => {
+    const 닉네임 = { ...shared.닉네임, [person]: nickname }
+    if (!nickname) delete 닉네임[person]
+    await saveSharedSettings({ 월예산: shared.월예산, 월저축목표: shared.월저축목표, 닉네임 })
+    setSavedPerson(person)
     syncNow().catch(() => {})
   }
 
   return (
     <section className="card">
-      <h2 className="card-title">예산·저축 목표</h2>
-      <p className="card-description">두 사람이 함께 쓰는 값이에요. 저장하면 상대방 폰에도 다음 동기화 때 반영돼요.</p>
-      <label className="field">
-        <span className="field-label">월 예산 (지출 합계 기준)</span>
-        <input className="field-input" inputMode="text" placeholder="예: 3000000" value={budgetText} onChange={event => setBudgetText(event.target.value)} />
-      </label>
-      <label className="field">
-        <span className="field-label">월 저축 목표</span>
-        <input className="field-input" inputMode="text" placeholder="예: 1000000*2" value={goalText} onChange={event => setGoalText(event.target.value)} />
-      </label>
-      {!isValid && <p className="status status-error">금액을 확인해 주세요.</p>}
-      <div className="card-actions">
-        <button type="button" className="button button-primary" disabled={!isValid || !isChanged} onClick={handleSave}>
-          저장
-        </button>
+      <h2 className="card-title">닉네임</h2>
+      <p className="card-description">두 사람 화면에 모두 이 이름으로 보여요. 비우면 원래 이름으로 돌아가요.</p>
+      <div className="nickname-fields">
+        {PEOPLE.map(person => (
+          <NicknameField
+            key={`${person}-${shared.닉네임?.[person] ?? ''}`}
+            person={person}
+            saved={shared.닉네임?.[person] ?? ''}
+            isJustSaved={savedPerson === person}
+            onSave={nickname => handleSave(person, nickname)}
+            onEdit={() => setSavedPerson(null)}
+          />
+        ))}
       </div>
     </section>
+  )
+}
+
+type NicknameFieldProps = {
+  person: Person
+  saved: string
+  isJustSaved: boolean
+  onSave: (nickname: string | undefined) => Promise<void>
+  onEdit: () => void
+}
+
+function NicknameField({ person, saved, isJustSaved, onSave, onEdit }: NicknameFieldProps) {
+  const [text, setText] = useState(saved)
+
+  const handleCommit = async () => {
+    const nickname = cleanNickname(text)
+    if ((nickname ?? '') === saved) return
+    if (text.trim() !== '' && !nickname) return
+    await onSave(nickname)
+  }
+
+  return (
+    <label className="nickname-field">
+      <PersonAvatar person={person} size={28} />
+      <span className="nickname-input-wrap">
+        <input
+          className="field-input"
+          value={text}
+          placeholder={person}
+          maxLength={NICKNAME_MAX_LENGTH}
+          aria-label={`${person} 닉네임`}
+          onChange={event => {
+            setText(event.target.value)
+            onEdit()
+          }}
+          onBlur={handleCommit}
+          onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()}
+        />
+        {isJustSaved && <FieldHint tone="result">저장했어요</FieldHint>}
+        {text.trim() !== '' && !cleanNickname(text) && <FieldHint tone="error">숫자만으로는 만들 수 없어요</FieldHint>}
+      </span>
+    </label>
   )
 }
 
@@ -145,48 +189,65 @@ function SyncSection() {
     await runSync()
   }
 
+  const isConfigured = isSyncConfigured(settings)
+  const hasPending = (status?.pendingCount ?? 0) > 0
+
   return (
     <section className="card">
-      <h2 className="card-title">구글 시트 동기화</h2>
-      {!isSyncConfigured(settings) && (
-        <label className="field">
-          <span className="field-label">연결 코드 붙여넣기</span>
-          <input
-            className="field-input"
-            placeholder="LEDGER1:로 시작하는 코드"
-            onChange={event => handleConnectCode(event.target.value)}
-          />
-        </label>
+      {isConfigured ? (
+        <div className="sync-status">
+          <span className={`sync-dot${hasPending ? ' is-pending' : ''}`} aria-hidden="true" />
+          <div className="sync-status-text">
+            <strong>{hasPending ? `보낼 변경 ${status!.pendingCount}개` : '구글 시트와 연결됨'}</strong>
+            <span>{formatSyncedAt(status?.lastSyncedAt)}</span>
+          </div>
+          <button type="button" className="button" disabled={isSyncing} onClick={runSync}>
+            {isSyncing ? '동기화 중…' : '지금 동기화'}
+          </button>
+        </div>
+      ) : (
+        <>
+          <h2 className="card-title">구글 시트 연결</h2>
+          <label className="field">
+            <span className="field-label">연결 코드 붙여넣기</span>
+            <input
+              className="field-input"
+              placeholder="LEDGER1:로 시작하는 코드"
+              onChange={event => handleConnectCode(event.target.value)}
+            />
+          </label>
+        </>
       )}
-      <label className="field">
-        <span className="field-label">Apps Script 웹 앱 URL</span>
-        <input
-          className="field-input"
-          placeholder="https://script.google.com/macros/s/.../exec"
-          value={endpoint}
-          onChange={event => setEndpoint(event.target.value)}
-        />
-      </label>
-      <label className="field">
-        <span className="field-label">토큰</span>
-        <input className="field-input" type="password" value={token} onChange={event => setToken(event.target.value)} />
-      </label>
-      <p className="card-description">
-        {formatSyncedAt(status?.lastSyncedAt)}
-        {status && status.pendingCount > 0 && ` · 보낼 변경 ${status.pendingCount}개`}
-      </p>
+
       {message && <p className={`status status-${message.tone}`}>{message.text}</p>}
-      <div className="card-actions">
-        {isChanged ? (
+
+      {/* 웹은 우사기 전용이라 연결된 뒤에는 연결 정보를 바꾸지 못하게 숨긴다. */}
+      {!(IS_WEB_BUILD && isConfigured) && (
+        <details className="sync-details" open={!isConfigured && isChanged}>
+          <summary>{isConfigured ? '연결 정보 바꾸기' : '직접 입력하기'}</summary>
+          <label className="field">
+            <span className="field-label">Apps Script 웹 앱 URL</span>
+            <input
+              className="field-input"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              value={endpoint}
+              onChange={event => setEndpoint(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">토큰</span>
+            <input className="field-input" type="password" value={token} onChange={event => setToken(event.target.value)} />
+          </label>
+        </details>
+      )}
+
+      {isChanged && (
+        <div className="card-actions">
           <button type="button" className="button button-primary" disabled={isSyncing || !endpoint || !token} onClick={handleSave}>
             저장하고 동기화
           </button>
-        ) : (
-          <button type="button" className="button" disabled={isSyncing || !isSyncConfigured(settings)} onClick={runSync}>
-            {isSyncing ? '동기화 중...' : '지금 동기화'}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -201,7 +262,11 @@ function CaptureSection() {
     const normalizedQuery = query.trim().toLowerCase()
     return apps
       .filter(app => !normalizedQuery || app.label.toLowerCase().includes(normalizedQuery))
-      .sort((left, right) => Number(allowed.includes(right.packageName)) - Number(allowed.includes(left.packageName)) || left.label.localeCompare(right.label, 'ko'))
+      .sort(
+        (left, right) =>
+          Number(allowed.includes(right.packageName)) - Number(allowed.includes(left.packageName)) ||
+          left.label.localeCompare(right.label, 'ko'),
+      )
   }, [apps, allowed, query])
 
   useEffect(() => {

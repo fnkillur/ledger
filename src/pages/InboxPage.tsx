@@ -1,13 +1,16 @@
-import type { MouseEvent } from 'react'
+import { useMemo, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import EmptyState from '../components/EmptyState'
 import TopBar from '../components/TopBar'
-import TransactionRow from '../components/TransactionRow'
+import PersonAvatar from '../components/PersonAvatar'
 import { markCapture, toTransactionInput } from '../db/captures'
 import type { CaptureItem } from '../db/database'
-import { usePendingCaptures, useUncategorized } from '../db/hooks'
+import { useCategories, usePendingCaptures, useRecentInputs, useUncategorized } from '../db/hooks'
+import { saveRule, saveTransaction } from '../db/repository'
+import { UNCATEGORIZED, type Transaction } from '../domain/types'
 import { isCaptureSupported } from '../native/notificationCapture'
 import { getSettings } from '../sync/settings'
+import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatTime, formatWon } from '../utils/format'
 
 function InboxPage() {
@@ -77,9 +80,9 @@ function InboxPage() {
           {uncategorized.length === 0 ? (
             <EmptyState sticker="dance">모두 분류됐어요!</EmptyState>
           ) : (
-            <ul className="tx-list">
+            <ul className="capture-list">
               {uncategorized.map(transaction => (
-                <TransactionRow key={transaction.id} transaction={transaction} />
+                <QuickClassifyCard key={transaction.id} transaction={transaction} />
               ))}
             </ul>
           )}
@@ -114,9 +117,12 @@ function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
         </strong>
         <span className="capture-merchant">{parsed.merchant || parsed.kind}</span>
       </div>
-      <p className="capture-raw">
-        {capture.title} {capture.text}
-      </p>
+      <details className="capture-raw">
+        <summary>원문 보기</summary>
+        <p>
+          {capture.title} {capture.text}
+        </p>
+      </details>
       <div className="capture-actions">
         <button type="button" className="button" onClick={() => onIgnore(capture)}>
           무시
@@ -124,6 +130,55 @@ function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
         <button type="button" className="button button-primary" onClick={() => onRecord(capture)}>
           기록하기
         </button>
+      </div>
+    </li>
+  )
+}
+
+const QUICK_CATEGORY_COUNT = 8
+
+// 카테고리 없는 내역을 열지 않고 바로 분류한다. 가맹점이 있으면 다음부터 자동 분류되게 규칙도 남긴다.
+function QuickClassifyCard({ transaction }: { transaction: Transaction }) {
+  const categories = useCategories()
+  const recent = useRecentInputs('지출')
+
+  const candidates = useMemo(() => {
+    const expense = categories.filter(category => category.kind === transaction.kind && !category.excluded && category.name !== UNCATEGORIZED)
+    const recentNames = recent.categories.filter(name => expense.some(category => category.name === name))
+    const rest = expense.filter(category => !recentNames.includes(category.name)).map(category => category.name)
+    return [...recentNames, ...rest].slice(0, QUICK_CATEGORY_COUNT)
+  }, [categories, recent.categories, transaction.kind])
+
+  const handlePick = async (categoryName: string) => {
+    const category = categories.find(item => item.name === categoryName)
+    await saveTransaction({ ...transaction, category: categoryName, scope: category?.personal ? '개인' : '공동' }, transaction.id)
+    if (transaction.merchant.trim()) await saveRule(transaction.merchant, categoryName)
+    syncNow().catch(() => {})
+  }
+
+  return (
+    <li className="capture-card">
+      <div className="capture-header">
+        <span className="capture-app">
+          <PersonAvatar person={transaction.person} size={14} /> {transaction.person}
+        </span>
+        <span className="capture-time">
+          {formatDayLabel(transaction.occurredAt)} {formatTime(transaction.occurredAt)}
+        </span>
+      </div>
+      <div className="capture-summary">
+        <strong className="amount">{formatWon(transaction.amount)}</strong>
+        <span className="capture-merchant">{transaction.merchant || '내용 없음'}</span>
+      </div>
+      <div className="quick-chips" role="group" aria-label="카테고리 고르기">
+        {candidates.map(name => (
+          <button key={name} type="button" className="chip" onClick={() => handlePick(name)}>
+            {categories.find(category => category.name === name)?.icon} {name}
+          </button>
+        ))}
+        <Link to={`/tx/${transaction.id}`} className="chip chip-more">
+          더 보기
+        </Link>
       </div>
     </li>
   )

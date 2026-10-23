@@ -2,6 +2,7 @@ import { createHashRouter, Navigate } from 'react-router'
 import TabLayout from './components/TabLayout'
 import { IS_WEB_BUILD } from './platform'
 import EditPage from './pages/EditPage'
+import ImportCapturePage from './pages/ImportCapturePage'
 import InboxPage from './pages/InboxPage'
 import ListPage from './pages/ListPage'
 import MonthlyPage from './pages/MonthlyPage'
@@ -22,5 +23,6 @@ export const router = createHashRouter([
   { path: '/tx/new', element: <EditPage /> },
   { path: '/tx/:id', element: <EditPage /> },
   { path: '/monthly', element: <MonthlyPage /> },
+  { path: '/import', element: <ImportCapturePage /> },
   { path: '*', element: <NotFoundPage /> },
 ])

@@ -1,3 +1,4 @@
+import { usePersonName } from '../db/hooks'
 import type { ScopeFilter } from '../domain/stats'
 import { PEOPLE } from '../domain/types'
 import PersonAvatar from './PersonAvatar'
@@ -12,6 +13,8 @@ type ScopeChipsProps = {
 const labelOf = (filter: ScopeFilter) => (filter === '전체' || filter === '공동' ? filter : '개인')
 
 function ScopeChips({ value, onChange }: ScopeChipsProps) {
+  const personName = usePersonName()
+
   return (
     <div className="scope-chips" role="radiogroup" aria-label="지출 범위">
       {FILTERS.map(filter => (
@@ -20,7 +23,7 @@ function ScopeChips({ value, onChange }: ScopeChipsProps) {
           type="button"
           role="radio"
           aria-checked={filter === value}
-          aria-label={filter === '전체' || filter === '공동' ? filter : `${filter} 개인`}
+          aria-label={filter === '전체' || filter === '공동' ? filter : `${personName(filter)} 개인`}
           className="chip scope-chip"
           onClick={() => onChange(filter)}
         >

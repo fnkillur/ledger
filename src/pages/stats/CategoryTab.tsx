@@ -1,10 +1,11 @@
+import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import CategoryIcon from '../../components/CategoryIcon'
 import EmptyState from '../../components/EmptyState'
 import PersonAvatar from '../../components/PersonAvatar'
 import Segmented from '../../components/Segmented'
-import { useCategoryIcons } from '../../db/hooks'
+import { useCategoryIcons, usePersonName } from '../../db/hooks'
 import type { CategoryChange, PersonComparison } from '../../domain/insights'
 import type { Slice } from '../../domain/stats'
 import { PEOPLE } from '../../domain/types'
@@ -21,7 +22,7 @@ export type CompareTarget = '이전 기간' | '작년 같은 달'
 
 type CategoryTabProps = {
   isMonthly: boolean
-  previousLabel: string
+  previousLabel: string | null
   total: number
   slices: Slice[]
   ranking: { category: string; amount: number }[]
@@ -48,16 +49,18 @@ function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes
         <CategoryDonut slices={slices} total={total} />
       </section>
 
-      <section className="card">
-        <div className="card-header">
-          <h2 className="card-title">많이 달라진 카테고리</h2>
-          {isMonthly && (
-            <Segmented label="비교 대상" options={['이전 기간', '작년 같은 달'] as const} value={compareTarget} onChange={setCompareTarget} />
-          )}
-        </div>
-        <p className="card-description">{compareTarget === '이전 기간' ? previousLabel : '작년 같은 달'} 대비</p>
-        <ChangeList changes={changes[compareTarget]} />
-      </section>
+      {previousLabel && (
+        <section className="card">
+          <div className="card-header">
+            <h2 className="card-title">많이 달라진 카테고리</h2>
+            {isMonthly && (
+              <Segmented label="비교 대상" options={['이전 기간', '작년 같은 달'] as const} value={compareTarget} onChange={setCompareTarget} />
+            )}
+          </div>
+          <p className="card-description">{compareTarget === '이전 기간' ? previousLabel : '작년 같은 달'} 대비</p>
+          <ChangeList changes={changes[compareTarget]} />
+        </section>
+      )}
 
       <section className="card">
         <h2 className="card-title">카테고리 순위</h2>
@@ -115,7 +118,8 @@ function CategoryDonut({ slices, total }: { slices: Slice[]; total: number }) {
           <li key={slice.label}>
             <span className="legend-swatch" style={{ background: sliceColor(slice, index) }} />
             <span className="legend-label">
-              {!slice.isOther && icons.get(slice.label)} {slice.label}
+              {!slice.isOther && <CategoryIcon name={slice.label} emoji={icons.get(slice.label)} size={12} />}
+              <span className="label-text">{slice.label}</span>
             </span>
             <span className="legend-value">{percent(slice.amount, sliceTotal)}%</span>
           </li>
@@ -134,7 +138,7 @@ function ChangeList({ changes }: { changes: { increased: CategoryChange[]; decre
     <ul className="change-list">
       {rows.map(row => (
         <li key={row.category}>
-          <CategoryIcon icon={icons.get(row.category)} size={16} />
+          <CategoryIcon name={row.category} emoji={icons.get(row.category)} size={16} />
           <span className="change-label">
             {row.category}
             <span className="change-sub">
@@ -142,7 +146,8 @@ function ChangeList({ changes }: { changes: { increased: CategoryChange[]; decre
             </span>
           </span>
           <span className={`change-delta ${row.delta > 0 ? 'is-up' : 'is-down'}`}>
-            {row.delta > 0 ? '▲' : '▼'} {formatWon(Math.abs(row.delta))}
+            {row.delta > 0 ? <CaretUpIcon size={12} weight="fill" aria-hidden="true" /> : <CaretDownIcon size={12} weight="fill" aria-hidden="true" />}
+            {formatWon(Math.abs(row.delta))}
           </span>
         </li>
       ))}
@@ -161,7 +166,8 @@ function CategoryRanking({ items }: { items: { category: string; amount: number 
         <li key={item.category} className="bar-row">
           <span className="bar-rank">{index + 1}</span>
           <span className="bar-label">
-            {icons.get(item.category)} {item.category}
+            <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
+            <span className="label-text">{item.category}</span>
           </span>
           <div className="bar-track">
             <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%` }} />
@@ -201,6 +207,7 @@ function FixedVariableCard({ fixed, variable }: { fixed: number; variable: numbe
 
 function PersonComparisonBars({ rows }: { rows: PersonComparison[] }) {
   const icons = useCategoryIcons()
+  const personName = usePersonName()
   const max = Math.max(...rows.flatMap(row => [row.쿠리만쥬, row.우사기]))
 
   return (
@@ -209,7 +216,7 @@ function PersonComparisonBars({ rows }: { rows: PersonComparison[] }) {
         {PEOPLE.map(person => (
           <span key={person}>
             <span className="legend-swatch" style={{ background: PERSON_COLORS[person] }} />
-            <PersonAvatar person={person} size={16} /> {person}
+            <PersonAvatar person={person} size={16} /> {personName(person)}
           </span>
         ))}
       </div>
@@ -217,7 +224,8 @@ function PersonComparisonBars({ rows }: { rows: PersonComparison[] }) {
         {rows.map(row => (
           <li key={row.category}>
             <span className="person-bars-label">
-              {icons.get(row.category)} {row.category}
+              <CategoryIcon name={row.category} emoji={icons.get(row.category)} size={12} />
+              <span className="label-text">{row.category}</span>
             </span>
             {PEOPLE.map(person => (
               <div key={person} className="person-bar-row">

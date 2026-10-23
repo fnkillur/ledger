@@ -34,7 +34,7 @@ const DEFAULTS: [Kind, string, string, Options?][] = [
   ['수입', 'K패스환급', '🚇'],
   ['수입', '인터넷환급', '🌐'],
   ['수입', '정산', '🔁', { excluded: true }],
-  ['저축', '저축·투자', '🐷'],
+  ['저축', '저축·투자', '🐷', { excluded: true }],
 ]
 
 export const DEFAULT_CATEGORIES: Category[] = DEFAULTS.map(([kind, name, icon, options = {}], index) => ({

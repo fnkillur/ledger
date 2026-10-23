@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
+import AddMenu from '../components/AddMenu'
 import EmptyState from '../components/EmptyState'
 import PeriodHeader from '../components/PeriodHeader'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
 import { useCategories, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
-import { expenseByScope, monthlyTotals, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
+import { expenseByScope, expenseRatio, monthlyTotals, ratioLevel, ratioMessage, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
 import type { Transaction } from '../domain/types'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, toDateKey } from '../utils/format'
@@ -50,47 +51,41 @@ function ListPage() {
         )}
 
         <section className="summary-card" aria-label="요약">
+          <ExpenseRatio totals={totals} />
           <SummaryItem label="지출" amount={totals.지출} tone="지출" />
           <SummaryItem label="수입" amount={totals.수입} tone="수입" />
-          <SummaryItem label="저축" amount={totals.저축} tone="저축" />
-          <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출 - totals.저축} tone="남은" />
+          <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출} tone="남은" />
           {totals.지출 > 0 && (
             <div className="summary-split">
               <span className="summary-label">지출 나눠보기</span>
-              <ScopeSplit items={byScope} />
+              <ScopeSplit items={byScope} showLabels />
             </div>
           )}
         </section>
-
-        <Link to="/monthly" className="monthly-link">
-          <span aria-hidden="true">📷</span> 월 합계 입력
-          <span className="monthly-link-sub">토스 캡처로 카테고리별 금액 채우기</span>
-        </Link>
 
         {transactions?.length === 0 && <EmptyState sticker="peek">이 기간의 내역이 없어요.</EmptyState>}
 
         {periodType === '연도별' ? (
           <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
         ) : (
-          <DayGroups transactions={periodTransactions} />
+          <DayGroups transactions={periodTransactions} excludedCategories={excludedCategories} />
         )}
       </main>
 
-      <Link to="/tx/new" className="fab" aria-label="내역 추가">
-        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-        </svg>
-      </Link>
+      <AddMenu />
     </div>
   )
 }
 
-function DayGroups({ transactions }: { transactions: Transaction[] }) {
+function DayGroups({ transactions, excludedCategories }: { transactions: Transaction[]; excludedCategories: Set<string> }) {
   const dayGroups = useMemo(() => groupByDay(transactions), [transactions])
 
   return dayGroups.map(group => (
     <section key={group.dateKey} className="day-group">
-      <h2 className="day-title">{formatDayLabel(group.transactions[0].occurredAt)}</h2>
+      <h2 className="day-title">
+        {formatDayLabel(group.transactions[0].occurredAt)}
+        <DayTotal totals={sumByKind(group.transactions, excludedCategories)} />
+      </h2>
       <ul className="tx-list">
         {group.transactions.map(transaction => (
           <TransactionRow key={transaction.id} transaction={transaction} />
@@ -135,14 +130,54 @@ function MonthRowAmounts({ totals }: { totals: KindTotals }) {
   return (
     <div className="month-row-amounts">
       <span>
-        지출 <strong>{formatWon(totals.지출)}</strong>
+        지출 <strong className="amount-지출">{formatWon(totals.지출)}</strong>
       </span>
       <span>
         수입 <strong className="amount-수입">{formatWon(totals.수입)}</strong>
       </span>
       <span>
-        저축 <strong>{formatWon(totals.저축)}</strong>
+        지출률 <strong>{formatRatio(expenseRatio(totals))}</strong>
       </span>
+    </div>
+  )
+}
+
+function DayTotal({ totals }: { totals: KindTotals }) {
+  return (
+    <span className="day-total">
+      {totals.수입 > 0 && <span className="amount-수입">+{formatWon(totals.수입)}</span>}
+      {totals.지출 > 0 && <span>{formatWon(totals.지출)}</span>}
+    </span>
+  )
+}
+
+const formatRatio = (ratio: number | null) => (ratio === null ? '–' : `${ratio}%`)
+
+function ExpenseRatio({ totals }: { totals: KindTotals }) {
+  const ratio = expenseRatio(totals)
+
+  if (ratio === null) {
+    return (
+      <div className="ratio-hero">
+        <span className="summary-label">수입 대비 지출</span>
+        <strong className="ratio-value">–</strong>
+        <span className="ratio-message">수입이 들어오면 지출 비율을 보여드려요</span>
+      </div>
+    )
+  }
+
+  const level = ratioLevel(ratio)
+  return (
+    <div className="ratio-hero" data-level={level}>
+      <div className="ratio-head">
+        <span className="summary-label">수입 대비 지출</span>
+        <span className="ratio-chip">{level}</span>
+      </div>
+      <strong className="ratio-value">{ratio}%</strong>
+      <div className="meter ratio-meter" aria-hidden="true">
+        <div className="meter-fill" style={{ width: `${Math.min(100, ratio)}%` }} />
+      </div>
+      <span className="ratio-message">{ratioMessage(level)}</span>
     </div>
   )
 }
@@ -150,7 +185,7 @@ function MonthRowAmounts({ totals }: { totals: KindTotals }) {
 type SummaryItemProps = {
   label: string
   amount: number
-  tone: '지출' | '수입' | '저축' | '남은'
+  tone: '지출' | '수입' | '남은'
 }
 
 function SummaryItem({ label, amount, tone }: SummaryItemProps) {

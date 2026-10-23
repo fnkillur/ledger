@@ -1,3 +1,4 @@
+import { ChartBarIcon, GearSixIcon, ListBulletsIcon, TrayIcon, type Icon } from '@phosphor-icons/react'
 import { NavLink, Outlet } from 'react-router'
 import { usePendingCaptures, useUncategorized } from '../db/hooks'
 import { IS_WEB_BUILD } from '../platform'
@@ -12,12 +13,12 @@ function TabLayout() {
     <>
       <Outlet />
       <nav className="tab-bar" aria-label="주요 메뉴">
-        <TabLink to="/" label="내역" icon="M4 6h16M4 12h16M4 18h10" end />
-        <TabLink to="/stats" label="통계" icon="M5 20V11M12 20V5M19 20v-7" />
+        <TabLink to="/" label="내역" icon={ListBulletsIcon} end />
+        <TabLink to="/stats" label="통계" icon={ChartBarIcon} />
         {!IS_WEB_BUILD && (
-          <TabLink to="/inbox" label="수집함" icon="M4 13l3-8h10l3 8v6H4zM4 13h5l1 2h4l1-2h5" badge={inboxCount} />
+          <TabLink to="/inbox" label="수집함" icon={TrayIcon} badge={inboxCount} />
         )}
-        <TabLink to="/settings" label="설정" icon="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4" />
+        <TabLink to="/settings" label="설정" icon={GearSixIcon} />
       </nav>
     </>
   )
@@ -26,21 +27,23 @@ function TabLayout() {
 type TabLinkProps = {
   to: string
   label: string
-  icon: string
+  icon: Icon
   badge?: number
   end?: boolean
 }
 
-function TabLink({ to, label, icon, badge = 0, end }: TabLinkProps) {
+function TabLink({ to, label, icon: TabIcon, badge = 0, end }: TabLinkProps) {
   return (
     <NavLink to={to} end={end} className="tab-link">
-      <span className="tab-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-          <path d={icon} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {badge > 0 && <span className="tab-badge">{badge > 99 ? '99+' : badge}</span>}
-      </span>
-      <span>{label}</span>
+      {({ isActive }) => (
+        <>
+          <span className="tab-icon">
+            <TabIcon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />
+            {badge > 0 && <span className="tab-badge">{badge > 99 ? '99+' : badge}</span>}
+          </span>
+          <span>{label}</span>
+        </>
+      )}
     </NavLink>
   )
 }

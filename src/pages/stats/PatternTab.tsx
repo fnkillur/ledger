@@ -3,11 +3,11 @@ import CategoryIcon from '../../components/CategoryIcon'
 import EmptyState from '../../components/EmptyState'
 import Sticker from '../../components/Sticker'
 import PersonAvatar from '../../components/PersonAvatar'
-import { useCategoryIcons } from '../../db/hooks'
+import { useCategoryIcons, usePersonName } from '../../db/hooks'
 import { TIME_SLOTS, WEEKDAYS, type CalendarDay, type MerchantStat } from '../../domain/insights'
 import { myShare } from '../../domain/stats'
 import type { Transaction } from '../../domain/types'
-import { formatDayLabel, formatWon } from '../../utils/format'
+import { formatShortDay, formatWon } from '../../utils/format'
 import { formatCompactWon } from './shared'
 
 type PatternTabProps = {
@@ -32,8 +32,6 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
 
   return (
     <>
-      {calendar && <NoSpendCalendar {...calendar} />}
-
       <section className="card">
         <h2 className="card-title">큰 지출 TOP {biggest.length}</h2>
         <TopExpenseList transactions={biggest} />
@@ -43,6 +41,8 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
         <h2 className="card-title">자주 가는 곳</h2>
         {merchants.length === 0 ? <p className="empty-inline">가맹점 이름이 있는 내역이 없어요.</p> : <MerchantList merchants={merchants} />}
       </section>
+
+      {calendar && <NoSpendCalendar {...calendar} />}
 
       <section className="card">
         <h2 className="card-title">요일·시간대별 지출</h2>
@@ -54,6 +54,7 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
 
 function TopExpenseList({ transactions }: { transactions: Transaction[] }) {
   const icons = useCategoryIcons()
+  const personName = usePersonName()
 
   return (
     <ol className="top-list">
@@ -61,14 +62,22 @@ function TopExpenseList({ transactions }: { transactions: Transaction[] }) {
         <li key={transaction.id}>
           <Link to={`/tx/${transaction.id}`} className="top-row">
             <span className="bar-rank">{index + 1}</span>
-            <CategoryIcon icon={icons.get(transaction.category)} size={16} />
+            <CategoryIcon name={transaction.category} emoji={icons.get(transaction.category)} size={16} />
             <span className="top-row-main">
               <strong>{transaction.merchant || transaction.category}</strong>
-              <span>
-                <PersonAvatar person={transaction.person} size={12} /> {transaction.category} · {formatDayLabel(transaction.occurredAt)}
+              <span className="tx-row-meta">
+                <span className="tx-row-person">
+                  <PersonAvatar person={transaction.person} size={16} />
+                  {personName(transaction.person)}
+                </span>
+                <span className="tx-row-category">{transaction.category}</span>
+                {transaction.shareCount > 1 && <span className="tx-badge">{transaction.shareCount}명 나눔</span>}
               </span>
             </span>
-            <span className="top-row-amount">{formatWon(myShare(transaction))}</span>
+            <span className="top-row-amount">
+              {formatWon(myShare(transaction))}
+              <span className="tx-row-time">{formatShortDay(transaction.occurredAt)}</span>
+            </span>
           </Link>
         </li>
       ))}
@@ -84,11 +93,12 @@ function MerchantList({ merchants }: { merchants: MerchantStat[] }) {
           <span className="bar-rank">{index + 1}</span>
           <span className="top-row-main">
             <strong>{merchant.merchant}</strong>
-            <span>평균 {formatWon(Math.round(merchant.amount / merchant.count))}</span>
+            <span className="tx-row-meta">
+              <span className="tx-badge">{merchant.count}번 방문</span>
+              {merchant.count > 1 && `평균 ${formatWon(Math.round(merchant.amount / merchant.count))}`}
+            </span>
           </span>
-          <span className="top-row-amount">
-            {merchant.count}번 · {formatCompactWon(merchant.amount)}
-          </span>
+          <span className="top-row-amount">{formatWon(merchant.amount)}</span>
         </li>
       ))}
     </ol>

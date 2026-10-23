@@ -1,4 +1,5 @@
 export type Person = '쿠리만쥬' | '우사기'
+// 저축은 더 이상 입력·통계에 쓰지 않지만, 과거 기록에 남아 있어서 타입은 유지한다.
 export type Kind = '지출' | '수입' | '저축'
 export type Source = '수동' | '알림' | '붙여넣기' | '이관' | '월합계'
 
@@ -8,7 +9,7 @@ export const isAggregate = (source: Source) => source === '이관' || source ===
 export type Scope = '공동' | '개인'
 
 export const PEOPLE: Person[] = ['쿠리만쥬', '우사기']
-export const KINDS: Kind[] = ['지출', '수입', '저축']
+export const KINDS: Kind[] = ['지출', '수입']
 export const SCOPES: Scope[] = ['공동', '개인']
 
 export type Transaction = {
@@ -42,6 +43,7 @@ export type Category = {
 export type SharedSettings = {
   월예산: number
   월저축목표: number
+  닉네임?: Partial<Record<Person, string>>
 }
 
 export type Rule = {

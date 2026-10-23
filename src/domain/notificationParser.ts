@@ -20,7 +20,7 @@ export type ParsedPayment = {
 const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원/g
 const NON_PAYMENT_AMOUNT_PREFIX = /(잔액|누적|한도|잔고|포인트|할인|적립|캐시백)[^\d]{0,6}$/
 
-const findAmount = (text: string) => {
+export const findAmount = (text: string) => {
   for (const match of text.matchAll(AMOUNT_PATTERN)) {
     const prefix = text.slice(Math.max(0, match.index - 12), match.index)
     if (NON_PAYMENT_AMOUNT_PREFIX.test(prefix)) continue
@@ -32,7 +32,7 @@ const findAmount = (text: string) => {
 
 const PROMOTION_PATTERN = /쿠폰|이벤트|광고|혜택|할인받|당첨|\(광고\)/
 
-const detectKind = (text: string): Kind | null => {
+export const detectKind = (text: string): Kind | null => {
   if (PROMOTION_PATTERN.test(text)) return null
   if (/입금|받았|들어왔|환급/.test(text)) return '수입'
   if (/출금|결제|승인|사용|이체|보냈|납부/.test(text)) return '지출'

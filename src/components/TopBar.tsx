@@ -1,3 +1,4 @@
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -22,9 +23,7 @@ function TopBar({ title, showBack = false, actions }: TopBarProps) {
     <header className="top-bar">
       {showBack && (
         <button type="button" className="icon-button" onClick={handleBack} aria-label="뒤로">
-          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <CaretLeftIcon size={24} weight="bold" aria-hidden="true" />
         </button>
       )}
       <h1 className="top-bar-title">{title}</h1>

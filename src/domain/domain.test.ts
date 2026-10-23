@@ -162,6 +162,52 @@ describe('stats', () => {
   })
 })
 
+describe('topMerchants', () => {
+  it('결제 취소는 방문으로 세지 않고 금액에서만 빼며, 전부 취소된 곳은 뺀다', async () => {
+    const { topMerchants } = await import('./insights')
+    const result = topMerchants(
+      [
+        transaction({ merchant: '무신사', amount: 89000 }),
+        transaction({ merchant: '무신사', amount: -89000 }),
+        transaction({ merchant: '쿠팡', amount: 30000 }),
+        transaction({ merchant: '쿠팡', amount: 20000 }),
+        transaction({ merchant: '쿠팡', amount: -5000 }),
+      ],
+      new Set(),
+      5,
+    )
+
+    expect(result).toEqual([{ merchant: '쿠팡', count: 2, amount: 45000 }])
+  })
+})
+
+describe('frequentEntries', () => {
+  it('두 번 이상 쓴 가맹점을 자주 쓴 순으로, 가장 최근 금액·카테고리로 묶는다', async () => {
+    const { frequentEntries } = await import('./insights')
+    const result = frequentEntries(
+      [
+        transaction({ merchant: '스타벅스', amount: 6500, category: '카페·간식', occurredAt: '2026-10-22T01:00:00.000Z' }),
+        transaction({ merchant: '스타벅스', amount: 5000, category: '카페·간식', occurredAt: '2026-10-20T01:00:00.000Z' }),
+        transaction({ merchant: '스타벅스', amount: 7000, category: '카페·간식', occurredAt: '2026-10-18T01:00:00.000Z' }),
+        transaction({ merchant: 'GS25', amount: 3000, category: '편의점·마트·잡화', occurredAt: '2026-10-21T01:00:00.000Z' }),
+        transaction({ merchant: 'GS25', amount: 4200, category: '편의점·마트·잡화', occurredAt: '2026-10-19T01:00:00.000Z' }),
+        transaction({ merchant: '한 번 간 곳', amount: 9000, category: '식비' }),
+        transaction({ merchant: '무신사', amount: -89000, category: '쇼핑' }),
+        transaction({ merchant: '무신사', amount: -1000, category: '쇼핑' }),
+        transaction({ merchant: '월 합계', amount: 100000, source: '월합계' }),
+        transaction({ merchant: '월 합계', amount: 100000, source: '월합계' }),
+      ],
+      '지출',
+      5,
+    )
+
+    expect(result).toEqual([
+      { merchant: '스타벅스', amount: 6500, category: '카페·간식', scope: '공동' },
+      { merchant: 'GS25', amount: 3000, category: '편의점·마트·잡화', scope: '공동' },
+    ])
+  })
+})
+
 describe('topExpenses · toSlices', () => {
   it('이관된 월 합계와 제외 항목을 빼고 내 몫 기준으로 큰 지출을 고른다', () => {
     const result = topExpenses(
@@ -214,5 +260,18 @@ describe('공동·개인', () => {
       { filter: '쿠리만쥬', amount: 20000 },
       { filter: '우사기', amount: 30000 },
     ])
+  })
+})
+
+describe('expenseRatio', () => {
+  it('수입 대비 지출을 퍼센트로 반올림하고, 수입이 없으면 null', async () => {
+    const { expenseRatio } = await import('./stats')
+    expect(expenseRatio({ 지출: 2780954, 수입: 5544640 })).toBe(50)
+    expect(expenseRatio({ 지출: 1000, 수입: 0 })).toBeNull()
+  })
+
+  it('지출률 70%까지 여유, 100%까지 빠듯, 넘으면 초과', async () => {
+    const { ratioLevel } = await import('./stats')
+    expect([70, 71, 100, 101].map(ratioLevel)).toEqual(['여유', '빠듯', '빠듯', '초과'])
   })
 })

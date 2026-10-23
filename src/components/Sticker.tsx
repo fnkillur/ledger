@@ -30,7 +30,7 @@ const FALLBACK: Partial<Record<StickerName, StickerName>> = {
   proud: 'thinking',
   thinking: 'proud',
   victory: 'default',
-  excited: 'dance',
+  excited: 'celebrate',
   done: 'dance',
   celebrate: 'dance',
   puzzled: 'cry',

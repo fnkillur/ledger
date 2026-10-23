@@ -61,7 +61,7 @@ const DEFAULT_CATEGORIES = [
   ['수입', 'K패스환급', '🚇'],
   ['수입', '인터넷환급', '🌐'],
   ['수입', '정산', '🔁', { excluded: true }],
-  ['저축', '저축·투자', '🐷'],
+  ['저축', '저축·투자', '🐷', { excluded: true }],
 ]
 
 const DEFAULT_SETTINGS = [
@@ -107,14 +107,18 @@ function setup() {
   Logger.log('앱 설정에 입력할 토큰: %s', properties.getProperty('TOKEN'))
 }
 
-function migrateFromYearTabs() {
+// 연도 탭(2025, 2026 …)의 월 합계를 거래내역으로 옮긴다.
+// resync가 true면 이미 옮긴 행도 연도 탭 값에 맞춰 금액을 고치고, 비워진 칸은 삭제 처리한다.
+function migrateFromYearTabs(resync = false) {
   const book = SpreadsheetApp.getActive()
   const sheet = book.getSheetByName(SHEETS.transactions)
   if (!sheet) throw new Error('먼저 setup을 실행하세요.')
-  const existingIds = new Set(readObjects_(sheet).map(row => row.id))
+  const existing = new Map(readObjects_(sheet).filter(row => String(row.id).startsWith('legacy-')).map(row => [String(row.id), fromRow_(row)]))
   const kindByCategory = readCategoryKinds_(book)
   const now = new Date().toISOString()
-  const rows = []
+  const added = []
+  const changed = []
+  const seenIds = new Set()
 
   book.getSheets().forEach(yearSheet => {
     const year = Number(yearSheet.getName())
@@ -133,14 +137,19 @@ function migrateFromYearTabs() {
         const amount = Math.round(Number(row[column]))
         if (!match || !amount) return
         const month = Number(match[1])
-        const person = match[2] === 'A' ? '쿠리만쥬' : '우사기'
         const id = `legacy-${year}-${month}-${match[2]}-${category}`
-        if (existingIds.has(id)) return
-        const occurredAt = new Date(year, month - 1, 1, 12).toISOString()
-        rows.push(toRow_({
+        seenIds.add(id)
+        const current = existing.get(id)
+        if (current) {
+          if (resync && (current.amount !== amount || current.deleted)) {
+            changed.push({ ...current, amount, deleted: false, updatedAt: now, memo: `${current.memo} · ${current.amount}→${amount}` })
+          }
+          return
+        }
+        added.push({
           id,
-          occurredAt,
-          person,
+          occurredAt: new Date(year, month - 1, 1, 12).toISOString(),
+          person: match[2] === 'A' ? '쿠리만쥬' : '우사기',
           kind,
           amount,
           shareCount: 1,
@@ -153,14 +162,21 @@ function migrateFromYearTabs() {
           deleted: false,
           updatedAt: now,
           scope: '공동',
-        }, now))
+        })
       })
     })
   })
 
-  if (rows.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, TRANSACTION_COLUMNS.length).setValues(rows)
-  Logger.log('이관한 행: %s', rows.length)
-  return rows.length
+  if (resync) {
+    existing.forEach((current, id) => {
+      if (!seenIds.has(id) && !current.deleted) changed.push({ ...current, deleted: true, updatedAt: now })
+    })
+  }
+
+  upsert_(sheet, 'id', [...added, ...changed].map(item => toRow_(item, now)))
+  const result = { added: added.length, changed: changed.map(item => ({ id: item.id, amount: item.amount, deleted: item.deleted })) }
+  Logger.log('이관 결과: %s', JSON.stringify(result))
+  return result
 }
 
 function doGet(e) {
@@ -178,7 +194,7 @@ function doPost(e) {
     if (body.action === 'push') return push_(body)
     if (body.action === 'setup') {
       setup()
-      return { migrated: body.migrate === true ? migrateFromYearTabs() : 0 }
+      return { migrated: body.migrate ? migrateFromYearTabs(body.migrate === 'resync') : null }
     }
     throw new Error('알 수 없는 요청이에요.')
   })
@@ -230,8 +246,15 @@ function pull_(since) {
       icon: String(row['아이콘'] || ''),
       personal: row['개인지출'] === true,
     })),
-    settings: Object.fromEntries(readObjects_(book.getSheetByName(SHEETS.settings)).map(row => [String(row['키']), Number(row['값']) || 0])),
+    settings: Object.fromEntries(readObjects_(book.getSheetByName(SHEETS.settings)).map(row => [String(row['키']), toSettingValue_(row['값'])])),
   }
+}
+
+// 예산 같은 숫자 설정과 닉네임 같은 글자 설정을 함께 저장한다.
+function toSettingValue_(value) {
+  if (typeof value === 'number') return value
+  const text = String(value ?? '')
+  return text.trim() !== '' && !isNaN(Number(text)) ? Number(text) : text
 }
 
 function push_(body) {
@@ -250,7 +273,7 @@ function push_(body) {
     upsert_(
       book.getSheetByName(SHEETS.settings),
       '키',
-      Object.entries(body.settings || {}).map(([key, value]) => [key, Number(value) || 0, now]),
+      Object.entries(body.settings || {}).map(([key, value]) => [key, toSettingValue_(value), now]),
     )
     return { serverTime: now }
   } finally {

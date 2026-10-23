@@ -1,4 +1,4 @@
-import type { Category, Rule, SharedSettings, Transaction } from '../domain/types'
+import type { Category, Rule, Transaction } from '../domain/types'
 import type { Settings } from './settings'
 
 type PullResponse = {
@@ -6,7 +6,7 @@ type PullResponse = {
   transactions: Transaction[]
   rules: Rule[]
   categories: Category[]
-  settings?: Partial<SharedSettings>
+  settings?: Record<string, number | string>
 }
 
 type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string }
@@ -29,7 +29,7 @@ export const pull = async (settings: Settings, since: string) => {
 // Apps Script는 CORS 사전 요청(OPTIONS)을 처리하지 못해서 text/plain으로 보낸다.
 export const push = async (
   settings: Settings,
-  payload: { transactions: Transaction[]; rules: Rule[]; settings?: SharedSettings },
+  payload: { transactions: Transaction[]; rules: Rule[]; settings?: Record<string, number | string> },
 ) =>
   unwrap<{ serverTime: string }>(
     await fetch(settings.endpoint, {

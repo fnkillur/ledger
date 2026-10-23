@@ -1,64 +1,60 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import Sticker from '../../components/Sticker'
+import Sticker, { type StickerName } from '../../components/Sticker'
 import ScopeSplit from '../../components/ScopeSplit'
-import { budgetPace, elapsedMonthsOfYear } from '../../domain/insights'
-import { formatPreviousPeriod, type Period } from '../../domain/period'
-import type { expenseByScope, KindTotals } from '../../domain/stats'
-import type { Kind, SharedSettings } from '../../domain/types'
-import { formatShortMonth, formatWon } from '../../utils/format'
-import { formatCompactWon, percent, TOOLTIP_STYLE } from './shared'
+import { budgetPace } from '../../domain/insights'
+import type { Period } from '../../domain/period'
+import { expenseRatio, ratioLevel, ratioMessage, type expenseByScope, type KindTotals, type RatioLevel } from '../../domain/stats'
+import type { Kind } from '../../domain/types'
+import { formatMonthLabel, formatWon } from '../../utils/format'
+import { formatAxisWon, niceTicks, TOOLTIP_STYLE } from './shared'
 
 const SERIES: { kind: Kind; color: string }[] = [
   { kind: '수입', color: 'var(--series-income)' },
   { kind: '지출', color: 'var(--series-expense)' },
-  { kind: '저축', color: 'var(--series-saving)' },
 ]
 
 export type TrendRow = { monthKey: string } & (KindTotals | Record<Kind, null>)
 
 type SummaryTabProps = {
   period: Period
+  previousLabel: string | null
   totals: KindTotals
-  previousTotals: KindTotals
+  previousTotals: KindTotals | null
   byScope: ReturnType<typeof expenseByScope>
   trend: TrendRow[]
-  shared: SharedSettings
 }
 
-const goalMultiplier = (period: Period, today: Date) =>
-  period.type === '월별' ? 1 : elapsedMonthsOfYear(Number(period.monthKey.slice(0, 4)), today)
-
-function SummaryTab({ period, totals, previousTotals, byScope, trend, shared }: SummaryTabProps) {
+function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, trend }: SummaryTabProps) {
   const [today] = useState(() => new Date())
 
-  const multiplier = goalMultiplier(period, today)
-  const expenseDelta = totals.지출 - previousTotals.지출
-  const savingRate = totals.수입 > 0 ? Math.round((totals.저축 / totals.수입) * 100) : null
+  const pace = period.type === '월별' ? budgetPace(totals.지출, period.monthKey, today) : null
+  const ratio = expenseRatio(totals)
+  const previousRatio = previousTotals && expenseRatio(previousTotals)
 
   return (
     <>
       <section className="stat-tiles" aria-label="요약">
         <div className="stat-tile">
           <span className="stat-label">지출</span>
-          <strong className="stat-value">{formatWon(totals.지출)}</strong>
-          <span className="stat-delta">
-            {formatPreviousPeriod(period)} 대비 {expenseDelta >= 0 ? '+' : '−'}
-            {formatWon(Math.abs(expenseDelta))}
-          </span>
+          <strong className="stat-value is-expense">{formatWon(totals.지출)}</strong>
+          {previousTotals && previousLabel && <ExpenseDelta label={previousLabel} delta={totals.지출 - previousTotals.지출} />}
+          {pace?.isCurrent && pace.projected > totals.지출 && <span className="stat-delta">이 속도면 월말 약 {formatWon(roundToThousand(pace.projected))}</span>}
           <ScopeSplit items={byScope} />
         </div>
-        <div className="stat-tile">
-          <span className="stat-label">저축률</span>
-          <strong className="stat-value">{savingRate === null ? '–' : `${savingRate}%`}</strong>
-          <span className="stat-delta">저축 {formatWon(totals.저축)}</span>
+        <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio)}>
+          <span className="stat-label">수입 대비 지출</span>
+          <strong className="stat-value ratio-tile-value">{ratio === null ? '–' : `${ratio}%`}</strong>
+          <span className="stat-delta">
+            {ratio !== null && previousRatio !== null
+              ? `${previousLabel} 대비 ${ratio - previousRatio >= 0 ? '+' : '−'}${Math.abs(ratio - previousRatio)}%p`
+              : `수입 ${formatWon(totals.수입)}`}
+          </span>
+          <span className="stat-delta">남은 돈 {formatWon(totals.수입 - totals.지출)}</span>
+          <RatioMood ratio={ratio} previousRatio={previousRatio} />
         </div>
       </section>
 
-      {shared.월예산 > 0 && <BudgetCard period={period} spent={totals.지출} budget={shared.월예산 * multiplier} today={today} />}
-      {shared.월저축목표 > 0 && <SavingGoalCard saved={totals.저축} goal={shared.월저축목표 * multiplier} isYear={period.type === '연도별'} />}
-      <GoalPrompt hasBudget={shared.월예산 > 0} hasSavingGoal={shared.월저축목표 > 0} />
 
       <section className="card">
         <h2 className="card-title">{period.type === '연도별' ? `${period.monthKey.slice(0, 4)}년 월별 추이` : '최근 12개월'}</h2>
@@ -69,121 +65,72 @@ function SummaryTab({ period, totals, previousTotals, byScope, trend, shared }: 
   )
 }
 
-type BudgetCardProps = { period: Period; spent: number; budget: number; today: Date }
+// 라벨 12개가 좁은 화면에도 모두 들어가도록 월 숫자만 쓴다. 연도는 툴팁에서 보여준다.
+const formatMonthTick = (monthKey: string) => String(Number(monthKey.slice(5, 7)))
 
-function BudgetCard({ period, spent, budget, today }: BudgetCardProps) {
-  const pace = period.type === '월별' ? budgetPace(spent, period.monthKey, today) : null
-  const ratio = percent(spent, budget)
-  const tone = getBudgetTone(pace?.projected ?? spent, budget)
+const roundToThousand = (amount: number) => Math.round(amount / 1000) * 1000
 
+function ExpenseDelta({ label, delta }: { label: string; delta: number }) {
   return (
-    <section className="card">
-      <h2 className="card-title">
-        예산
-        <Sticker name={getBudgetSticker(tone)} size={52} className="card-sticker" />
-      </h2>
-      <Meter ratio={ratio} tone={tone} />
-      <p className="meter-caption">
-        <strong>{formatWon(spent)}</strong> / {formatWon(budget)} ({ratio}%) · {spent <= budget ? `${formatWon(budget - spent)} 남음` : `${formatWon(spent - budget)} 초과`}
-      </p>
-      {pace?.isCurrent && (
-        <p className="meter-note">
-          {getStatusIcon(tone)} 지금 속도면 월말에 <strong>{formatWon(pace.projected)}</strong> 쓸 것 같아요 ({pace.elapsedDays}/{pace.totalDays}일,
-          하루 평균 {formatWon(Math.round(spent / pace.elapsedDays))})
-        </p>
-      )}
-    </section>
+    <span className="stat-delta">
+      {label} 대비 {delta >= 0 ? '+' : '−'}
+      {formatWon(Math.abs(delta))}
+    </span>
   )
 }
 
-const getBudgetTone = (expected: number, budget: number) => {
-  if (expected > budget) return 'critical'
-  if (expected > budget * 0.9) return 'warning'
-  return 'good'
+// 번 것보다 많이 쓴 달은 울고, 지난 기간보다 지출률이 줄면 축하한다.
+const moodSticker = (level: RatioLevel, isImproved: boolean): StickerName => {
+  if (level === '초과') return 'cry'
+  if (isImproved) return 'celebrate'
+  if (level === '여유') return 'proud'
+  return 'thinking'
 }
 
-const getBudgetSticker = (tone: 'good' | 'warning' | 'critical') => {
-  if (tone === 'critical') return 'cry'
-  if (tone === 'warning') return 'puzzled'
-  return 'victory'
-}
+function RatioMood({ ratio, previousRatio }: { ratio: number | null; previousRatio: number | null }) {
+  if (ratio === null) return null
 
-const getStatusIcon = (tone: 'good' | 'warning' | 'critical') => {
-  if (tone === 'critical') return '🚨'
-  if (tone === 'warning') return '⚠️'
-  return '✅'
-}
-
-type SavingGoalCardProps = { saved: number; goal: number; isYear: boolean }
-
-function SavingGoalCard({ saved, goal, isYear }: SavingGoalCardProps) {
-  const ratio = percent(saved, goal)
+  const level = ratioLevel(ratio)
+  const isImproved = previousRatio !== null && ratio < previousRatio
   return (
-    <section className="card">
-      <h2 className="card-title">
-        저축 목표{isYear ? ' (올해 누적)' : ''}
-        {ratio >= 100 && <Sticker name="celebrate" size={52} className="card-sticker" />}
-      </h2>
-      <Meter ratio={ratio} tone={ratio >= 100 ? 'good' : 'accent'} />
-      <p className="meter-caption">
-        <strong>{formatWon(saved)}</strong> / {formatWon(goal)} ({ratio}%){ratio >= 100 ? ' · 🎉 달성!' : ` · ${formatWon(goal - saved)} 남음`}
-      </p>
-    </section>
-  )
-}
-
-function Meter({ ratio, tone }: { ratio: number; tone: 'good' | 'warning' | 'critical' | 'accent' }) {
-  return (
-    <div className={`meter meter-${tone}`} role="meter" aria-valuenow={ratio} aria-valuemin={0} aria-valuemax={100}>
-      <div className="meter-fill" style={{ width: `${Math.min(100, ratio)}%` }} />
+    <div className="tile-mood">
+      <Sticker name={moodSticker(level, isImproved)} size={56} />
+      <span>{isImproved && level !== '초과' ? '지난번보다 덜 썼어요' : ratioMessage(level)}</span>
     </div>
   )
 }
 
-const getGoalPromptText = (hasBudget: boolean, hasSavingGoal: boolean) => {
-  if (!hasBudget && !hasSavingGoal) return { title: '예산과 저축 목표 정하기', description: '남은 예산, 월말 예상 지출, 저축 달성률을 보여드려요' }
-  if (!hasBudget) return { title: '월 예산 정하기', description: '남은 예산과 월말 예상 지출을 보여드려요' }
-  return { title: '저축 목표 정하기', description: '목표 대비 저축 달성률을 보여드려요' }
-}
-
-function GoalPrompt({ hasBudget, hasSavingGoal }: { hasBudget: boolean; hasSavingGoal: boolean }) {
-  if (hasBudget && hasSavingGoal) return null
-
-  const { title, description } = getGoalPromptText(hasBudget, hasSavingGoal)
-  return (
-    <Link to="/settings" className="card prompt-card">
-      <span className="prompt-icon" aria-hidden="true">
-        🎯
-      </span>
-      <span className="prompt-text">
-        <strong>{title}</strong>
-        <span>{description}</span>
-      </span>
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </Link>
-  )
-}
+const maxValue = (data: TrendRow[]) => Math.max(0, ...data.flatMap(row => [row.수입 ?? 0, row.지출 ?? 0]))
 
 function TrendChart({ data }: { data: TrendRow[] }) {
+  const ticks = niceTicks(maxValue(data))
+
   return (
     <div className="trend-chart">
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 4 }}>
           <CartesianGrid vertical={false} stroke="var(--color-grid)" />
           <XAxis
             dataKey="monthKey"
-            tickFormatter={formatShortMonth}
+            tickFormatter={formatMonthTick}
             tick={{ fill: 'var(--color-text-sub)', fontSize: 12 }}
             axisLine={{ stroke: 'var(--color-grid)' }}
             tickLine={false}
-            interval="preserveStartEnd"
+            interval={0}
+            padding={{ left: 12, right: 12 }}
           />
-          <YAxis tickFormatter={formatCompactWon} tick={{ fill: 'var(--color-text-sub)', fontSize: 12 }} axisLine={false} tickLine={false} width={48} />
+          <YAxis
+            ticks={ticks}
+            domain={[0, ticks.at(-1) ?? 0]}
+            tickFormatter={formatAxisWon}
+            tick={{ fill: 'var(--color-text-sub)', fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={56}
+          />
           <Tooltip
             formatter={value => formatWon(Number(value))}
-            labelFormatter={label => formatShortMonth(String(label))}
+            labelFormatter={label => formatMonthLabel(String(label))}
             cursor={{ stroke: 'var(--color-grid)' }}
             {...TOOLTIP_STYLE}
           />
@@ -205,6 +152,8 @@ function TrendChart({ data }: { data: TrendRow[] }) {
   )
 }
 
+const formatRatio = (ratio: number | null) => (ratio === null ? '–' : `${ratio}%`)
+
 function TrendTable({ data }: { data: TrendRow[] }) {
   return (
     <details className="table-view">
@@ -218,6 +167,7 @@ function TrendTable({ data }: { data: TrendRow[] }) {
                 {series.kind}
               </th>
             ))}
+            <th scope="col">지출률</th>
           </tr>
         </thead>
         <tbody>
@@ -227,6 +177,7 @@ function TrendTable({ data }: { data: TrendRow[] }) {
               {SERIES.map(series => (
                 <td key={series.kind}>{row[series.kind]?.toLocaleString('ko-KR') ?? '–'}</td>
               ))}
+              <td>{formatRatio(row.수입 === null ? null : expenseRatio({ 지출: row.지출 ?? 0, 수입: row.수입 }))}</td>
             </tr>
           ))}
         </tbody>

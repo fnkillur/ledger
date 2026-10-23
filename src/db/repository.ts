@@ -1,4 +1,6 @@
-import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
+import { recordStreak } from '../domain/celebration'
+import { isAggregate, type Category, type Person, type Rule, type SharedSettings, type Transaction } from '../domain/types'
+import { toDateKey } from '../utils/format'
 import { db } from './database'
 
 export type TransactionInput = Omit<Transaction, 'id' | 'updatedAt' | 'deleted'>
@@ -92,4 +94,20 @@ export const saveMonthlyTotals = async (monthKey: string, person: Person, amount
       await db.outbox.put({ id: transaction.id, type: 'transaction' })
     }
   })
+}
+
+const STREAK_LOOKBACK_DAYS = 90
+
+// 축하 화면에서 쓰는 "연속 기록·오늘 몇 번째"는 그 사람이 건별로 남긴 기록만 센다.
+export const getRecordActivity = async (person: Person, today = new Date()) => {
+  const since = new Date(today.getFullYear(), today.getMonth(), today.getDate() - STREAK_LOOKBACK_DAYS).toISOString()
+  const records = (await db.transactions.where('occurredAt').above(since).toArray()).filter(
+    transaction => !transaction.deleted && !isAggregate(transaction.source) && transaction.person === person,
+  )
+  const todayKey = toDateKey(today.toISOString())
+  const recordedDays = new Set(records.map(transaction => toDateKey(transaction.occurredAt)))
+  return {
+    streak: recordStreak(recordedDays, todayKey),
+    todayCount: records.filter(transaction => toDateKey(transaction.occurredAt) === todayKey).length,
+  }
 }

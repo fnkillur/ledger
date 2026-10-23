@@ -1,6 +1,8 @@
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { EARLIEST_MONTH_KEY, type Period } from '../domain/period'
 import { currentMonthKey } from '../utils/format'
+import FieldHint from './FieldHint'
 import Segmented from './Segmented'
 
 const PERIOD_TYPES = ['월별', '연도별'] as const
@@ -36,15 +38,11 @@ function PeriodPickerSheet({ period, onSelect, onClose }: PeriodPickerSheetProps
 
         <div className="year-stepper">
           <button type="button" className="icon-button" aria-label="이전 해" disabled={year <= earliestYear} onClick={() => setYear(year - 1)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M17 4v16L5 12z" fill="currentColor" />
-            </svg>
+            <CaretLeftIcon size={16} weight="fill" aria-hidden="true" />
           </button>
           <strong>{year}년</strong>
           <button type="button" className="icon-button" aria-label="다음 해" disabled={year >= latestYear} onClick={() => setYear(year + 1)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M7 4v16l12-8z" fill="currentColor" />
-            </svg>
+            <CaretRightIcon size={16} weight="fill" aria-hidden="true" />
           </button>
         </div>
 
@@ -70,7 +68,9 @@ function PeriodPickerSheet({ period, onSelect, onClose }: PeriodPickerSheetProps
         )}
 
         {type === '월별' && period.type === '월별' && Number(period.monthKey.slice(0, 4)) !== year && (
-          <p className="field-hint">지금 보는 달: {Number(period.monthKey.slice(0, 4))}년 {selectedMonth}월</p>
+          <FieldHint>
+            지금 보는 달: {Number(period.monthKey.slice(0, 4))}년 {selectedMonth}월
+          </FieldHint>
         )}
       </div>
     </div>

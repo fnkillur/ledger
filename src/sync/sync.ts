@@ -1,5 +1,6 @@
 import { db } from '../db/database'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
+import { nicknamesFromSettings, nicknamesToSettings } from '../domain/nickname'
 import type { Rule, Transaction } from '../domain/types'
 import { pull, push } from './api'
 import { getSettings, isSyncConfigured } from './settings'
@@ -28,7 +29,7 @@ const pushOutbox = async () => {
   await push(getSettings(), {
     transactions,
     rules,
-    settings: shared && { 월예산: shared.월예산, 월저축목표: shared.월저축목표 },
+    settings: shared && { 월예산: shared.월예산, 월저축목표: shared.월저축목표, ...nicknamesToSettings(shared.닉네임 ?? {}) },
   })
 
   // 전송 중 다시 수정된 항목은 outbox에 남겨 다음 동기화에 보낸다.
@@ -61,8 +62,9 @@ const pullChanges = async () => {
     if (response.settings && !pendingIds.has('shared')) {
       await db.shared.put({
         key: 'shared',
-        월예산: response.settings.월예산 ?? 0,
-        월저축목표: response.settings.월저축목표 ?? 0,
+        월예산: Number(response.settings.월예산) || 0,
+        월저축목표: Number(response.settings.월저축목표) || 0,
+        닉네임: nicknamesFromSettings(response.settings),
         updatedAt: response.serverTime,
       })
     }

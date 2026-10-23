@@ -1,5 +1,5 @@
 import { isCounted, myShare, sumByCategory, toMonthKey } from './stats'
-import { isAggregate, type Category, type Person, type Transaction } from './types'
+import { isAggregate, UNCATEGORIZED, type Category, type Kind, type Person, type Transaction } from './types'
 
 const isDetailedExpense = (transaction: Transaction, excludedCategories: Set<string>) =>
   transaction.kind === '지출' && !isAggregate(transaction.source) && isCounted(transaction, excludedCategories)
@@ -77,9 +77,14 @@ export const topMerchants = (transactions: Transaction[], excludedCategories: Se
     const merchant = transaction.merchant.trim()
     if (!merchant || !isDetailedExpense(transaction, excludedCategories)) return
     const stat = stats.get(merchant) ?? { merchant, count: 0, amount: 0 }
-    stats.set(merchant, { ...stat, count: stat.count + 1, amount: stat.amount + myShare(transaction) })
+    // 결제 취소(음수)는 방문이 아니라 환불이라 금액에서만 뺀다.
+    const visits = transaction.amount > 0 ? 1 : 0
+    stats.set(merchant, { ...stat, count: stat.count + visits, amount: stat.amount + myShare(transaction) })
   })
-  return [...stats.values()].sort((left, right) => right.count - left.count || right.amount - left.amount).slice(0, limit)
+  return [...stats.values()]
+    .filter(stat => stat.count > 0 && stat.amount > 0)
+    .sort((left, right) => right.count - left.count || right.amount - left.amount)
+    .slice(0, limit)
 }
 
 export const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
@@ -125,4 +130,37 @@ export const noSpendCalendar = (transactions: Transaction[], monthKey: string, t
     leadingBlanks: (new Date(year, month - 1, 1).getDay() + 6) % 7,
     noSpendCount: days.filter(day => !day.isFuture && day.spent <= 0).length,
   }
+}
+
+export type FrequentEntry = Pick<Transaction, 'merchant' | 'amount' | 'category' | 'scope'>
+
+// 두 번 이상 쓴 가맹점만 골라, 가장 최근에 쓴 금액·카테고리로 바로 채울 수 있게 한다.
+export const frequentEntries = (transactions: Transaction[], kind: Kind, limit: number): FrequentEntry[] => {
+  const groups = new Map<string, { entry: FrequentEntry; count: number }>()
+  ;[...transactions]
+    .filter(
+      transaction =>
+        !transaction.deleted &&
+        !isAggregate(transaction.source) &&
+        transaction.kind === kind &&
+        transaction.amount > 0 &&
+        transaction.merchant.trim() !== '' &&
+        transaction.category !== '' &&
+        transaction.category !== UNCATEGORIZED,
+    )
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+    .forEach(transaction => {
+      const merchant = transaction.merchant.trim()
+      const group = groups.get(merchant)
+      if (group) {
+        group.count++
+        return
+      }
+      groups.set(merchant, { entry: { merchant, amount: transaction.amount, category: transaction.category, scope: transaction.scope }, count: 1 })
+    })
+  return [...groups.values()]
+    .filter(group => group.count >= 2)
+    .sort((left, right) => right.count - left.count)
+    .slice(0, limit)
+    .map(group => group.entry)
 }

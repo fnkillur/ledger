@@ -19,6 +19,11 @@ export const formatDayLabel = (iso: string) => {
   return `${date.getMonth() + 1}월 ${date.getDate()}일 ${WEEKDAYS[date.getDay()]}요일`
 }
 
+export const formatShortDay = (iso: string) => {
+  const date = new Date(iso)
+  return `${date.getMonth() + 1}/${date.getDate()} (${WEEKDAYS[date.getDay()]})`
+}
+
 export const formatTime = (iso: string) => {
   const date = new Date(iso)
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
@@ -47,4 +52,9 @@ export const shiftMonth = (monthKey: string, offset: number) => {
 export const currentMonthKey = () => {
   const date = new Date()
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`
+}
+
+export const formatShortDateTime = (iso: string) => {
+  const date = new Date(iso)
+  return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(iso)}`
 }

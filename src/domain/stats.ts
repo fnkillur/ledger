@@ -16,6 +16,25 @@ export const toMonthKey = (iso: string) => {
 
 export type KindTotals = Record<Kind, number>
 
+// 번 돈 대비 쓴 돈의 비율. 수입이 없으면 계산하지 않는다.
+export const expenseRatio = (totals: Pick<KindTotals, '지출' | '수입'>) =>
+  totals.수입 > 0 ? Math.round((totals.지출 / totals.수입) * 100) : null
+
+export type RatioLevel = '여유' | '빠듯' | '초과'
+
+// 번 돈의 70%까지는 여유, 100%까지는 빠듯, 그 이상은 번 것보다 더 쓴 달로 본다.
+export const ratioLevel = (ratio: number): RatioLevel => {
+  if (ratio > 100) return '초과'
+  if (ratio > 70) return '빠듯'
+  return '여유'
+}
+
+export const ratioMessage = (level: RatioLevel) => {
+  if (level === '초과') return '번 것보다 더 썼어요'
+  if (level === '빠듯') return '수입 대부분을 쓰고 있어요'
+  return '수입 안에서 여유 있게 쓰고 있어요'
+}
+
 export const sumByKind = (transactions: Transaction[], excludedCategories: Set<string>): KindTotals =>
   transactions.reduce<KindTotals>(
     (totals, transaction) => {

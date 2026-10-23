@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo } from 'react'
-import { isAggregate, UNCATEGORIZED } from '../domain/types'
+import { useCallback, useMemo } from 'react'
+import { frequentEntries } from '../domain/insights'
+import { displayName } from '../domain/nickname'
+import { isAggregate, UNCATEGORIZED, type Kind, type Person } from '../domain/types'
 import { db } from './database'
 
 export function useTransactionsBetween(start: string, end: string) {
@@ -57,4 +59,30 @@ export function useSharedSettings() {
 export function useCategoryIcons() {
   const categories = useCategories()
   return useMemo(() => new Map(categories.map(category => [category.name, category.icon])), [categories])
+}
+
+const RECENT_LOOKUP = 300
+
+// 최근에 직접 기록한 내역에서 카테고리·가맹점을 뽑아 입력을 빠르게 한다.
+export function useRecentInputs(kind: Kind) {
+  return (
+    useLiveQuery(async () => {
+      const recent = await db.transactions.orderBy('occurredAt').reverse().limit(RECENT_LOOKUP).toArray()
+      const ownRecords = recent.filter(transaction => !transaction.deleted && !isAggregate(transaction.source))
+      const categories = [
+        ...new Set(
+          ownRecords
+            .filter(transaction => transaction.kind === kind && transaction.category && transaction.category !== UNCATEGORIZED)
+            .map(transaction => transaction.category),
+        ),
+      ]
+      const merchants = [...new Set(ownRecords.map(transaction => transaction.merchant.trim()).filter(Boolean))]
+      return { categories, merchants, frequent: frequentEntries(ownRecords, kind, 8) }
+    }, [kind]) ?? { categories: [], merchants: [], frequent: [] }
+  )
+}
+
+export function usePersonName() {
+  const nicknames = useSharedSettings()?.닉네임
+  return useCallback((person: Person) => displayName(person, nicknames ?? {}), [nicknames])
 }
