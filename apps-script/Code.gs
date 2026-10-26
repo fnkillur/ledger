@@ -186,6 +186,7 @@ function migrateFromYearTabs(resync = false) {
 function doGet(e) {
   return handle_(() => {
     authorize_(e.parameter.token)
+    if (e.parameter.action === 'calendar') return calendarEvents_(e.parameter.start, e.parameter.end)
     if (e.parameter.action !== 'pull') throw new Error('알 수 없는 요청이에요.')
     return pull_(e.parameter.since || '')
   })
@@ -197,6 +198,9 @@ function doPost(e) {
     authorize_(body.token)
     if (body.action === 'push') return push_(body)
     if (body.action === 'capture') return capture_(body)
+    if (body.action === 'calendarSave') return saveCalendarEvent_(body)
+    if (body.action === 'calendarDelete') return deleteCalendarEvent_(body)
+    if (body.action === 'calendarImport') return importCalendarEvents_(body)
     if (body.action === 'setup') {
       setup()
       return { migrated: body.migrate ? migrateFromYearTabs(body.migrate === 'resync') : null }

@@ -12,11 +12,13 @@ type PeriodPickerSheetProps = {
   period: Period
   onSelect: (period: Period) => void
   onClose: () => void
+  monthOnly?: boolean
+  unbounded?: boolean
 }
 
 const toMonthKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
-function PeriodPickerSheet({ period, onSelect, onClose }: PeriodPickerSheetProps) {
+function PeriodPickerSheet({ period, onSelect, onClose, monthOnly = false, unbounded = false }: PeriodPickerSheetProps) {
   const latest = currentMonthKey()
   const latestYear = Number(latest.slice(0, 4))
   const earliestYear = Number(EARLIEST_MONTH_KEY.slice(0, 4))
@@ -34,14 +36,14 @@ function PeriodPickerSheet({ period, onSelect, onClose }: PeriodPickerSheetProps
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-label="기간 선택" onClick={event => event.stopPropagation()}>
-        <Segmented label="기간 단위" options={PERIOD_TYPES} value={type} onChange={setType} />
+        {!monthOnly && <Segmented label="기간 단위" options={PERIOD_TYPES} value={type} onChange={setType} />}
 
         <div className="year-stepper">
-          <button type="button" className="icon-button" aria-label="이전 해" disabled={year <= earliestYear} onClick={() => setYear(year - 1)}>
+          <button type="button" className="icon-button" aria-label="이전 해" disabled={!unbounded && year <= earliestYear} onClick={() => setYear(year - 1)}>
             <CaretLeftIcon size={16} weight="fill" aria-hidden="true" />
           </button>
           <strong>{year}년</strong>
-          <button type="button" className="icon-button" aria-label="다음 해" disabled={year >= latestYear} onClick={() => setYear(year + 1)}>
+          <button type="button" className="icon-button" aria-label="다음 해" disabled={!unbounded && year >= latestYear} onClick={() => setYear(year + 1)}>
             <CaretRightIcon size={16} weight="fill" aria-hidden="true" />
           </button>
         </div>
@@ -54,7 +56,7 @@ function PeriodPickerSheet({ period, onSelect, onClose }: PeriodPickerSheetProps
                 type="button"
                 className="month-cell"
                 aria-pressed={period.type === '월별' && toMonthKey(year, month) === period.monthKey}
-                disabled={toMonthKey(year, month) > latest || toMonthKey(year, month) < EARLIEST_MONTH_KEY}
+                disabled={!unbounded && (toMonthKey(year, month) > latest || toMonthKey(year, month) < EARLIEST_MONTH_KEY)}
                 onClick={() => onSelect({ type: '월별', monthKey: toMonthKey(year, month) })}
               >
                 {month}월

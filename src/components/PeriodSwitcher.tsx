@@ -8,9 +8,12 @@ import PeriodPickerSheet from './PeriodPickerSheet'
 type PeriodSwitcherProps = {
   period: Period
   onChange: (period: Period) => void
+  // 캘린더는 미래·먼 과거 달도 보고, 월 단위로만 움직인다.
+  monthOnly?: boolean
+  unbounded?: boolean
 }
 
-function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
+function PeriodSwitcher({ period, onChange, monthOnly = false, unbounded = false }: PeriodSwitcherProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
   const handleSelect = (next: Period) => {
@@ -24,7 +27,7 @@ function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
         type="button"
         className="icon-button period-arrow"
         aria-label="이전"
-        disabled={isEarliestPeriod(period)}
+        disabled={!unbounded && isEarliestPeriod(period)}
         onClick={() => onChange(shiftPeriod(period, -1))}
       >
         <CaretLeftIcon size={16} weight="fill" aria-hidden="true" />
@@ -37,14 +40,23 @@ function PeriodSwitcher({ period, onChange }: PeriodSwitcherProps) {
         type="button"
         className="icon-button period-arrow"
         aria-label="다음"
-        disabled={isLatestPeriod(period, currentMonthKey())}
+        disabled={!unbounded && isLatestPeriod(period, currentMonthKey())}
         onClick={() => onChange(shiftPeriod(period, 1))}
       >
         <CaretRightIcon size={16} weight="fill" aria-hidden="true" />
       </button>
 
       {isPickerOpen &&
-        createPortal(<PeriodPickerSheet period={period} onSelect={handleSelect} onClose={() => setIsPickerOpen(false)} />, document.body)}
+        createPortal(
+          <PeriodPickerSheet
+            period={period}
+            monthOnly={monthOnly}
+            unbounded={unbounded}
+            onSelect={handleSelect}
+            onClose={() => setIsPickerOpen(false)}
+          />,
+          document.body,
+        )}
     </div>
   )
 }

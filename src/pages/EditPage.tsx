@@ -21,6 +21,7 @@ import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { myShare } from '../domain/stats'
 import { KINDS, SCOPES, UNCATEGORIZED, type Category, type Kind, type Transaction } from '../domain/types'
+import { LIST_PATH } from '../paths'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatShortDateTime, formatTime, formatWon, fromLocalInputValue, toLocalInputValue } from '../utils/format'
@@ -101,7 +102,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const update = (patch: Partial<TransactionInput>) => setDraft(previous => ({ ...previous, ...patch }))
 
   // 단축어로 이 화면부터 열렸으면 돌아갈 화면이 없으므로 목록으로 간다.
-  const goBack = () => (location.key === 'default' ? navigate('/', { replace: true }) : navigate(-1))
+  const goBack = () => (location.key === 'default' ? navigate(LIST_PATH, { replace: true }) : navigate(-1))
 
   const defaultScopeOf = (categoryName: string) =>
     categories.find(category => category.name === categoryName)?.personal ? '개인' : '공동'
@@ -178,6 +179,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     <div className="page">
       <TopBar
         showBack
+        onBack={goBack}
         title={transaction ? '내역 수정' : '내역 추가'}
         actions={
           !transaction &&

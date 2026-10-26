@@ -16,6 +16,7 @@ import { classifyMerchant, suggestCategory } from '../domain/classify'
 import { UNCATEGORIZED, type Category, type Person } from '../domain/types'
 import { recognizeImages, type OcrProgress } from '../ocr/recognize'
 import { IS_WEB_BUILD } from '../platform'
+import { LIST_PATH } from '../paths'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatShortDay, formatTime, formatWon, toDateKey } from '../utils/format'
@@ -119,7 +120,7 @@ function ImportCapturePage() {
       }
     }
     syncNow().catch(() => {})
-    navigate('/', { replace: true })
+    navigate(LIST_PATH, { replace: true })
     celebrate(`${checked.length}건을 한 번에 기록했어요`)
   }
 

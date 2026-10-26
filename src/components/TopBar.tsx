@@ -5,13 +5,18 @@ import { useNavigate } from 'react-router'
 type TopBarProps = {
   title?: ReactNode
   showBack?: boolean
+  onBack?: () => void
   actions?: ReactNode
 }
 
-function TopBar({ title, showBack = false, actions }: TopBarProps) {
+function TopBar({ title, showBack = false, onBack, actions }: TopBarProps) {
   const navigate = useNavigate()
 
   const handleBack = () => {
+    if (onBack) {
+      onBack()
+      return
+    }
     if (window.history.length > 1) {
       navigate(-1)
       return

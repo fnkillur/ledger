@@ -15,6 +15,7 @@ import { parseMonthlySummary, type OthersCheck } from '../domain/monthlySummary'
 import { isAggregate, KINDS, type Category, type Kind, type Person } from '../domain/types'
 import { recognizeImages, type OcrProgress } from '../ocr/recognize'
 import { IS_WEB_BUILD } from '../platform'
+import { LIST_PATH } from '../paths'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { EARLIEST_MONTH_KEY, toRange } from '../domain/period'
@@ -107,7 +108,7 @@ function MonthlyPage() {
               await saveMonthlyTotals(monthKey, person, amounts, categories)
               syncNow().catch(() => {})
               if (window.history.length > 1) navigate(-1)
-              else navigate('/', { replace: true })
+              else navigate(LIST_PATH, { replace: true })
             }}
           />
         )}

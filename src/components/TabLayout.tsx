@@ -1,6 +1,7 @@
-import { ChartBarIcon, GearSixIcon, ListBulletsIcon, TrayIcon, type Icon } from '@phosphor-icons/react'
+import { CalendarBlankIcon, ChartBarIcon, GearSixIcon, ListBulletsIcon, TrayIcon, type Icon } from '@phosphor-icons/react'
 import { NavLink, Outlet } from 'react-router'
 import { usePendingCaptures, useUncategorized } from '../db/hooks'
+import { LIST_PATH } from '../paths'
 
 function TabLayout() {
   const captures = usePendingCaptures()
@@ -12,7 +13,8 @@ function TabLayout() {
     <>
       <Outlet />
       <nav className="tab-bar" aria-label="주요 메뉴">
-        <TabLink to="/" label="내역" icon={ListBulletsIcon} end />
+        <TabLink to="/" label="캘린더" icon={CalendarBlankIcon} end />
+        <TabLink to={LIST_PATH} label="내역" icon={ListBulletsIcon} />
         <TabLink to="/stats" label="통계" icon={ChartBarIcon} />
         <TabLink to="/inbox" label="수집함" icon={TrayIcon} badge={inboxCount} />
         <TabLink to="/settings" label="설정" icon={GearSixIcon} />

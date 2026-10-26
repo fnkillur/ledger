@@ -13,7 +13,7 @@ type PullResponse = {
 
 type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string }
 
-const unwrap = async <T>(response: Response) => {
+export const unwrap = async <T>(response: Response) => {
   if (!response.ok) throw new Error(`시트 서버 응답 오류 (${response.status})`)
   const result = (await response.json()) as ApiResult<T>
   if (!result.ok) throw new Error(result.error)

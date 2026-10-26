@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { CalendarEvent } from '../domain/calendar'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
 import type { CapturedNotification, ParsedPayment } from '../domain/notificationParser'
@@ -25,6 +26,8 @@ export type SyncMeta = {
   lastSyncedAt: string
 }
 
+export type CalendarMonth = { monthKey: string; events: CalendarEvent[]; fetchedAt: string }
+
 export const db = new Dexie('ledger') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
   categories: EntityTable<Category, 'name'>
@@ -33,6 +36,7 @@ export const db = new Dexie('ledger') as Dexie & {
   shared: EntityTable<SharedSettingsRecord, 'key'>
   captures: EntityTable<CaptureItem, 'key'>
   meta: EntityTable<SyncMeta, 'key'>
+  calendarMonths: EntityTable<CalendarMonth, 'monthKey'>
 }
 
 db.version(1).stores({
@@ -73,3 +77,6 @@ db.version(3).upgrade(async transaction => {
       category.personal ??= defaultsByName.get(category.name)?.personal ?? false
     })
 })
+
+// 캘린더 원본은 구글 캘린더라, 달별로 받은 일정을 그대로 캐시만 한다.
+db.version(4).stores({ calendarMonths: 'monthKey' })
