@@ -12,7 +12,7 @@ import { db } from '../db/database'
 import { useCategories, usePersonName, useRules } from '../db/hooks'
 import { saveRule, saveTransaction } from '../db/repository'
 import { parseAlimtalkCapture, type CapturedPayment } from '../domain/alimtalkCapture'
-import { classifyMerchant } from '../domain/classify'
+import { classifyMerchant, suggestCategory } from '../domain/classify'
 import { UNCATEGORIZED, type Category, type Person } from '../domain/types'
 import { recognizeImages, type OcrProgress } from '../ocr/recognize'
 import { IS_WEB_BUILD } from '../platform'
@@ -80,7 +80,7 @@ function ImportCapturePage() {
         payments.map((payment, index) => ({
           id: index,
           payment,
-          category: classifyMerchant(payment.merchant, rules) ?? UNCATEGORIZED,
+          category: suggestCategory(payment.merchant, rules, categories.map(item => item.name)) ?? UNCATEGORIZED,
           isChecked: !duplicates[index],
           isDuplicate: duplicates[index],
         })),

@@ -1,13 +1,15 @@
 import { useMemo, useState, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
 import EmptyState from '../components/EmptyState'
 import TopBar from '../components/TopBar'
 import PersonAvatar from '../components/PersonAvatar'
 import { markCapture, toTransactionInput } from '../db/captures'
 import type { CaptureItem } from '../db/database'
-import { useCategories, usePendingCaptures, usePersonName, useRecentInputs, useUncategorized } from '../db/hooks'
+import { useCategories, useCategoryIcons, usePendingCaptures, usePersonName, useRecentInputs, useRules, useUncategorized } from '../db/hooks'
 import { saveRule, saveTransaction } from '../db/repository'
+import { suggestCategory } from '../domain/classify'
 import { UNCATEGORIZED, type Transaction } from '../domain/types'
 import { isCaptureSupported } from '../native/notificationCapture'
 import { IS_WEB_BUILD } from '../platform'
@@ -132,9 +134,17 @@ type CaptureCardProps = {
 }
 
 function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
+  const categories = useCategories()
+  const rules = useRules()
+  const icons = useCategoryIcons()
   const personName = usePersonName()
 
   const { parsed } = capture
+  const suggested = suggestCategory(
+    parsed.merchant,
+    rules,
+    categories.filter(category => category.kind === parsed.kind).map(category => category.name),
+  )
 
   return (
     <li className="capture-card">
@@ -155,6 +165,12 @@ function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
         </strong>
         <span className="capture-merchant">{parsed.merchant || parsed.kind}</span>
       </div>
+      {suggested && (
+        <span className="capture-category">
+          <CategoryIcon name={suggested} emoji={icons.get(suggested)} size={12} />
+          {suggested}
+        </span>
+      )}
       <details className="capture-raw">
         <summary>원문 보기</summary>
         <p>

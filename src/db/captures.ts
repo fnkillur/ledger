@@ -1,4 +1,4 @@
-import { classifyMerchant } from '../domain/classify'
+import { suggestCategory } from '../domain/classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification, type ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { PEOPLE, UNCATEGORIZED, type Person, type Transaction } from '../domain/types'
@@ -51,9 +51,13 @@ export const pullNativeCaptures = async () => {
 }
 
 export const toTransactionInput = async (capture: CaptureItem, person: Person): Promise<TransactionInput> => {
-  const rules = await db.rules.toArray()
-  const category = classifyMerchant(capture.parsed.merchant, rules)
-  const isPersonal = category ? (await db.categories.get(category))?.personal === true : false
+  const [rules, categories] = await Promise.all([db.rules.toArray(), db.categories.toArray()])
+  const category = suggestCategory(
+    capture.parsed.merchant,
+    rules,
+    categories.filter(item => item.kind === capture.parsed.kind).map(item => item.name),
+  )
+  const isPersonal = categories.find(item => item.name === category)?.personal === true
   return {
     occurredAt: capture.parsed.occurredAt,
     person,

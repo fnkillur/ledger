@@ -1,7 +1,7 @@
 import { CameraIcon, CheckCircleIcon, LockSimpleIcon, MinusCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
 import PersonAvatar from '../components/PersonAvatar'
 import PersonToggle from '../components/PersonToggle'
@@ -47,11 +47,12 @@ const sumAmounts = (texts: Record<string, string>, categories: Category[], kind:
 
 function MonthlyPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const categories = useCategories()
   const personName = usePersonName()
 
-  const [monthKey, setMonthKey] = useState(defaultMonthKey)
+  const [monthKey, setMonthKey] = useState(() => (location.state as { monthKey?: string } | null)?.monthKey ?? defaultMonthKey())
   const [person, setPerson] = useState<Person>(getSettings().defaultPerson)
 
   const existing = useLiveQuery(

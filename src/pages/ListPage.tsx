@@ -1,14 +1,27 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import AddMenu from '../components/AddMenu'
+import CategoryIcon from '../components/CategoryIcon'
 import EmptyState from '../components/EmptyState'
 import PeriodHeader from '../components/PeriodHeader'
+import PersonAvatar from '../components/PersonAvatar'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
-import { useCategories, useTransactionsBetween } from '../db/hooks'
+import { useCategories, useCategoryIcons, usePersonName, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
-import { expenseByScope, expenseRatio, monthlyTotals, ratioLevel, ratioMessage, sumByKind, toExcludedCategories, type KindTotals } from '../domain/stats'
-import type { Transaction } from '../domain/types'
+import {
+  aggregateByCategory,
+  expenseByScope,
+  expenseRatio,
+  monthlyTotals,
+  ratioLevel,
+  ratioMessage,
+  sumByKind,
+  toExcludedCategories,
+  type CategoryAggregate,
+  type KindTotals,
+} from '../domain/stats'
+import { isAggregate, PEOPLE, type Transaction } from '../domain/types'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, toDateKey } from '../utils/format'
 import { updateViewState, useViewState } from '../utils/viewState'
@@ -68,12 +81,83 @@ function ListPage() {
         {periodType === '연도별' ? (
           <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
         ) : (
-          <DayGroups transactions={periodTransactions} excludedCategories={excludedCategories} />
+          <MonthDetail monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
         )}
       </main>
 
       <AddMenu />
     </div>
+  )
+}
+
+type MonthDetailProps = { monthKey: string; transactions: Transaction[]; excludedCategories: Set<string> }
+
+function MonthDetail({ monthKey, transactions, excludedCategories }: MonthDetailProps) {
+  const aggregates = useMemo(() => aggregateByCategory(transactions), [transactions])
+  const detailed = useMemo(() => transactions.filter(transaction => !isAggregate(transaction.source)), [transactions])
+
+  return (
+    <>
+      {aggregates.length > 0 && (
+        <AggregateCard monthKey={monthKey} aggregates={aggregates} hasDetail={detailed.length > 0} excludedCategories={excludedCategories} />
+      )}
+      <DayGroups transactions={detailed} excludedCategories={excludedCategories} />
+    </>
+  )
+}
+
+type AggregateCardProps = {
+  monthKey: string
+  aggregates: CategoryAggregate[]
+  hasDetail: boolean
+  excludedCategories: Set<string>
+}
+
+// 월 합계만 있는 달은 날짜별 목록 대신 카테고리별 금액으로 보여준다.
+function AggregateCard({ monthKey, aggregates, hasDetail, excludedCategories }: AggregateCardProps) {
+  const icons = useCategoryIcons()
+  const personName = usePersonName()
+
+  return (
+    <section className="card aggregate-card">
+      <div className="aggregate-head">
+        <h2 className="card-title">월 합계</h2>
+        <Link to="/monthly" state={{ monthKey }} className="text-button text-primary section-action">
+          고치기
+        </Link>
+      </div>
+      <p className="card-description">
+        {hasDetail ? '토스 캡처로 입력한 카테고리별 금액이에요.' : '이 달은 월 합계로 기록해서 카테고리별 금액만 있어요.'}
+      </p>
+      <ul className="aggregate-list">
+        {aggregates.map(item => {
+          const people = PEOPLE.filter(person => item.byPerson[person] !== 0)
+          return (
+            <li key={`${item.kind}-${item.category}`} className="aggregate-row">
+              <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={18} />
+              <span className="aggregate-main">
+                <span className="aggregate-name">
+                  {item.category}
+                  {excludedCategories.has(item.category) && <span className="tx-badge">통계 제외</span>}
+                </span>
+                <span className="aggregate-people">
+                  {people.map(person => (
+                    <span key={person}>
+                      <PersonAvatar person={person} size={14} />
+                      {people.length > 1 ? formatWon(item.byPerson[person]) : personName(person)}
+                    </span>
+                  ))}
+                </span>
+              </span>
+              <strong className={`amount amount-${item.kind}`}>
+                {item.kind === '수입' ? '+' : ''}
+                {formatWon(item.total)}
+              </strong>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

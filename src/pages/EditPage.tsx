@@ -16,7 +16,7 @@ import { deleteTransaction, getRecordActivity, saveRule, saveTransaction, splitT
 import { evaluateAmount } from '../domain/amountExpression'
 import type { FrequentEntry } from '../domain/insights'
 import { cheerSubline } from '../domain/celebration'
-import { classifyMerchant } from '../domain/classify'
+import { classifyMerchant, suggestCategory } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { myShare } from '../domain/stats'
@@ -94,6 +94,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const amount = evaluateAmount(amountText)
   const kindCategories = useMemo(() => categories.filter(category => category.kind === draft.kind), [categories, draft.kind])
   const existingRuleCategory = classifyMerchant(draft.merchant, rules)
+  const categoryNames = categories.map(category => category.name)
   const canOfferRule = draft.merchant.trim() !== '' && draft.category !== '' && draft.category !== UNCATEGORIZED
   const canSave = amount !== null && amount !== 0 && draft.category !== ''
 
@@ -115,13 +116,13 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const handleMerchantChange = (merchant: string) => {
     update({ merchant })
     if (!recent.merchants.includes(merchant)) return
-    const matched = classifyMerchant(merchant, rules)
+    const matched = suggestCategory(merchant, rules, categoryNames)
     if (matched && (!draft.category || draft.category === UNCATEGORIZED)) handleCategoryChange(matched)
   }
 
   const handleMerchantBlur = () => {
     if (draft.category && draft.category !== UNCATEGORIZED) return
-    const matched = classifyMerchant(draft.merchant, rules)
+    const matched = suggestCategory(draft.merchant, rules, categoryNames)
     if (matched) handleCategoryChange(matched)
   }
 
@@ -131,7 +132,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   }
 
   const handlePasteApply = (text: string, parsed: ParsedPayment) => {
-    const matched = classifyMerchant(parsed.merchant, rules)
+    const matched = suggestCategory(parsed.merchant, rules, categoryNames)
     const keepsCategory = categories.some(category => category.kind === parsed.kind && category.name === draft.category)
     setAmountText(String(parsed.isCancel ? -parsed.amount : parsed.amount))
     update({

@@ -275,3 +275,22 @@ describe('expenseRatio', () => {
     expect([70, 71, 100, 101].map(ratioLevel)).toEqual(['여유', '빠듯', '빠듯', '초과'])
   })
 })
+
+describe('aggregateByCategory', () => {
+  it('월 합계를 카테고리별로 합치고 사람별 금액을 남기며, 지출은 큰 순서 뒤에 수입', async () => {
+    const { aggregateByCategory } = await import('./stats')
+    const result = aggregateByCategory([
+      transaction({ source: '월합계', category: '식비', amount: 100000, person: '쿠리만쥬' }),
+      transaction({ source: '월합계', category: '식비', amount: 50000, person: '우사기' }),
+      transaction({ source: '월합계', category: '쇼핑', amount: 300000, person: '우사기' }),
+      transaction({ source: '월합계', kind: '수입', category: '월급', amount: 3000000, person: '쿠리만쥬' }),
+      transaction({ source: '수동', category: '식비', amount: 9000 }),
+    ])
+
+    expect(result).toEqual([
+      { kind: '지출', category: '쇼핑', total: 300000, byPerson: { 쿠리만쥬: 0, 우사기: 300000 } },
+      { kind: '지출', category: '식비', total: 150000, byPerson: { 쿠리만쥬: 100000, 우사기: 50000 } },
+      { kind: '수입', category: '월급', total: 3000000, byPerson: { 쿠리만쥬: 3000000, 우사기: 0 } },
+    ])
+  })
+})

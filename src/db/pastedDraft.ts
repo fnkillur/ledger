@@ -1,4 +1,4 @@
-import { classifyMerchant } from '../domain/classify'
+import { suggestCategory } from '../domain/classify'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { db } from './database'
 import type { TransactionInput } from './repository'
@@ -9,7 +9,7 @@ export const buildPastedDraft = async (text: string, base: TransactionInput): Pr
   if (!parsed) return null
 
   const [rules, categories] = await Promise.all([db.rules.toArray(), db.categories.toArray()])
-  const category = classifyMerchant(parsed.merchant, rules) ?? ''
+  const category = suggestCategory(parsed.merchant, rules, categories.map(item => item.name)) ?? ''
   return {
     ...base,
     kind: parsed.kind,

@@ -105,3 +105,26 @@ export const expenseByScope = (transactions: Transaction[], excludedCategories: 
       excludedCategories,
     ).지출,
   }))
+
+export type CategoryAggregate = { kind: Kind; category: string; total: number; byPerson: Record<Person, number> }
+
+// 월 합계(이관 포함)는 날짜별 목록 대신 카테고리별로 모아 보여준다.
+export const aggregateByCategory = (transactions: Transaction[]): CategoryAggregate[] => {
+  const groups = new Map<string, CategoryAggregate>()
+  transactions
+    .filter(transaction => isAggregate(transaction.source))
+    .forEach(transaction => {
+      const key = `${transaction.kind}|${transaction.category}`
+      const group = groups.get(key) ?? {
+        kind: transaction.kind,
+        category: transaction.category,
+        total: 0,
+        byPerson: Object.fromEntries(PEOPLE.map(person => [person, 0])) as Record<Person, number>,
+      }
+      group.total += transaction.amount
+      group.byPerson[transaction.person] += transaction.amount
+      groups.set(key, group)
+    })
+  const kindOrder = (kind: Kind) => (kind === '지출' ? 0 : 1)
+  return [...groups.values()].sort((left, right) => kindOrder(left.kind) - kindOrder(right.kind) || right.total - left.total)
+}
