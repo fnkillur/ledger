@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
-import { dayTone, eventsOnDay, monthGrid, type CalendarEvent } from '../../domain/calendar'
+import { dayTone, monthGrid, weekLayout, type CalendarEvent } from '../../domain/calendar'
 import CalendarEventChip from './CalendarEventChip'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
-// 날짜 숫자 높이와 칸의 위아래 여백·테두리.
-const DAY_CHROME_HEIGHT = 25
-const CHIP_STEP = 17
+// 날짜 숫자 줄 높이와 주 아래쪽 여백.
+const WEEK_CHROME_HEIGHT = 26
+const LANE_STEP = 20
 const SWIPE_DISTANCE = 50
 
 type CalendarGridProps = {
@@ -26,7 +26,7 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const didSwipeRef = useRef(false)
 
-  const [chipLimit, setChipLimit] = useState(3)
+  const [maxLanes, setMaxLanes] = useState(3)
 
   const weeks = monthGrid(monthKey)
 
@@ -34,8 +34,8 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
     const grid = gridRef.current
     if (!grid) return
     const observer = new ResizeObserver(() => {
-      const rowHeight = grid.clientHeight / weeks.length
-      setChipLimit(Math.max(1, Math.floor((rowHeight - DAY_CHROME_HEIGHT) / CHIP_STEP)))
+      const weekHeight = grid.clientHeight / weeks.length
+      setMaxLanes(Math.max(1, Math.floor((weekHeight - WEEK_CHROME_HEIGHT) / LANE_STEP)))
     })
     observer.observe(grid)
     return () => observer.disconnect()
@@ -63,8 +63,8 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
   }
 
   return (
-    <div className="calendar">
-      <div className="calendar-weekdays" aria-hidden="true">
+    <div className="cal">
+      <div className="cal-weekdays" aria-hidden="true">
         {WEEKDAYS.map((label, index) => (
           <span key={label} className={weekdayClass(index)}>
             {label}
@@ -73,23 +73,48 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
       </div>
       <div
         ref={gridRef}
-        className="calendar-grid"
+        className="cal-grid"
         style={{ '--weeks': weeks.length } as CSSProperties}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={() => (pointerStartRef.current = null)}
       >
-        {weeks.flat().map(dateKey => (
-          <CalendarDay
-            key={dateKey}
-            dateKey={dateKey}
-            monthKey={monthKey}
-            events={eventsOnDay(events, dateKey)}
-            chipLimit={chipLimit}
-            onSelect={handleSelect}
-          />
+        {weeks.map(week => (
+          <CalendarWeek key={week[0]} week={week} monthKey={monthKey} events={events} maxLanes={maxLanes} onSelect={handleSelect} />
         ))}
       </div>
+    </div>
+  )
+}
+
+type CalendarWeekProps = {
+  week: string[]
+  monthKey: string
+  events: CalendarEvent[]
+  maxLanes: number
+  onSelect: (dateKey: string) => void
+}
+
+function CalendarWeek({ week, monthKey, events, maxLanes, onSelect }: CalendarWeekProps) {
+  const { bars, hidden, moreLane } = weekLayout(week, events, maxLanes)
+
+  return (
+    <div className="cal-week">
+      {week.map((dateKey, column) => (
+        <CalendarDay key={dateKey} dateKey={dateKey} monthKey={monthKey} column={column} onSelect={onSelect} />
+      ))}
+      {bars.map(bar => (
+        <CalendarEventChip key={`${bar.event.id}-${week[0]}`} bar={bar} />
+      ))}
+      {moreLane !== null &&
+        hidden.map(
+          (count, column) =>
+            count > 0 && (
+              <span key={week[column]} className="cal-more" style={{ gridColumn: column + 1, gridRow: moreLane + 2 }}>
+                +{count}
+              </span>
+            ),
+        )}
     </div>
   )
 }
@@ -97,19 +122,16 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
 type CalendarDayProps = {
   dateKey: string
   monthKey: string
-  events: CalendarEvent[]
-  chipLimit: number
+  column: number
   onSelect: (dateKey: string) => void
 }
 
-function CalendarDay({ dateKey, monthKey, events, chipLimit, onSelect }: CalendarDayProps) {
+function CalendarDay({ dateKey, monthKey, column, onSelect }: CalendarDayProps) {
   const tone = dayTone(dateKey, monthKey)
-  const isOverflow = events.length > chipLimit
-  const visible = isOverflow ? events.slice(0, chipLimit - 1) : events
   const day = Number(dateKey.slice(8, 10))
 
   const className = [
-    'calendar-day',
+    'cal-day',
     tone.weekday === 'sun' ? 'is-sunday' : '',
     tone.weekday === 'sat' ? 'is-saturday' : '',
     tone.isOutside ? 'is-outside' : '',
@@ -119,12 +141,14 @@ function CalendarDay({ dateKey, monthKey, events, chipLimit, onSelect }: Calenda
     .join(' ')
 
   return (
-    <button type="button" className={className} onClick={() => onSelect(dateKey)} aria-label={`${Number(dateKey.slice(5, 7))}월 ${day}일, 일정 ${events.length}개`}>
-      <span className="calendar-day-number">{day}</span>
-      {visible.map(event => (
-        <CalendarEventChip key={event.id} event={event} />
-      ))}
-      {isOverflow && <span className="calendar-more">+{events.length - visible.length}</span>}
+    <button
+      type="button"
+      className={className}
+      style={{ gridColumn: column + 1 }}
+      onClick={() => onSelect(dateKey)}
+      aria-label={`${Number(dateKey.slice(5, 7))}월 ${day}일`}
+    >
+      <span className="cal-day-number">{day}</span>
     </button>
   )
 }

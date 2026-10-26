@@ -31,11 +31,12 @@ export type CalendarEventInput = Omit<CalendarEvent, 'id' | 'seriesId' | 'origin
 export const CALENDAR_TARGETS: CalendarTarget[] = ['공동', '쿠리만쥬', '우사기', '없음']
 export const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly', 'yearly']
 
+// TimeTree에서 쓰던 색을 이어서, 공동은 검정·쿠리만쥬는 초록·우사기는 노랑 계열로 칠한다.
 export const TARGET_TONE: Record<CalendarTarget, string> = {
-  공동: 'tone-purple',
-  쿠리만쥬: 'tone-orange',
-  우사기: 'tone-pink',
-  없음: 'tone-gray',
+  공동: 'target-shared',
+  쿠리만쥬: 'target-kurimanju',
+  우사기: 'target-usagi',
+  없음: 'target-none',
 }
 
 export const REPEAT_LABEL: Record<Repeat, string> = {
@@ -116,3 +117,60 @@ export const dayTone = (dateKey: string, monthKey: string) => ({
   isOutside: !dateKey.startsWith(monthKey),
   isToday: dateKey === toKey(new Date()),
 })
+
+export type CalendarBar = {
+  event: CalendarEvent
+  startColumn: number
+  span: number
+  lane: number
+  continuesBefore: boolean
+  continuesAfter: boolean
+}
+
+// 한 주(일~토)의 일정을 막대로 배치한다. 칸 높이에 줄이 모자라면 마지막 줄은 '+N' 자리로 남긴다.
+export const weekLayout = (week: string[], events: CalendarEvent[], maxLanes: number) => {
+  const first = week[0]
+  const last = week[6]
+  const segments = events
+    .filter(event => startDayOf(event) <= last && lastDayOf(event) >= first)
+    .map(event => {
+      const from = startDayOf(event) < first ? first : startDayOf(event)
+      const to = lastDayOf(event) > last ? last : lastDayOf(event)
+      const startColumn = week.indexOf(from)
+      return {
+        event,
+        startColumn,
+        span: week.indexOf(to) - startColumn + 1,
+        continuesBefore: startDayOf(event) < first,
+        continuesAfter: lastDayOf(event) > last,
+      }
+    })
+    .sort(
+      (left, right) =>
+        left.startColumn - right.startColumn ||
+        right.span - left.span ||
+        sortRank(left.event) - sortRank(right.event) ||
+        new Date(left.event.start).getTime() - new Date(right.event.start).getTime(),
+    )
+
+  const occupied: boolean[][] = []
+  const placed = segments.map(segment => {
+    const columns = Array.from({ length: segment.span }, (_, offset) => segment.startColumn + offset)
+    let lane = 0
+    while (columns.some(column => occupied[lane]?.[column])) lane += 1
+    occupied[lane] ??= []
+    columns.forEach(column => (occupied[lane][column] = true))
+    return { ...segment, lane }
+  })
+
+  const isOverflow = occupied.length > maxLanes
+  const visibleLanes = isOverflow ? Math.max(0, maxLanes - 1) : maxLanes
+  const hidden = week.map((_, column) =>
+    placed.filter(bar => bar.lane >= visibleLanes && column >= bar.startColumn && column < bar.startColumn + bar.span).length,
+  )
+  return {
+    bars: placed.filter(bar => bar.lane < visibleLanes),
+    hidden,
+    moreLane: isOverflow ? visibleLanes : null,
+  }
+}

@@ -3105,7 +3105,7 @@ a {
   margin: var(--space-2) var(--space-3) 0;
 }
 
-.calendar {
+.cal {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -3113,7 +3113,7 @@ a {
   padding: 0 var(--space-1) var(--space-1);
 }
 
-.calendar-weekdays {
+.cal-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   padding: var(--space-1) 0;
@@ -3123,53 +3123,56 @@ a {
   text-align: center;
 }
 
-.calendar-weekdays .is-sunday,
-.calendar-day.is-sunday .calendar-day-number {
+.cal-weekdays .is-sunday,
+.cal-day.is-sunday .cal-day-number {
   color: var(--color-sunday);
 }
 
-.calendar-weekdays .is-saturday,
-.calendar-day.is-saturday .calendar-day-number {
+.cal-weekdays .is-saturday,
+.cal-day.is-saturday .cal-day-number {
   color: var(--color-saturday);
 }
 
-.calendar-grid {
+.cal-grid {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-template-rows: repeat(var(--weeks), minmax(0, 1fr));
   min-height: 0;
-  border-top: 1px solid var(--color-border);
   touch-action: pan-y;
 }
 
-.calendar-day {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 1px;
-  min-width: 0;
-  padding: 2px 1px;
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 24px;
+  grid-auto-rows: 16px;
+  row-gap: 4px;
+  min-height: 0;
   overflow: hidden;
+  border-top: 1px solid var(--color-border);
+}
+
+.cal-day {
+  grid-row: 1 / span 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  padding: 3px 0 0;
   border: 0;
-  border-bottom: 1px solid var(--color-border);
   background: none;
   color: var(--color-text);
   font: inherit;
-  text-align: left;
   cursor: pointer;
 }
 
-.calendar-day:active {
+.cal-day:active {
   background: var(--color-pressed);
 }
 
-.calendar-day-number {
+.cal-day-number {
   display: grid;
-  flex-shrink: 0;
   place-items: center;
-  align-self: center;
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -3178,37 +3181,53 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-.calendar-day.is-outside .calendar-day-number {
+.cal-day.is-outside .cal-day-number {
   opacity: 0.35;
 }
 
-.calendar-day.is-today .calendar-day-number {
+.cal-day.is-today .cal-day-number {
   background: var(--color-primary);
   color: var(--color-primary-text);
 }
 
-.calendar-chip {
+.cal-chip {
+  position: relative;
+  z-index: 1;
   display: flex;
-  flex-shrink: 0;
-  min-width: 0;
   align-items: center;
-  gap: 2px;
-  height: 16px;
-  padding: 0 2px;
-  overflow: hidden;
+  min-width: 0;
+  margin: 0 1px;
+  padding: 0 3px;
   border-radius: var(--radius-xs);
   background: var(--tone-bg);
   color: var(--tone-fg);
   font-size: var(--font-2xs);
   font-weight: 600;
   line-height: 16px;
+  pointer-events: none;
 }
 
-.calendar-day.is-outside .calendar-chip {
-  opacity: 0.55;
+.cal-chip.continues-before {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
-.calendar-chip-title {
+.cal-chip.continues-after {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.cal-chip:has(.chip-avatars) .cal-chip-title {
+  padding-left: 6px;
+}
+
+.cal-chip:has(.chip-avatars.is-pair) .cal-chip-title {
+  padding-left: 11px;
+}
+
+.cal-chip-title {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -3220,13 +3239,40 @@ a {
   flex-shrink: 0;
 }
 
-.calendar-more {
-  flex-shrink: 0;
-  padding-left: 2px;
+.chip-avatars {
+  position: absolute;
+  top: -7px;
+  left: -2px;
+}
+
+.chip-avatars .avatar {
+  box-shadow: 0 0 0 1px var(--color-bg);
+}
+
+.chip-avatars .avatar + .avatar {
+  margin-left: -4px;
+}
+
+.cal-more {
+  z-index: 1;
+  padding-left: 3px;
   color: var(--color-text-sub);
   font-size: var(--font-2xs);
   font-weight: 600;
   line-height: 16px;
+  pointer-events: none;
+}
+
+.target-shared { --tone-bg: #2f2e2c; --tone-fg: #ffffff; }
+.target-kurimanju { --tone-bg: #2bbf7e; --tone-fg: #ffffff; }
+.target-usagi { --tone-bg: #fcc232; --tone-fg: #3b2b00; }
+.target-none { --tone-bg: #e8e5df; --tone-fg: #57554f; }
+
+@media (prefers-color-scheme: dark) {
+  .target-shared { --tone-bg: #57544f; --tone-fg: #ffffff; }
+  .target-kurimanju { --tone-bg: #1f9a64; --tone-fg: #ffffff; }
+  .target-usagi { --tone-bg: #d9a520; --tone-fg: #2a1f00; }
+  .target-none { --tone-bg: #34322f; --tone-fg: #c2c0b9; }
 }
 
 .day-sheet-header {
@@ -3256,7 +3302,7 @@ a {
   padding: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--tone-bg);
-  color: var(--color-text);
+  color: var(--tone-fg);
   text-decoration: none;
 }
 
@@ -3277,8 +3323,8 @@ a {
 }
 
 .day-sheet-meta {
-  color: var(--tone-fg);
   font-size: var(--font-sm);
+  opacity: 0.8;
 }
 
 .date-time-row {

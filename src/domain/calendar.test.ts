@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { dayTone, eventsOnDay, gridRange, monthGrid, type CalendarEvent } from './calendar'
+import { dayTone, eventsOnDay, gridRange, monthGrid, weekLayout, type CalendarEvent } from './calendar'
 
 const event = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   id: 'event',
@@ -88,5 +88,33 @@ describe('dayTone', () => {
     expect(dayTone('2026-10-03', '2026-10')).toMatchObject({ weekday: 'sat' })
     expect(dayTone('2026-09-27', '2026-10')).toMatchObject({ isOutside: true })
     expect(dayTone('2026-10-26', '2026-10')).toEqual({ weekday: null, isOutside: false, isToday: true })
+  })
+})
+
+describe('weekLayout', () => {
+  const week = monthGrid('2026-10')[1]
+
+  it('여러 날 일정은 주 안에서 한 막대로, 주를 넘으면 잘린 쪽을 표시한다', () => {
+    const trip = event({ id: 'trip', allDay: true, start: '2026-10-02', end: '2026-10-06' })
+
+    expect(weekLayout(week, [trip], 3).bars).toEqual([{ event: trip, startColumn: 0, span: 3, lane: 0, continuesBefore: true, continuesAfter: false }])
+  })
+
+  it('겹치는 일정은 다른 줄에 놓고, 긴 일정을 먼저 놓는다', () => {
+    const single = event({ id: 'single', allDay: true, start: '2026-10-05', end: '2026-10-05' })
+    const long = event({ id: 'long', allDay: true, start: '2026-10-05', end: '2026-10-07' })
+    const later = event({ id: 'later', allDay: true, start: '2026-10-07', end: '2026-10-07' })
+
+    const lanes = Object.fromEntries(weekLayout(week, [single, long, later], 3).bars.map(bar => [bar.event.id, bar.lane]))
+    expect(lanes).toEqual({ long: 0, single: 1, later: 1 })
+  })
+
+  it('줄이 모자라면 마지막 줄은 +N 자리로 비우고 날짜별로 숨은 개수를 센다', () => {
+    const items = ['a', 'b', 'c'].map(id => event({ id, allDay: true, start: '2026-10-05', end: '2026-10-05' }))
+
+    const layout = weekLayout(week, items, 2)
+    expect(layout.bars.map(bar => bar.event.id)).toEqual(['a'])
+    expect(layout.hidden[1]).toBe(2)
+    expect(layout.moreLane).toBe(1)
   })
 })
