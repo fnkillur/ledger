@@ -11,6 +11,7 @@ function CalendarEventChip({ bar }: CalendarEventChipProps) {
   const className = [
     'cal-chip',
     TARGET_TONE[bar.event.target],
+    bar.event.allDay ? '' : 'is-timed',
     bar.continuesBefore ? 'continues-before' : '',
     bar.continuesAfter ? 'continues-after' : '',
   ]

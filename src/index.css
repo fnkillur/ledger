@@ -3038,6 +3038,11 @@ a {
   pointer-events: none;
 }
 
+/* 시간 일정은 종일 일정보다 한 단계 옅게 칠해, 하루를 차지하는 일정이 먼저 눈에 들어오게 한다. */
+.cal-chip.is-timed {
+  background: color-mix(in srgb, var(--tone-bg) 55%, var(--color-surface));
+}
+
 /* 기념일·지정일은 누가 하는 일정이 아니라 그날의 정보라서, 공휴일 표기처럼 바탕 없이 가운데에 굵게 적는다. */
 .cal-chip.target-anniversary,
 .cal-chip.target-none {
