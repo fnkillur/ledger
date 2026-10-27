@@ -13,6 +13,7 @@ import LockSettingSection from '../lock/LockSettingSection'
 import { isCaptureSupported, NotificationCapture, type InstalledApp } from '../native/notificationCapture'
 import { decodeConnectCode, encodeConnectCode } from '../sync/connectCode'
 import { IS_WEB_BUILD } from '../platform'
+import { disablePush, enablePush, getPushSupport, isPushEnabled } from '../push/push'
 import { isSyncConfigured, saveSettings, useSettings } from '../sync/settings'
 import { resetSync, syncNow } from '../sync/sync'
 
@@ -61,6 +62,13 @@ function SettingsPage() {
           </>
         )}
 
+        {getPushSupport() !== 'unsupported' && (
+          <>
+            <h2 className="settings-group">알림</h2>
+            <PushSection />
+          </>
+        )}
+
         {!IS_WEB_BUILD && (
           <>
             <h2 className="settings-group">보안</h2>
@@ -74,6 +82,49 @@ function SettingsPage() {
         </p>
       </main>
     </div>
+  )
+}
+
+function PushSection() {
+  const [isEnabled, setIsEnabled] = useState(isPushEnabled)
+  const [isBusy, setIsBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const support = getPushSupport()
+
+  const handleToggle = async () => {
+    setIsBusy(true)
+    setError(null)
+    try {
+      if (isEnabled) await disablePush()
+      else await enablePush()
+      setIsEnabled(!isEnabled)
+    } catch (caught) {
+      setError(toErrorMessage(caught))
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  return (
+    <section className="form-group">
+      <div className="form-row">
+        <span className="form-row-text">
+          새 일정 알림
+          <small>{support === 'needs-install' ? '홈 화면에 추가한 앱에서 켤 수 있어요' : '상대방이 캘린더에 일정을 추가하면 알려 줘요'}</small>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isEnabled}
+          aria-label="새 일정 알림"
+          className="switch"
+          disabled={isBusy || support === 'needs-install'}
+          onClick={handleToggle}
+        />
+      </div>
+      {error && <p className="status status-error form-row-status">{error}</p>}
+    </section>
   )
 }
 

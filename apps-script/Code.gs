@@ -198,8 +198,14 @@ function doPost(e) {
     authorize_(body.token)
     if (body.action === 'push') return push_(body)
     if (body.action === 'capture') return capture_(body)
-    if (body.action === 'calendarSave') return saveCalendarEvent_(body)
+    if (body.action === 'calendarSave') {
+      const result = saveCalendarEvent_(body)
+      if (!body.event.ref) notifyCalendarAdded_(body.actor, body.event)
+      return result
+    }
     if (body.action === 'calendarDelete') return deleteCalendarEvent_(body)
+    if (body.action === 'pushRegister') return registerPushToken_(body)
+    if (body.action === 'pushUnregister') return unregisterPushToken_(body)
     if (body.action === 'calendarImport') return importCalendarEvents_(body)
     if (body.action === 'calendarRecolor') return recolorCalendarEvents_()
     if (body.action === 'setup') {

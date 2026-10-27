@@ -2,6 +2,7 @@ import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { pullNativeCaptures } from './db/captures'
+import { refreshPush } from './push/push'
 import { ensureCategories, syncNow } from './sync/sync'
 
 const refresh = async () => {
@@ -13,6 +14,7 @@ export const bootstrap = async () => {
   navigator.storage?.persist?.()
   await ensureCategories()
   refresh()
+  refreshPush().catch(() => {})
 
   if (Capacitor.isNativePlatform()) {
     App.addListener('appStateChange', ({ isActive }) => {
@@ -23,7 +25,7 @@ export const bootstrap = async () => {
   window.addEventListener('focus', refresh)
 }
 
-// 시작 화면(아이콘 + 이름)은 너무 빨리 사라지면 깜빡임처럼 보여서, 켠 뒤 최소 이만큼은 보여 준다.
+// 시작 화면은 너무 빨리 사라지면 깜빡임처럼 보여서, 켠 뒤 최소 이만큼은 보여 준다.
 const BOOT_SPLASH_MIN_MS = 1000
 const BOOT_SPLASH_FADE_MS = 280
 

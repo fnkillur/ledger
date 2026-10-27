@@ -9,7 +9,9 @@ import {
   type CalendarEventRef,
   type RepeatScope,
 } from '../domain/calendar'
-import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent } from '../sync/calendarApi'
+import { displayName } from '../domain/nickname'
+import { DEVICE_PERSON } from '../platform'
+import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
 import { getSettings, isSyncConfigured } from '../sync/settings'
 import { currentMonthKey } from '../utils/format'
 import { db, type CalendarOp } from './database'
@@ -46,8 +48,13 @@ const replaceRange = async (start: string, end: string, events: CalendarEvent[])
   })
 }
 
-const sendOp = (op: CalendarOp) => {
-  if (op.type === 'save') return saveCalendarEvent(getSettings(), op.input, op.scope)
+const currentActor = async (): Promise<CalendarActor> => ({
+  person: DEVICE_PERSON,
+  name: displayName(DEVICE_PERSON, (await db.shared.get('shared'))?.닉네임 ?? {}),
+})
+
+const sendOp = async (op: CalendarOp) => {
+  if (op.type === 'save') return saveCalendarEvent(getSettings(), op.input, op.scope, await currentActor())
   return deleteCalendarEvent(getSettings(), op.ref, op.scope)
 }
 

@@ -6,12 +6,15 @@ type CalendarEventChipProps = {
   bar: CalendarBar
 }
 
+// 하루 안에 끝나는 시간 일정만 옅게 칠한다. 이틀 넘게 이어지면 종일 일정처럼 진하게 둔다.
+const isLight = (bar: CalendarBar) => !bar.event.allDay && bar.span === 1 && !bar.continuesBefore && !bar.continuesAfter
+
 // 칸이 좁아서 짤은 막대 왼쪽 위에 작은 동그라미로 걸쳐 두고, 막대 폭은 제목에 쓴다.
 function CalendarEventChip({ bar }: CalendarEventChipProps) {
   const className = [
     'cal-chip',
     TARGET_TONE[bar.event.target],
-    bar.event.allDay ? '' : 'is-timed',
+    isLight(bar) ? 'is-timed' : '',
     bar.continuesBefore ? 'continues-before' : '',
     bar.continuesAfter ? 'continues-after' : '',
   ]

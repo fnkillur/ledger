@@ -29,3 +29,6 @@ apps-script/Secret.gs
 .env.*.local
 .connect-code.txt
 .clasp.json
+
+# Firebase 안드로이드 설정 (API 키 포함)
+android/app/google-services.json

@@ -1,7 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import CalendarCarousel from '../components/calendar/CalendarCarousel'
 import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
@@ -22,16 +22,31 @@ const weekdayClass = (index: number) => {
 }
 
 function CalendarPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  // 새 일정 알림을 누르고 들어오면 주소에 날짜가 붙어 와서, 그 날짜 시트를 연다.
+  const linkedDate = searchParams.get('date')
   const monthKey = useCalendarMonthKey()
   const settings = useSettings()
   const events = useCalendarEvents()
   const { error, pendingCount } = useCalendarStatus()
 
-  const [opened, setOpened] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
+  const [pickedDay, setPickedDay] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
+
+  const opened = linkedDate ? { dateKey: linkedDate, view: { type: 'list' } as DaySheetView } : pickedDay
+
+  const closeSheet = () => {
+    setPickedDay(null)
+    if (linkedDate) setSearchParams({}, { replace: true })
+  }
 
   const newEventDate = monthKey === currentMonthKey() ? todayKey() : `${monthKey}-01`
 
   useCalendarSync(monthKey)
+
+  // 새 일정 알림을 누르고 들어오면 그 날짜의 달로 옮긴다.
+  useEffect(() => {
+    if (linkedDate) setCalendarMonth(linkedDate.slice(0, 7))
+  }, [linkedDate])
 
   return (
     <div className="page calendar-page">
@@ -68,12 +83,12 @@ function CalendarPage() {
             monthKey={monthKey}
             events={events}
             onChangeMonth={offset => setCalendarMonth(shiftMonth(monthKey, offset))}
-            onSelectDay={dateKey => setOpened({ dateKey, view: { type: 'list' } })}
+            onSelectDay={dateKey => setPickedDay({ dateKey, view: { type: 'list' } })}
           />
         )}
       </div>
 
-      <button type="button" className="fab" aria-label="일정 추가" onClick={() => setOpened({ dateKey: newEventDate, view: { type: 'form' } })}>
+      <button type="button" className="fab" aria-label="일정 추가" onClick={() => setPickedDay({ dateKey: newEventDate, view: { type: 'form' } })}>
         <PlusIcon size={26} weight="bold" aria-hidden="true" />
       </button>
 
@@ -84,7 +99,7 @@ function CalendarPage() {
             dateKey={opened.dateKey}
             events={eventsOnDay(events ?? [], opened.dateKey)}
             initialView={opened.view}
-            onClose={() => setOpened(null)}
+            onClose={closeSheet}
           />,
           document.body,
         )}

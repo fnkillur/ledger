@@ -31,6 +31,12 @@ jobs:
       - run: pnpm build:web
         env:
           PAGES_BASE: /${{ github.event.repository.name }}/
+          # 새 일정 알림(웹 푸시)용 Firebase 웹 설정. 공개되는 값이라 저장소 변수(Variables)에 둔다.
+          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ vars.FIREBASE_VAPID_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
