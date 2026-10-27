@@ -2909,6 +2909,35 @@ a {
   margin: var(--space-2) var(--space-3) 0;
 }
 
+.calendar-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+.calendar-error p {
+  flex: 1;
+  margin: 0;
+}
+
+.calendar-error-button {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  color: inherit;
+}
+
+.is-spinning {
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .calendar-pending {
   margin: var(--space-1) var(--space-3) 0;
   color: var(--color-text-sub);

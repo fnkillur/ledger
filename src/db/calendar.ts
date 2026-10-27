@@ -11,6 +11,7 @@ import {
 } from '../domain/calendar'
 import { displayName } from '../domain/nickname'
 import { DEVICE_PERSON } from '../platform'
+import { ServerResponseError } from '../sync/api'
 import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
 import { getSettings, isSyncConfigured } from '../sync/settings'
 import { currentMonthKey } from '../utils/format'
@@ -18,8 +19,11 @@ import { db, type CalendarOp } from './database'
 
 const LOCAL_ID_PREFIX = 'local-'
 
+const isRetryable = (error: unknown) => error instanceof TypeError || error instanceof ServerResponseError
+
 export const toCalendarError = (error: unknown) => {
   if (error instanceof TypeError) return '인터넷 연결을 확인해 주세요.'
+  if (error instanceof ServerResponseError) return `시트 서버가 잠시 응답하지 못했어요. (${error.status})`
   return error instanceof Error ? error.message : '알 수 없는 오류가 났어요.'
 }
 
@@ -65,8 +69,8 @@ const pushOutbox = async () => {
     try {
       await sendOp(op)
     } catch (error) {
-      // 인터넷이 끊긴 건 남겨 두고 다음에 다시 보내고, 서버가 거절한 작업은 버리고 알린다.
-      if (!(error instanceof TypeError)) await db.calendarOutbox.delete(op.seq!)
+      // 인터넷이 끊겼거나 서버가 잠시 응답하지 못한 건 남겨 두고 다음에 다시 보내고, 서버가 거절한 작업만 버리고 알린다.
+      if (!isRetryable(error)) await db.calendarOutbox.delete(op.seq!)
       throw error
     }
     await db.calendarOutbox.delete(op.seq!)
@@ -76,6 +80,12 @@ const pushOutbox = async () => {
 const recordError = async (error: unknown) => {
   const meta = await db.calendarMeta.get('window')
   await db.calendarMeta.put({ key: 'window', start: meta?.start ?? '', end: meta?.end ?? '', fetchedAt: meta?.fetchedAt ?? '', error: toCalendarError(error) })
+}
+
+// 오류 안내의 닫기 버튼. 다음 동기화가 실패하면 다시 보인다.
+export const dismissCalendarError = async () => {
+  const meta = await db.calendarMeta.get('window')
+  if (meta?.error) await db.calendarMeta.put({ ...meta, error: undefined })
 }
 
 const MAX_SYNC_ROUNDS = 3

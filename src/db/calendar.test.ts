@@ -24,6 +24,7 @@ let serverEvents: CalendarEvent[]
 let reads: URL[]
 let writes: Record<string, unknown>[]
 let isOnline: boolean
+let serverStatus: number
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -34,10 +35,12 @@ beforeEach(async () => {
   reads = []
   writes = []
   isOnline = true
+  serverStatus = 200
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: URL | string, init?: RequestInit) => {
       if (!isOnline) throw new TypeError('Failed to fetch')
+      if (serverStatus !== 200) return new Response('error', { status: serverStatus })
       if (init?.method === 'POST') {
         const body = JSON.parse(String(init.body))
         writes.push(body)
@@ -92,6 +95,22 @@ describe('syncCalendar', () => {
     expect(await db.calendarOutbox.count()).toBe(0)
     expect((await db.calendarEvents.toArray()).map(item => item.id).sort()).toEqual(['server-1', 'server-2'])
     expect((await db.calendarMeta.get('window'))?.error).toBeUndefined()
+  })
+
+  it('서버가 잠시 응답하지 못하면(500) 보낼 작업을 남겨 두고, 나중에 보내며 닉네임과 함께 누가 했는지 알린다', async () => {
+    serverStatus = 500
+
+    await saveEvent(input('병원'))
+    await syncCalendar()
+
+    expect(await db.calendarOutbox.count()).toBe(1)
+    expect((await db.calendarMeta.get('window'))?.error).toBe('시트 서버가 잠시 응답하지 못했어요. (500)')
+
+    serverStatus = 200
+    await syncCalendar()
+
+    expect(await db.calendarOutbox.count()).toBe(0)
+    expect(writes.at(-1)?.actor).toEqual({ person: '쿠리만쥬', name: '쿠리만쥬' })
   })
 
   it('서버가 거절한 작업은 버리고 이유를 남긴다', async () => {

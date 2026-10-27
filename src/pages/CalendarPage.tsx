@@ -1,11 +1,11 @@
-import { PlusIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router'
 import CalendarCarousel from '../components/calendar/CalendarCarousel'
 import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
-import { useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
+import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
 import { eventsOnDay } from '../domain/calendar'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, shiftMonth, toDateKey } from '../utils/format'
@@ -66,7 +66,7 @@ function CalendarPage() {
           구글 시트와 아직 연결되지 않았어요. 설정에서 연결 코드를 붙여넣어 주세요.
         </Link>
       )}
-      {error && <p className="status status-error calendar-notice">캘린더를 맞추지 못했어요. {error}</p>}
+      {error && <SyncErrorNotice message={error} />}
       {pendingCount > 0 && <p className="calendar-pending">보내지 않은 변경 {pendingCount}건 · 연결되면 자동으로 보내요</p>}
 
       <div className="cal">
@@ -103,6 +103,28 @@ function CalendarPage() {
           />,
           document.body,
         )}
+    </div>
+  )
+}
+
+function SyncErrorNotice({ message }: { message: string }) {
+  const [isRetrying, setIsRetrying] = useState(false)
+
+  const handleRetry = async () => {
+    setIsRetrying(true)
+    await syncCalendar()
+    setIsRetrying(false)
+  }
+
+  return (
+    <div className="status status-error calendar-notice calendar-error" role="alert">
+      <p>캘린더를 맞추지 못했어요. {message}</p>
+      <button type="button" className="icon-button calendar-error-button" aria-label="다시 시도" disabled={isRetrying} onClick={handleRetry}>
+        <ArrowClockwiseIcon size={18} weight="bold" className={isRetrying ? 'is-spinning' : ''} />
+      </button>
+      <button type="button" className="icon-button calendar-error-button" aria-label="닫기" onClick={dismissCalendarError}>
+        <XIcon size={18} weight="bold" />
+      </button>
     </div>
   )
 }

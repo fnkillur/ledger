@@ -13,8 +13,18 @@ type PullResponse = {
 
 type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string }
 
+// 서버가 요청을 처리하지 못한 경우(5xx 등). 요청 내용이 틀린 게 아니라서 나중에 다시 보내면 된다.
+export class ServerResponseError extends Error {
+  readonly status: number
+
+  constructor(status: number) {
+    super(`시트 서버 응답 오류 (${status})`)
+    this.status = status
+  }
+}
+
 export const unwrap = async <T>(response: Response) => {
-  if (!response.ok) throw new Error(`시트 서버 응답 오류 (${response.status})`)
+  if (!response.ok) throw new ServerResponseError(response.status)
   const result = (await response.json()) as ApiResult<T>
   if (!result.ok) throw new Error(result.error)
   return result
