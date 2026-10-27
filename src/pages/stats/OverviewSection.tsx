@@ -6,7 +6,7 @@ import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace } from '../../domain/insights'
 import type { Period } from '../../domain/period'
 import type { SavingTip, SavingTipId } from '../../domain/savingTips'
-import { expenseRatio, ratioLevel, ratioMessage, type expenseByScope, type KindTotals, type RatioLevel } from '../../domain/stats'
+import { expenseRatio, ratioLevel, ratioMessage, type expenseByScope, type KindTotals, type RatioLevel, type ScopeFilter } from '../../domain/stats'
 import type { Kind } from '../../domain/types'
 import { formatMonthLabel, formatWon } from '../../utils/format'
 import { formatAxisWon, niceTicks, TOOLTIP_STYLE } from './shared'
@@ -18,19 +18,22 @@ const SERIES: { kind: Kind; color: string }[] = [
 
 export type TrendRow = { monthKey: string } & (KindTotals | Record<Kind, null>)
 
-type SummaryTabProps = {
+type OverviewSectionProps = {
   period: Period
   previousLabel: string | null
+  scopeFilter: ScopeFilter
   totals: KindTotals
   previousTotals: KindTotals | null
+  householdExpense: number
   byScope: ReturnType<typeof expenseByScope>
   tips: SavingTip[] | null
-  trend: TrendRow[]
 }
 
-function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, tips, trend }: SummaryTabProps) {
+// 이번 기간 한눈에: 지출·수입 대비, 월말 예상, 줄여볼 만한 지출. 공동·개인을 고르면 지출만 그 범위로 보고, 전체에서의 비중을 함께 보여 준다.
+function OverviewSection({ period, previousLabel, scopeFilter, totals, previousTotals, householdExpense, byScope, tips }: OverviewSectionProps) {
   const [today] = useState(() => new Date())
 
+  const isAll = scopeFilter === '전체'
   const pace = period.type === '월별' ? budgetPace(totals.지출, period.monthKey, today) : null
   const ratio = expenseRatio(totals)
   const previousRatio = previousTotals && expenseRatio(previousTotals)
@@ -43,29 +46,44 @@ function SummaryTab({ period, previousLabel, totals, previousTotals, byScope, ti
           <strong className="stat-value is-expense">{formatWon(totals.지출)}</strong>
           {previousTotals && previousLabel && <ExpenseDelta label={previousLabel} delta={totals.지출 - previousTotals.지출} />}
           {pace?.isCurrent && pace.projected > totals.지출 && <span className="stat-delta">이 속도면 월말 약 {formatWon(roundToThousand(pace.projected))}</span>}
-          <ScopeSplit items={byScope} />
+          {isAll && <ScopeSplit items={byScope} />}
         </div>
-        <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio)}>
-          <span className="stat-label">수입 대비 지출</span>
-          <strong className="stat-value ratio-tile-value">{ratio === null ? '–' : `${ratio}%`}</strong>
-          <span className="stat-delta">
-            {ratio !== null && previousRatio !== null
-              ? `${previousLabel} 대비 ${ratio - previousRatio >= 0 ? '+' : '−'}${Math.abs(ratio - previousRatio)}%p`
-              : `수입 ${formatWon(totals.수입)}`}
-          </span>
-          <span className="stat-delta">남은 돈 {formatWon(totals.수입 - totals.지출)}</span>
-          <RatioMood ratio={ratio} previousRatio={previousRatio} />
-        </div>
+        {isAll ? (
+          <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio)}>
+            <span className="stat-label">수입 대비 지출</span>
+            <strong className="stat-value ratio-tile-value">{ratio === null ? '–' : `${ratio}%`}</strong>
+            <span className="stat-delta">
+              {ratio !== null && previousRatio !== null
+                ? `${previousLabel} 대비 ${ratio - previousRatio >= 0 ? '+' : '−'}${Math.abs(ratio - previousRatio)}%p`
+                : `수입 ${formatWon(totals.수입)}`}
+            </span>
+            <span className="stat-delta">남은 돈 {formatWon(totals.수입 - totals.지출)}</span>
+            <RatioMood ratio={ratio} previousRatio={previousRatio} />
+          </div>
+        ) : (
+          <div className="stat-tile">
+            <span className="stat-label">전체 지출 중</span>
+            <strong className="stat-value">{householdExpense > 0 ? `${Math.round((totals.지출 / householdExpense) * 100)}%` : '–'}</strong>
+            <span className="stat-delta">전체 지출 {formatWon(householdExpense)}</span>
+          </div>
+        )}
       </section>
 
-      {tips && <SavingTips tips={tips} />}
-
-      <section className="card">
-        <h2 className="card-title">{period.type === '연도별' ? `${period.monthKey.slice(0, 4)}년 월별 추이` : '최근 12개월'}</h2>
-        <TrendChart data={trend} />
-        <TrendTable data={trend} />
-      </section>
+      {isAll && tips && <SavingTips tips={tips} />}
     </>
+  )
+}
+
+export function TrendCard({ period, scopeFilter, data }: { period: Period; scopeFilter: ScopeFilter; data: TrendRow[] }) {
+  // 공동·개인으로 좁히면 수입은 나뉘지 않아서 지출 선만 그린다.
+  const series = scopeFilter === '전체' ? SERIES : SERIES.filter(item => item.kind === '지출')
+
+  return (
+    <section className="card">
+      <h2 className="card-title">{period.type === '연도별' ? `${period.monthKey.slice(0, 4)}년 월별 추이` : '최근 12개월'}</h2>
+      <TrendChart data={data} series={series} />
+      <TrendTable data={data} series={series} />
+    </section>
   )
 }
 
@@ -143,7 +161,7 @@ function RatioMood({ ratio, previousRatio }: { ratio: number | null; previousRat
 
 const maxValue = (data: TrendRow[]) => Math.max(0, ...data.flatMap(row => [row.수입 ?? 0, row.지출 ?? 0]))
 
-function TrendChart({ data }: { data: TrendRow[] }) {
+function TrendChart({ data, series }: { data: TrendRow[]; series: typeof SERIES }) {
   const ticks = niceTicks(maxValue(data))
 
   return (
@@ -176,12 +194,12 @@ function TrendChart({ data }: { data: TrendRow[] }) {
             {...TOOLTIP_STYLE}
           />
           <Legend iconType="plainline" wrapperStyle={{ fontSize: 13 }} formatter={value => <span style={{ color: 'var(--color-text)' }}>{value}</span>} />
-          {SERIES.map(series => (
+          {series.map(line => (
             <Line
-              key={series.kind}
+              key={line.kind}
               type="monotone"
-              dataKey={series.kind}
-              stroke={series.color}
+              dataKey={line.kind}
+              stroke={line.color}
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 5, stroke: 'var(--color-surface)', strokeWidth: 2 }}
@@ -196,7 +214,7 @@ function TrendChart({ data }: { data: TrendRow[] }) {
 
 const formatRatio = (ratio: number | null) => (ratio === null ? '–' : `${ratio}%`)
 
-function TrendTable({ data }: { data: TrendRow[] }) {
+function TrendTable({ data, series }: { data: TrendRow[]; series: typeof SERIES }) {
   return (
     <details className="table-view">
       <summary>표로 보기</summary>
@@ -204,9 +222,9 @@ function TrendTable({ data }: { data: TrendRow[] }) {
         <thead>
           <tr>
             <th scope="col">월</th>
-            {SERIES.map(series => (
-              <th key={series.kind} scope="col">
-                {series.kind}
+            {series.map(column => (
+              <th key={column.kind} scope="col">
+                {column.kind}
               </th>
             ))}
             <th scope="col">지출률</th>
@@ -216,8 +234,8 @@ function TrendTable({ data }: { data: TrendRow[] }) {
           {data.map(row => (
             <tr key={row.monthKey}>
               <th scope="row">{row.monthKey}</th>
-              {SERIES.map(series => (
-                <td key={series.kind}>{row[series.kind]?.toLocaleString('ko-KR') ?? '–'}</td>
+              {series.map(column => (
+                <td key={column.kind}>{row[column.kind]?.toLocaleString('ko-KR') ?? '–'}</td>
               ))}
               <td>{formatRatio(row.수입 === null ? null : expenseRatio({ 지출: row.지출 ?? 0, 수입: row.수입 }))}</td>
             </tr>
@@ -228,4 +246,4 @@ function TrendTable({ data }: { data: TrendRow[] }) {
   )
 }
 
-export default SummaryTab
+export default OverviewSection

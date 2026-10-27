@@ -10,28 +10,29 @@ import type { CategoryChange, PersonComparison } from '../../domain/insights'
 import type { Slice } from '../../domain/stats'
 import { PEOPLE } from '../../domain/types'
 import { formatWon } from '../../utils/format'
+import MoreToggle from './MoreToggle'
 import { formatCompactWon, percent, TOOLTIP_STYLE } from './shared'
 
 const SLICE_COLORS = ['var(--slice-1)', 'var(--slice-2)', 'var(--slice-3)', 'var(--slice-4)', 'var(--slice-5)']
 const PERSON_COLORS = { 쿠리만쥬: 'var(--person-1)', 우사기: 'var(--person-2)' }
 const CHANGE_LIMIT = 3
+const COLLAPSED_COUNT = 5
 
 const sliceColor = (slice: Slice, index: number) => (slice.isOther ? 'var(--slice-other)' : SLICE_COLORS[index])
 
 export type CompareTarget = '이전 기간' | '작년 같은 달'
 
-type CategoryTabProps = {
+type CategorySectionProps = {
   isMonthly: boolean
   previousLabel: string | null
   total: number
   slices: Slice[]
   ranking: { category: string; amount: number }[]
   changes: Record<CompareTarget, { increased: CategoryChange[]; decreased: CategoryChange[] }>
-  fixedVariable: { fixed: number; variable: number }
-  personComparison: PersonComparison[]
 }
 
-function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes, fixedVariable, personComparison }: CategoryTabProps) {
+// 어디에 썼나: 카테고리 비중, 많이 달라진 카테고리, 순위.
+function CategorySection({ isMonthly, previousLabel, total, slices, ranking, changes }: CategorySectionProps) {
   const [compareTarget, setCompareTarget] = useState<CompareTarget>('이전 기간')
 
   if (ranking.length === 0) {
@@ -66,16 +67,17 @@ function CategoryTab({ isMonthly, previousLabel, total, slices, ranking, changes
         <h2 className="card-title">카테고리 순위</h2>
         <CategoryRanking items={ranking} />
       </section>
-
-      <FixedVariableCard {...fixedVariable} />
-
-      {personComparison.length > 0 && (
-        <section className="card">
-          <h2 className="card-title">개인 지출 비교</h2>
-          <PersonComparisonBars rows={personComparison} />
-        </section>
-      )}
     </>
+  )
+}
+
+export function PersonComparisonCard({ rows }: { rows: PersonComparison[] }) {
+  if (rows.length === 0) return null
+  return (
+    <section className="card">
+      <h2 className="card-title">개인 지출 비교</h2>
+      <PersonComparisonBars rows={rows} />
+    </section>
   )
 }
 
@@ -157,32 +159,38 @@ function ChangeList({ changes }: { changes: { increased: CategoryChange[]; decre
 
 function CategoryRanking({ items }: { items: { category: string; amount: number }[] }) {
   const icons = useCategoryIcons()
+  const [isExpanded, setIsExpanded] = useState(false)
+
   const max = Math.max(...items.map(item => item.amount))
   const total = items.reduce((sum, item) => sum + item.amount, 0)
+  const shown = isExpanded ? items : items.slice(0, COLLAPSED_COUNT)
 
   return (
-    <ol className="bars">
-      {items.map((item, index) => (
-        <li key={item.category} className="bar-row">
-          <span className="bar-rank">{index + 1}</span>
-          <span className="bar-label">
-            <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
-            <span className="label-text">{item.category}</span>
-          </span>
-          <div className="bar-track">
-            <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%` }} />
-          </div>
-          <span className="bar-value">
-            {item.amount.toLocaleString('ko-KR')}
-            <span className="bar-share"> {percent(item.amount, total)}%</span>
-          </span>
-        </li>
-      ))}
-    </ol>
+    <>
+      <ol className="bars">
+        {shown.map((item, index) => (
+          <li key={item.category} className="bar-row">
+            <span className="bar-rank">{index + 1}</span>
+            <span className="bar-label">
+              <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
+              <span className="label-text">{item.category}</span>
+            </span>
+            <div className="bar-track">
+              <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%` }} />
+            </div>
+            <span className="bar-value">
+              {item.amount.toLocaleString('ko-KR')}
+              <span className="bar-share"> {percent(item.amount, total)}%</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <MoreToggle total={items.length} collapsedCount={COLLAPSED_COUNT} isExpanded={isExpanded} onToggle={() => setIsExpanded(!isExpanded)} />
+    </>
   )
 }
 
-function FixedVariableCard({ fixed, variable }: { fixed: number; variable: number }) {
+export function FixedVariableCard({ fixed, variable }: { fixed: number; variable: number }) {
   const total = fixed + variable
 
   return (
@@ -242,4 +250,4 @@ function PersonComparisonBars({ rows }: { rows: PersonComparison[] }) {
   )
 }
 
-export default CategoryTab
+export default CategorySection

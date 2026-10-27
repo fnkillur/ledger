@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import PeriodHeader from '../components/PeriodHeader'
 import ScopeChips from '../components/ScopeChips'
-import UnderlineTabs from '../components/UnderlineTabs'
 import { useCategoriesQuery, useTransactionsBetween } from '../db/hooks'
 import {
   categoryChanges,
@@ -28,13 +27,10 @@ import {
 } from '../domain/stats'
 import { currentMonthKey } from '../utils/format'
 import { useViewState } from '../utils/viewState'
-import CategoryTab from './stats/CategoryTab'
-import PatternTab from './stats/PatternTab'
+import CategorySection, { FixedVariableCard, PersonComparisonCard } from './stats/CategorySection'
+import OverviewSection, { TrendCard } from './stats/OverviewSection'
+import PatternSection from './stats/PatternSection'
 import { inRange } from './stats/shared'
-import SummaryTab from './stats/SummaryTab'
-
-const TABS = ['요약', '카테고리', '소비 패턴'] as const
-type Tab = (typeof TABS)[number]
 
 const TREND_MONTHS = 12
 const MAX_SLICES = 6
@@ -50,7 +46,6 @@ const earliest = (...isoStrings: string[]) => isoStrings.reduce((min, value) => 
 function StatsPage() {
   const { periodType, monthKey } = useViewState()
 
-  const [tab, setTab] = useState<Tab>('요약')
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('전체')
   const [today] = useState(() => new Date())
 
@@ -90,28 +85,31 @@ function StatsPage() {
     [loaded, ranges],
   )
 
-  const summary = useMemo(() => {
-    const latest = currentMonthKey()
-    return {
-      totals: sumByKind(current, excluded),
-      byScope: expenseByScope(current, excluded),
-      previousTotals: previous && sumByKind(previous, excluded),
-      tips: periodType === '월별' ? savingTips({ monthKey, transactions: loaded, categories, today }) : null,
-      // 아직 오지 않은 달, 기록이 하나도 없는 이번 달은 선을 0으로 떨어뜨리지 않고 비워 둔다.
-      trend: monthlyTotals(loaded, ranges.monthKeys, excluded).map(row =>
-        row.monthKey > latest || (row.monthKey === latest && row.지출 === 0 && row.수입 === 0)
-          ? { monthKey: row.monthKey, 수입: null, 지출: null, 저축: null }
-          : row,
-      ),
-    }
-  }, [current, previous, loaded, ranges, excluded, periodType, monthKey, categories, today])
-
   const scopedCurrent = useMemo(() => current.filter(transaction => matchesScope(transaction, scopeFilter)), [current, scopeFilter])
   const scopedPrevious = useMemo(() => (previous ?? []).filter(transaction => matchesScope(transaction, scopeFilter)), [previous, scopeFilter])
   const scopedLastYear = useMemo(
     () => sameMonthLastYear.filter(transaction => matchesScope(transaction, scopeFilter)),
     [sameMonthLastYear, scopeFilter],
   )
+
+  // 한눈에 보는 숫자와 12개월 추이도 고른 범위(전체·공동·개인)를 따른다. 절약 팁은 집 전체 기준이다.
+  const summary = useMemo(() => {
+    const latest = currentMonthKey()
+    const scopedLoaded = loaded.filter(transaction => matchesScope(transaction, scopeFilter))
+    return {
+      totals: sumByKind(scopedCurrent, excluded),
+      previousTotals: previous && sumByKind(scopedPrevious, excluded),
+      householdExpense: sumByKind(current, excluded).지출,
+      byScope: expenseByScope(current, excluded),
+      tips: periodType === '월별' ? savingTips({ monthKey, transactions: loaded, categories, today }) : null,
+      // 아직 오지 않은 달, 기록이 하나도 없는 이번 달은 선을 0으로 떨어뜨리지 않고 비워 둔다.
+      trend: monthlyTotals(scopedLoaded, ranges.monthKeys, excluded).map(row =>
+        row.monthKey > latest || (row.monthKey === latest && row.지출 === 0 && row.수입 === 0)
+          ? { monthKey: row.monthKey, 수입: null, 지출: null, 저축: null }
+          : row,
+      ),
+    }
+  }, [loaded, current, previous, scopedCurrent, scopedPrevious, ranges, excluded, scopeFilter, periodType, monthKey, categories, today])
 
   const categoryData = useMemo(() => {
     const ranking = sumByCategory(scopedCurrent, '지출', excluded)
@@ -141,34 +139,40 @@ function StatsPage() {
   return (
     <div className="page">
       <PeriodHeader>
-        <UnderlineTabs label="통계 종류" tabs={TABS} value={tab} onChange={setTab} />
+        <ScopeChips value={scopeFilter} onChange={setScopeFilter} />
       </PeriodHeader>
 
-      <main className="page-content">
+      <main className="page-content stats-content">
         {isReady && (
           <>
-            {tab !== '요약' && <ScopeChips value={scopeFilter} onChange={setScopeFilter} />}
+            <OverviewSection
+              period={ranges.period}
+              previousLabel={ranges.previousLabel}
+              scopeFilter={scopeFilter}
+              totals={summary.totals}
+              previousTotals={summary.previousTotals}
+              householdExpense={summary.householdExpense}
+              byScope={summary.byScope}
+              tips={summary.tips}
+            />
 
-            {tab === '요약' && (
-              <SummaryTab
-                period={ranges.period}
-                previousLabel={ranges.previousLabel}
-                totals={summary.totals}
-                previousTotals={summary.previousTotals}
-                byScope={summary.byScope}
-                tips={summary.tips}
-                trend={summary.trend}
-              />
-            )}
-            {tab === '카테고리' && (
-              <CategoryTab
-                isMonthly={periodType === '월별'}
-                previousLabel={ranges.previousLabel}
-                total={sumByKind(scopedCurrent, excluded).지출}
-                {...categoryData}
-              />
-            )}
-            {tab === '소비 패턴' && <PatternTab {...patternData} />}
+            <h2 className="stats-section-title">어디에 썼나</h2>
+            <CategorySection
+              isMonthly={periodType === '월별'}
+              previousLabel={ranges.previousLabel}
+              total={summary.totals.지출}
+              slices={categoryData.slices}
+              ranking={categoryData.ranking}
+              changes={categoryData.changes}
+            />
+
+            <h2 className="stats-section-title">어떻게 썼나</h2>
+            <PatternSection {...patternData} />
+
+            <h2 className="stats-section-title">흐름</h2>
+            <TrendCard period={ranges.period} scopeFilter={scopeFilter} data={summary.trend} />
+            {categoryData.ranking.length > 0 && <FixedVariableCard {...categoryData.fixedVariable} />}
+            <PersonComparisonCard rows={categoryData.personComparison} />
           </>
         )}
       </main>

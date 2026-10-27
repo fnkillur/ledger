@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import CategoryIcon from '../../components/CategoryIcon'
 import EmptyState from '../../components/EmptyState'
@@ -8,9 +9,12 @@ import { TIME_SLOTS, WEEKDAYS, type CalendarDay, type MerchantStat } from '../..
 import { myShare } from '../../domain/stats'
 import type { Transaction } from '../../domain/types'
 import { formatShortDay, formatWon } from '../../utils/format'
+import MoreToggle from './MoreToggle'
 import { formatCompactWon } from './shared'
 
-type PatternTabProps = {
+const COLLAPSED_COUNT = 5
+
+type PatternSectionProps = {
   hasDetail: boolean
   biggest: Transaction[]
   merchants: MerchantStat[]
@@ -18,7 +22,8 @@ type PatternTabProps = {
   calendar: { days: CalendarDay[]; leadingBlanks: number; noSpendCount: number } | null
 }
 
-function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: PatternTabProps) {
+// 어떻게 썼나: 큰 지출, 자주 가는 곳, 무지출 데이, 요일·시간대.
+function PatternSection({ hasDetail, biggest, merchants, matrix, calendar }: PatternSectionProps) {
   if (!hasDetail) {
     return (
       <section className="card">
@@ -33,7 +38,7 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
   return (
     <>
       <section className="card">
-        <h2 className="card-title">큰 지출 TOP {biggest.length}</h2>
+        <h2 className="card-title">큰 지출</h2>
         <TopExpenseList transactions={biggest} />
       </section>
 
@@ -55,33 +60,39 @@ function PatternTab({ hasDetail, biggest, merchants, matrix, calendar }: Pattern
 function TopExpenseList({ transactions }: { transactions: Transaction[] }) {
   const icons = useCategoryIcons()
   const personName = usePersonName()
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const shown = isExpanded ? transactions : transactions.slice(0, COLLAPSED_COUNT)
 
   return (
-    <ol className="top-list">
-      {transactions.map((transaction, index) => (
-        <li key={transaction.id}>
-          <Link to={`/tx/${transaction.id}`} className="top-row">
-            <span className="bar-rank">{index + 1}</span>
-            <CategoryIcon name={transaction.category} emoji={icons.get(transaction.category)} size={16} />
-            <span className="top-row-main">
-              <strong>{transaction.merchant || transaction.category}</strong>
-              <span className="tx-row-meta">
-                <span className="tx-row-person">
-                  <PersonAvatar person={transaction.person} size={16} />
-                  {personName(transaction.person)}
+    <>
+      <ol className="top-list">
+        {shown.map((transaction, index) => (
+          <li key={transaction.id}>
+            <Link to={`/tx/${transaction.id}`} className="top-row">
+              <span className="bar-rank">{index + 1}</span>
+              <CategoryIcon name={transaction.category} emoji={icons.get(transaction.category)} size={16} />
+              <span className="top-row-main">
+                <strong>{transaction.merchant || transaction.category}</strong>
+                <span className="tx-row-meta">
+                  <span className="tx-row-person">
+                    <PersonAvatar person={transaction.person} size={16} />
+                    {personName(transaction.person)}
+                  </span>
+                  <span className="tx-row-category">{transaction.category}</span>
+                  {transaction.shareCount > 1 && <span className="tx-badge">{transaction.shareCount}명 나눔</span>}
                 </span>
-                <span className="tx-row-category">{transaction.category}</span>
-                {transaction.shareCount > 1 && <span className="tx-badge">{transaction.shareCount}명 나눔</span>}
               </span>
-            </span>
-            <span className="top-row-amount">
-              {formatWon(myShare(transaction))}
-              <span className="tx-row-time">{formatShortDay(transaction.occurredAt)}</span>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ol>
+              <span className="top-row-amount">
+                {formatWon(myShare(transaction))}
+                <span className="tx-row-time">{formatShortDay(transaction.occurredAt)}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+      <MoreToggle total={transactions.length} collapsedCount={COLLAPSED_COUNT} isExpanded={isExpanded} onToggle={() => setIsExpanded(!isExpanded)} />
+    </>
   )
 }
 
@@ -210,4 +221,4 @@ function CalendarCell({ day }: { day: CalendarDay }) {
   )
 }
 
-export default PatternTab
+export default PatternSection
