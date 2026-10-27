@@ -3066,11 +3066,11 @@ a {
   padding-left: 11px;
 }
 
+/* 칸이 좁아 말줄임표가 글자 자리를 먹으므로, 넘치는 글자는 그냥 잘리게 둔다. */
 .cal-chip-title {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .target-avatars {
