@@ -28,9 +28,12 @@ function LockSettingSection() {
   }
 
   return (
-    <section className="data-section">
-      <div className="setting-row">
-        <h2>지문 잠금</h2>
+    <section className="form-group">
+      <div className="form-row">
+        <span className="form-row-text">
+          지문 잠금
+          <small>{getDescription(isAvailable)}</small>
+        </span>
         <button
           type="button"
           role="switch"
@@ -41,8 +44,7 @@ function LockSettingSection() {
           onClick={handleToggle}
         />
       </div>
-      <p>{getDescription(isAvailable)}</p>
-      {errorMessage && <p className="status status-error">{errorMessage}</p>}
+      {errorMessage && <p className="status status-error form-row-status">{errorMessage}</p>}
     </section>
   )
 }

@@ -1,7 +1,9 @@
 const CALENDAR_TIME_ZONE = 'Asia/Seoul'
-const CALENDAR_TARGETS = ['공동', '쿠리만쥬', '우사기', '없음']
-// 구글 캘린더 앱에서도 대상이 구분되도록 일정 색을 같이 정한다.
-const TARGET_COLOR_IDS = { 공동: '3', 쿠리만쥬: '6', 우사기: '4', 없음: '8' }
+const CALENDAR_TARGETS = ['공동', '쿠리만쥬', '우사기', '기념일', '없음']
+// 구글 캘린더 앱에서도 대상이 구분되도록 앱과 같은 계열(공동 그래파이트·쿠리만쥬 세이지·우사기 바나나·기념일 포도·지정일 토마토)로 칠한다.
+const TARGET_COLOR_IDS = { 공동: '8', 쿠리만쥬: '2', 우사기: '5', 기념일: '3', 없음: '11' }
+// Apps Script 실행 제한(6분) 안에 끝나도록 색 바꾸기는 이만큼만 하고 다음 요청에 이어서 한다.
+const RECOLOR_TIME_BUDGET_MS = 4 * 60 * 1000
 const REPEAT_FREQS = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' }
 const CALENDAR_IMPORT_LIMIT = 100
 
@@ -113,6 +115,28 @@ function importCalendarEvents_(body) {
     added += 1
   })
   return { added, skipped }
+}
+
+// 색 매핑을 바꿨을 때 이미 있는 일정의 색을 맞춘다. 끝나지 않았으면 done: false를 돌려줘 다시 부르게 한다.
+function recolorCalendarEvents_() {
+  const id = calendarId_()
+  const startedAt = Date.now()
+  let updated = 0
+  let pageToken
+  do {
+    const page = Calendar.Events.list(id, { maxResults: 2500, pageToken, showDeleted: false })
+    for (const item of page.items || []) {
+      if (item.status === 'cancelled') continue
+      const target = item.extendedProperties && item.extendedProperties.private && item.extendedProperties.private.target
+      const colorId = TARGET_COLOR_IDS[CALENDAR_TARGETS.includes(target) ? target : '없음']
+      if (item.colorId === colorId) continue
+      if (Date.now() - startedAt > RECOLOR_TIME_BUDGET_MS) return { updated, done: false }
+      Calendar.Events.patch({ colorId }, id, item.id)
+      updated += 1
+    }
+    pageToken = page.nextPageToken
+  } while (pageToken)
+  return { updated, done: true }
 }
 
 // 다른 앱에서 넣은 설명·알림 같은 값은 지우지 않도록, 원본을 받아 바꿀 값만 덮어쓴다.

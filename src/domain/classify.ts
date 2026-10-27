@@ -1,4 +1,4 @@
-import type { Rule } from './types'
+import { isAggregate, type Kind, type Rule, type Transaction } from './types'
 
 const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, '')
 
@@ -11,6 +11,21 @@ export const classifyMerchant = (merchant: string, rules: Rule[]) => {
     .sort((left, right) => normalize(right.keyword).length - normalize(left.keyword).length)
 
   return matched[0]?.category ?? null
+}
+
+// 규칙을 새로 저장할 때 함께 바꿀 지난 내역. 이름이 정확히 같은 가맹점의 건별 기록만 고른다.
+export const findSameMerchant = (transactions: Transaction[], target: { merchant: string; kind: Kind; category: string; exceptId?: string }) => {
+  const merchant = normalize(target.merchant)
+  if (!merchant) return []
+  return transactions.filter(
+    transaction =>
+      !transaction.deleted &&
+      transaction.id !== target.exceptId &&
+      transaction.kind === target.kind &&
+      transaction.category !== target.category &&
+      !isAggregate(transaction.source) &&
+      normalize(transaction.merchant) === merchant,
+  )
 }
 
 // 분류 규칙이 없는 처음 보는 가맹점은 이름에 흔히 들어가는 단어로 기본 카테고리를 추정한다.

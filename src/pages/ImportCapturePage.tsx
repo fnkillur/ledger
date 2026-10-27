@@ -128,16 +128,18 @@ function ImportCapturePage() {
     <div className="page">
       <TopBar showBack title="알림 캡처로 가져오기" />
       <main className="page-content form">
-        <div className="import-person">
-          <span className="import-person-label">누구의 결제인가요?</span>
-          {IS_WEB_BUILD ? (
-            <span className="person-chip">
-              <PersonAvatar person={person} size={22} /> {personName(person)}
-            </span>
-          ) : (
-            <PersonToggle value={person} onChange={setPerson} />
-          )}
-        </div>
+        <section className="form-group">
+          <div className="form-row">
+            <span>누구의 결제인가요?</span>
+            {IS_WEB_BUILD ? (
+              <span className="person-chip">
+                <PersonAvatar person={person} size={22} /> {personName(person)}
+              </span>
+            ) : (
+              <PersonToggle value={person} onChange={setPerson} />
+            )}
+          </div>
+        </section>
 
         <section className="card ocr-card">
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={handleFiles} />
@@ -173,13 +175,9 @@ function ImportCapturePage() {
       </main>
 
       {candidates && (
-        <div className="save-bar">
-          <div className="save-bar-totals">
-            <span>{checked.length}건 선택</span>
-            <strong>{formatWon(checkedSum)}</strong>
-          </div>
+        <div className="bottom-cta">
           <button type="button" className="button button-primary" disabled={isSaving || checked.length === 0} onClick={handleSave}>
-            {checked.length}건 저장
+            {checked.length === 0 ? '저장할 결제를 골라 주세요' : `${checked.length}건 · ${formatWon(checkedSum)} 저장`}
           </button>
         </div>
       )}

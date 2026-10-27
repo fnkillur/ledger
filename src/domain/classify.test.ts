@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CATEGORIES } from './defaultCategories'
-import { guessCategory, suggestCategory } from './classify'
+import { findSameMerchant, guessCategory, suggestCategory } from './classify'
+import type { Transaction } from './types'
 
 const NAMES = DEFAULT_CATEGORIES.map(category => category.name)
 
@@ -40,5 +41,44 @@ describe('suggestCategory', () => {
     expect(suggestCategory('스타벅스', rules, NAMES)).toBe('원두')
     expect(suggestCategory('메가커피', rules, NAMES)).toBe('카페·간식')
     expect(suggestCategory('메가커피', [], ['식비'])).toBeNull()
+  })
+})
+
+describe('findSameMerchant', () => {
+  const base: Transaction = {
+    id: 'a',
+    occurredAt: '2026-10-01T00:00:00.000Z',
+    person: '쿠리만쥬',
+    kind: '지출',
+    amount: 5000,
+    shareCount: 1,
+    merchant: '스타벅스 강남R점',
+    category: '식비',
+    excluded: false,
+    source: '수동',
+    memo: '',
+    rawText: '',
+    scope: '공동',
+    deleted: false,
+    updatedAt: '2026-10-01T00:00:00.000Z',
+  }
+
+  it('띄어쓰기·대소문자만 다른 같은 가맹점의 다른 카테고리 기록을 고른다', () => {
+    const rows = [
+      base,
+      { ...base, id: 'b', merchant: '스타벅스강남r점' },
+      { ...base, id: 'c', category: '카페·간식' },
+      { ...base, id: 'd', merchant: '스타벅스 역삼점' },
+      { ...base, id: 'e', deleted: true },
+      { ...base, id: 'f', kind: '수입' as const },
+      { ...base, id: 'g', source: '월합계' as const },
+      { ...base, id: 'h' },
+    ]
+    const found = findSameMerchant(rows, { merchant: '스타벅스 강남R점', kind: '지출', category: '카페·간식', exceptId: 'h' })
+    expect(found.map(row => row.id)).toEqual(['a', 'b'])
+  })
+
+  it('가맹점이 비면 아무것도 고르지 않는다', () => {
+    expect(findSameMerchant([{ ...base, merchant: '' }], { merchant: ' ', kind: '지출', category: '카페·간식' })).toEqual([])
   })
 })

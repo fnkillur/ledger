@@ -2,25 +2,36 @@ import { PlusIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import CalendarGrid from '../components/calendar/CalendarGrid'
-import DaySheet from '../components/calendar/DaySheet'
+import CalendarCarousel from '../components/calendar/CalendarCarousel'
+import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
-import { useCalendarMonth } from '../db/calendar'
+import { useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
 import { eventsOnDay } from '../domain/calendar'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, shiftMonth, toDateKey } from '../utils/format'
 import { setCalendarMonth, useCalendarMonthKey } from '../utils/viewState'
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
 const todayKey = () => toDateKey(new Date().toISOString())
+
+const weekdayClass = (index: number) => {
+  if (index === 0) return 'is-sunday'
+  if (index === 6) return 'is-saturday'
+  return ''
+}
 
 function CalendarPage() {
   const monthKey = useCalendarMonthKey()
   const settings = useSettings()
-  const { events, error } = useCalendarMonth(monthKey)
+  const events = useCalendarEvents()
+  const { error, pendingCount } = useCalendarStatus()
 
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [opened, setOpened] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
 
   const newEventDate = monthKey === currentMonthKey() ? todayKey() : `${monthKey}-01`
+
+  useCalendarSync(monthKey)
 
   return (
     <div className="page calendar-page">
@@ -40,22 +51,41 @@ function CalendarPage() {
           구글 시트와 아직 연결되지 않았어요. 설정에서 연결 코드를 붙여넣어 주세요.
         </Link>
       )}
-      {error && <p className="status status-error calendar-notice">일정을 불러오지 못했어요. {error}</p>}
+      {error && <p className="status status-error calendar-notice">캘린더를 맞추지 못했어요. {error}</p>}
+      {pendingCount > 0 && <p className="calendar-pending">보내지 않은 변경 {pendingCount}건 · 연결되면 자동으로 보내요</p>}
 
-      <CalendarGrid
-        monthKey={monthKey}
-        events={events}
-        onSelectDay={setSelectedDay}
-        onSwipe={offset => setCalendarMonth(shiftMonth(monthKey, offset))}
-      />
+      <div className="cal">
+        <div className="cal-weekdays" aria-hidden="true">
+          {WEEKDAYS.map((label, index) => (
+            <span key={label} className={weekdayClass(index)}>
+              {label}
+            </span>
+          ))}
+        </div>
+        {/* 받아 둔 일정을 다 읽은 뒤에 달력을 그려서, 빈 달력에 일정이 뒤늦게 튀어나오지 않게 한다. */}
+        {events && (
+          <CalendarCarousel
+            monthKey={monthKey}
+            events={events}
+            onChangeMonth={offset => setCalendarMonth(shiftMonth(monthKey, offset))}
+            onSelectDay={dateKey => setOpened({ dateKey, view: { type: 'list' } })}
+          />
+        )}
+      </div>
 
-      <Link to={`/calendar/new?date=${newEventDate}`} className="fab" aria-label="일정 추가">
+      <button type="button" className="fab" aria-label="일정 추가" onClick={() => setOpened({ dateKey: newEventDate, view: { type: 'form' } })}>
         <PlusIcon size={26} weight="bold" aria-hidden="true" />
-      </Link>
+      </button>
 
-      {selectedDay &&
+      {opened &&
         createPortal(
-          <DaySheet dateKey={selectedDay} events={eventsOnDay(events, selectedDay)} onClose={() => setSelectedDay(null)} />,
+          <DaySheet
+            key={opened.dateKey}
+            dateKey={opened.dateKey}
+            events={eventsOnDay(events ?? [], opened.dateKey)}
+            initialView={opened.view}
+            onClose={() => setOpened(null)}
+          />,
           document.body,
         )}
     </div>

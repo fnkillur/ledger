@@ -31,6 +31,14 @@ export const splitTransaction = async (original: Transaction, splitAmount: numbe
   })
 }
 
+export const recategorize = async (transactions: Transaction[], category: string) => {
+  const updatedAt = now()
+  await db.transaction('rw', db.transactions, db.outbox, async () => {
+    await db.transactions.bulkPut(transactions.map(transaction => ({ ...transaction, category, updatedAt })))
+    await db.outbox.bulkPut(transactions.map(transaction => ({ id: transaction.id, type: 'transaction' as const })))
+  })
+}
+
 export const saveRule = async (keyword: string, category: string) => {
   const rule: Rule = { keyword: keyword.trim(), category, updatedAt: now() }
   if (!rule.keyword) return

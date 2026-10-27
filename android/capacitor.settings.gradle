@@ -7,3 +7,6 @@ project(':aparajita-capacitor-biometric-auth').projectDir = new File('../node_mo
 
 include ':capacitor-app'
 project(':capacitor-app').projectDir = new File('../node_modules/.pnpm/@capacitor+app@8.1.2_@capacitor+core@8.5.3/node_modules/@capacitor/app/android')
+
+include ':capacitor-splash-screen'
+project(':capacitor-splash-screen').projectDir = new File('../node_modules/.pnpm/@capacitor+splash-screen@8.0.2_@capacitor+core@8.5.3/node_modules/@capacitor/splash-screen/android')

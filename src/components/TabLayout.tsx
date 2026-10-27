@@ -2,6 +2,8 @@ import { CalendarBlankIcon, ChartBarIcon, GearSixIcon, ListBulletsIcon, TrayIcon
 import { NavLink, Outlet } from 'react-router'
 import { usePendingCaptures, useUncategorized } from '../db/hooks'
 import { LIST_PATH } from '../paths'
+import { currentMonthKey } from '../utils/format'
+import { setCalendarMonth } from '../utils/viewState'
 
 function TabLayout() {
   const captures = usePendingCaptures()
@@ -13,7 +15,7 @@ function TabLayout() {
     <>
       <Outlet />
       <nav className="tab-bar" aria-label="주요 메뉴">
-        <TabLink to="/" label="캘린더" icon={CalendarBlankIcon} end />
+        <TabLink to="/" label="캘린더" icon={CalendarBlankIcon} end onClick={() => setCalendarMonth(currentMonthKey())} />
         <TabLink to={LIST_PATH} label="내역" icon={ListBulletsIcon} />
         <TabLink to="/stats" label="통계" icon={ChartBarIcon} />
         <TabLink to="/inbox" label="수집함" icon={TrayIcon} badge={inboxCount} />
@@ -29,11 +31,12 @@ type TabLinkProps = {
   icon: Icon
   badge?: number
   end?: boolean
+  onClick?: () => void
 }
 
-function TabLink({ to, label, icon: TabIcon, badge = 0, end }: TabLinkProps) {
+function TabLink({ to, label, icon: TabIcon, badge = 0, end, onClick }: TabLinkProps) {
   return (
-    <NavLink to={to} end={end} className="tab-link">
+    <NavLink to={to} end={end} className="tab-link" onClick={onClick}>
       {({ isActive }) => (
         <>
           <span className="tab-icon">

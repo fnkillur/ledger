@@ -26,21 +26,31 @@ const formatSyncedAt = (iso: string | null | undefined) => {
 
 function SettingsPage() {
   const settings = useSettings()
+  const shared = useSharedSettings()
+  const syncStatus = useSyncStatus()
+
+  // 저장된 값을 다 불러온 뒤에 그려서, 칸이 비었다가 채워지거나 아래 칸이 밀리는 깜빡임을 없앤다.
+  const isReady = shared !== undefined && syncStatus !== undefined
 
   return (
     <div className="page">
       <TopBar title="설정" />
 
-      <main className="page-content">
+      <main className="page-content settings-content" hidden={!isReady}>
         <h2 className="settings-group">동기화</h2>
         <SyncSection />
 
         <h2 className="settings-group">가계부</h2>
         <NicknameSection />
         {!IS_WEB_BUILD && (
-          <section className="card">
-            <h2 className="card-title">직접 입력할 때 기본 사람</h2>
-            <PersonToggle value={settings.defaultPerson} onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })} />
+          <section className="form-group">
+            <div className="form-row">
+              <span className="form-row-text">
+                기본 사람
+                <small>직접 입력할 때</small>
+              </span>
+              <PersonToggle value={settings.defaultPerson} onChange={defaultPerson => saveSettings({ ...settings, defaultPerson })} />
+            </div>
           </section>
         )}
 
@@ -58,13 +68,10 @@ function SettingsPage() {
           </>
         )}
 
-        <h2 className="settings-group">정보</h2>
-        <section className="card">
-          <h2 className="card-title">카테고리</h2>
-          <p className="card-description">
-            카테고리 추가·이름·순서, 고정비·개인지출·통계제외 여부는 구글 시트의 "카테고리" 탭에서 바꾸면 다음 동기화 때 반영돼요.
-          </p>
-        </section>
+        <h2 className="settings-group">카테고리</h2>
+        <p className="settings-note">
+          카테고리 추가·이름·순서, 고정비·개인지출·통계제외 여부는 구글 시트의 "카테고리" 탭에서 바꾸면 다음 동기화 때 반영돼요.
+        </p>
       </main>
     </div>
   )
@@ -86,10 +93,8 @@ function NicknameSection() {
   }
 
   return (
-    <section className="card">
-      <h2 className="card-title">닉네임</h2>
-      <p className="card-description">두 사람 화면에 모두 이 이름으로 보여요. 비우면 원래 이름으로 돌아가요.</p>
-      <div className="nickname-fields">
+    <>
+      <section className="form-group" aria-label="닉네임">
         {PEOPLE.map(person => (
           <NicknameField
             key={`${person}-${shared.닉네임?.[person] ?? ''}`}
@@ -100,8 +105,9 @@ function NicknameSection() {
             onEdit={() => setSavedPerson(null)}
           />
         ))}
-      </div>
-    </section>
+      </section>
+      <p className="settings-note">닉네임은 두 사람 화면에 모두 보여요. 비우면 원래 이름으로 돌아가요.</p>
+    </>
   )
 }
 
@@ -124,11 +130,11 @@ function NicknameField({ person, saved, isJustSaved, onSave, onEdit }: NicknameF
   }
 
   return (
-    <label className="nickname-field">
+    <label className="form-row nickname-row">
       <PersonAvatar person={person} size={28} />
       <span className="nickname-input-wrap">
         <input
-          className="field-input"
+          className="row-input"
           value={text}
           placeholder={person}
           maxLength={NICKNAME_MAX_LENGTH}
@@ -204,7 +210,7 @@ function SyncSection() {
   const hasPending = (status?.pendingCount ?? 0) > 0
 
   return (
-    <section className="card">
+    <section className="form-group settings-card">
       {isConfigured ? (
         <div className="sync-status">
           <span className={`sync-dot${hasPending ? ' is-pending' : ''}`} aria-hidden="true" />
@@ -212,22 +218,15 @@ function SyncSection() {
             <strong>{hasPending ? `보낼 변경 ${status!.pendingCount}개` : '구글 시트와 연결됨'}</strong>
             <span>{formatSyncedAt(status?.lastSyncedAt)}</span>
           </div>
-          <button type="button" className="button" disabled={isSyncing} onClick={runSync}>
+          <button type="button" className="button button-small" disabled={isSyncing} onClick={runSync}>
             {isSyncing ? '동기화 중…' : '지금 동기화'}
           </button>
         </div>
       ) : (
-        <>
-          <h2 className="card-title">구글 시트 연결</h2>
-          <label className="field">
-            <span className="field-label">연결 코드 붙여넣기</span>
-            <input
-              className="field-input"
-              placeholder="LEDGER1:로 시작하는 코드"
-              onChange={event => handleConnectCode(event.target.value)}
-            />
-          </label>
-        </>
+        <label className="field">
+          <span className="field-label">구글 시트 연결 코드</span>
+          <input className="field-input" placeholder="LEDGER1:로 시작하는 코드" onChange={event => handleConnectCode(event.target.value)} />
+        </label>
       )}
 
       {isConfigured && (
@@ -260,11 +259,9 @@ function SyncSection() {
       )}
 
       {isChanged && (
-        <div className="card-actions">
-          <button type="button" className="button button-primary" disabled={isSyncing || !endpoint || !token} onClick={handleSave}>
-            저장하고 동기화
-          </button>
-        </div>
+        <button type="button" className="button button-primary button-block" disabled={isSyncing || !endpoint || !token} onClick={handleSave}>
+          저장하고 동기화
+        </button>
       )}
     </section>
   )
@@ -312,15 +309,14 @@ function CaptureSection() {
   }
 
   return (
-    <section className="card">
-      <h2 className="card-title">결제 알림 수집</h2>
+    <section className="form-group settings-card">
       <div className="setting-row">
         <span>알림 접근 권한</span>
         {isGranted ? (
           <span className="badge badge-on">허용됨</span>
         ) : (
-          <button type="button" className="button" onClick={handleOpenPermission}>
-            권한 허용하러 가기
+          <button type="button" className="button button-small" onClick={handleOpenPermission}>
+            허용하러 가기
           </button>
         )}
       </div>

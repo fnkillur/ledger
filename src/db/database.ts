@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { CalendarEvent } from '../domain/calendar'
+import type { CalendarEvent, CalendarEventInput, CalendarEventRef, RepeatScope } from '../domain/calendar'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
 import type { CapturedNotification, ParsedPayment } from '../domain/notificationParser'
@@ -26,7 +26,12 @@ export type SyncMeta = {
   lastSyncedAt: string
 }
 
-export type CalendarMonth = { monthKey: string; events: CalendarEvent[]; fetchedAt: string }
+// 구글 캘린더로 보낼 작업. 보내기 전에는 앱 저장소에 먼저 반영해 둔다.
+export type CalendarOp =
+  | { seq?: number; type: 'save'; input: CalendarEventInput; scope?: RepeatScope; localId?: string }
+  | { seq?: number; type: 'delete'; ref: CalendarEventRef; scope: RepeatScope }
+
+export type CalendarMeta = { key: 'window'; start: string; end: string; fetchedAt: string; error?: string }
 
 export const db = new Dexie('ledger') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
@@ -36,7 +41,9 @@ export const db = new Dexie('ledger') as Dexie & {
   shared: EntityTable<SharedSettingsRecord, 'key'>
   captures: EntityTable<CaptureItem, 'key'>
   meta: EntityTable<SyncMeta, 'key'>
-  calendarMonths: EntityTable<CalendarMonth, 'monthKey'>
+  calendarEvents: EntityTable<CalendarEvent, 'id'>
+  calendarOutbox: EntityTable<CalendarOp, 'seq'>
+  calendarMeta: EntityTable<CalendarMeta, 'key'>
 }
 
 db.version(1).stores({
@@ -80,3 +87,6 @@ db.version(3).upgrade(async transaction => {
 
 // 캘린더 원본은 구글 캘린더라, 달별로 받은 일정을 그대로 캐시만 한다.
 db.version(4).stores({ calendarMonths: 'monthKey' })
+
+// 달별 캐시 대신 일정 회차를 통째로 받아 두고, 보낼 작업은 대기열에 쌓는다.
+db.version(5).stores({ calendarMonths: null, calendarEvents: 'id, seriesId', calendarOutbox: '++seq', calendarMeta: 'key' })

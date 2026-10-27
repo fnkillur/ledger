@@ -1,5 +1,5 @@
 import { formatTime, toDateKey } from '../utils/format'
-import { addDays, type CalendarEvent, type CalendarEventInput, type CalendarTarget, type Repeat } from './calendar'
+import { addDays, isDayInfo, type CalendarEvent, type CalendarEventInput, type CalendarTarget, type Repeat } from './calendar'
 
 export type CalendarForm = {
   title: string
@@ -71,3 +71,29 @@ export const toEventInput = (form: CalendarForm): CalendarEventInput => ({
   end: form.allDay ? form.endDate : toLocalDate(form.endDate, form.endTime).toISOString(),
   repeat: form.repeat,
 })
+
+// 사람 일정에서 기념일·지정일로 처음 바꿀 때만 흔한 값으로 맞춰 준다. 이미 기념일·지정일이었다면 손대지 않는다.
+export const changeTarget = (form: CalendarForm, target: CalendarTarget): CalendarForm => {
+  if (!isDayInfo(target) || isDayInfo(form.target)) return { ...form, target }
+  return {
+    ...form,
+    target,
+    allDay: true,
+    endDate: form.allDay ? form.endDate : form.startDate,
+    repeat: target === '기념일' && form.repeat === 'none' ? 'yearly' : form.repeat,
+  }
+}
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+export const formatDatePill = (dateKey: string, thisYear: number) => {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const weekday = WEEKDAYS[new Date(year, month - 1, day).getDay()]
+  const yearPrefix = year === thisYear ? '' : `${year}년 `
+  return `${yearPrefix}${month}월 ${day}일 (${weekday})`
+}
+
+export const formatTimePill = (time: string) => {
+  const [hour, minute] = time.split(':').map(Number)
+  return `${hour < 12 ? '오전' : '오후'} ${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, '0')}`
+}

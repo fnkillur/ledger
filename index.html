@@ -6,7 +6,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="가계부" />
+    <meta name="apple-mobile-web-app-title" content="가뿌까" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta
       name="viewport"
@@ -15,9 +15,64 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)" />
-    <title>가계부</title>
+    <title>가뿌까</title>
+    <style>
+      /* 앱이 그려지기 전에 바로 보이는 시작 화면. 시스템 시작 화면과 같은 바탕색으로 이어 준다. */
+      /* 안드로이드(삼성) 시스템 시작 화면과 겹쳐 보이도록, 폰에서 잰 것과 같은 크기(156dp)·모양(모서리 25.6%)으로 화면 정가운데에 두고 이름만 그 아래에 더한다. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #f7f6f3;
+        transition: opacity 280ms cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      #boot-splash.is-hiding {
+        opacity: 0;
+      }
+      .boot-splash-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 156px;
+        height: 156px;
+        transform: translate(-50%, -50%);
+        clip-path: inset(0 round 25.6%);
+      }
+      /* 앱 폰트(Pretendard)는 번들과 함께 늦게 오므로, 시작 화면에는 '가뿌까' 세 글자만 뽑은 Bold를 바로 넣어 둔다. */
+      @font-face {
+        font-family: 'Pretendard Splash';
+        font-weight: 700;
+        font-display: block;
+        src: url(data:font/woff2;base64,d09GMgABAAAAAAKoAAwAAAAABOgAAAJZAAFPGgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcKgZgAEQKgjyCCwE2AiQDDAsKAAQgBYI8ByAb2gMIHge5aeo6nSZe57Lgecz7/tw0fc3YmfkAtTO9AoE4uAGdPPKDRhSQ1RKGoNKmbuo/LbExlSNfSyzwLpEEs0Da52kXB1zquaY7jGTvmGSSLkUAfxIlk/IVq9fHoAH+/wcAAfzJKDPl9Qvu3qZ/T2JtyL72bVQHccHNqy8DC9RRFzioJj4I4wAKDSAAAEC5NqjH0o0cuegt+gd4i+QdIAC6pLsWsAIBBThAJAcBImlyA4NBwUY2Vz9y8f9/GKrU2V26EAJRzWkG8AfqglEAQAMACgfX+JvAQKOrNiyIQF+grLx40brh4+fNgiVsWAD+w/iPu3frN7zz4EGjQAl62gH/98MCJMAX7AW0EH/6xV8OiPZ3g2VYi3Tr1XU1EbxYnncfO3/nrSknyi9vfihdzpZX29Ly5n/602jwEiky14osXTlswYYzkwaPnRRaOod3hKtfvmcqcHrp+rkHzk0aNH18kRL1vVsXrh4kfmuvPP3NTrXfVtQ7ufLk10mrT/+ws+2PVfVOrj4Zl+ds5T+VD1/tbAEAAaRW/Ibxw9q3Cin+1TgGgIc9Wk7Ww32a/hz31+jVZjWChwJAwFv8D4h+C/+uA4HuVgbm+l6RJlx+AmjGEcBWDAIAAIAPDXg05SDaDyiOVEKk4kphqK0c8musNMkmKpd467+4j2QnKaeX3oboq4tOOuvPWoeVV2555WNV00V3VmVDDNBTJzl01UVPtfXVQX8d9NReG321V1Yv3bWXR0755FZEMeXU10A9xZZ+DjRbyFYNdQDrp4tehfXU5jxxIK//WR0EAAA=) format('woff2');
+      }
+      .boot-splash-name {
+        position: absolute;
+        top: calc(50% + 78px + 20px);
+        left: 0;
+        right: 0;
+        margin: 0;
+        color: #2b2a27;
+        font-family: 'Pretendard Splash', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', Roboto, sans-serif;
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        text-align: center;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash {
+          background: #161615;
+        }
+        .boot-splash-name {
+          color: #f0efec;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot-splash">
+      <svg class="boot-splash-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="170 170 684 684"><rect width="1024" height="1024" fill="#FFFFFF"/><rect width="1024" height="372" fill="#DCE5F1"/><rect y="366" width="1024" height="6" fill="#C5D3E6"/><circle cx="372" cy="372" r="30" fill="#FFFFFF"/><rect x="354" y="294" width="36" height="98" rx="18" fill="#4F6F9A"/><circle cx="652" cy="372" r="30" fill="#FFFFFF"/><rect x="634" y="294" width="36" height="98" rx="18" fill="#4F6F9A"/><path d="M392.0 498.0 L452.0 726.0 L512.0 572.1 L572.0 726.0 L632.0 498.0" fill="none" stroke="#4F6F9A" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/><line x1="370.4" y1="598.3" x2="653.6" y2="598.3" stroke="#4F6F9A" stroke-width="32.2" stroke-linecap="round"/><line x1="370.4" y1="646.2" x2="653.6" y2="646.2" stroke="#4F6F9A" stroke-width="32.2" stroke-linecap="round"/></svg>
+      <p class="boot-splash-name">가뿌까</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

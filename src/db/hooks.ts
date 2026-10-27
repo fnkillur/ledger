@@ -21,28 +21,42 @@ export function useTransaction(id: string | undefined) {
   }, [id])
 }
 
+// 첫 화면에서 '불러오는 중'을 '없음'으로 그리면 0원·빈 화면이 잠깐 깜빡인다.
+// 그래서 불러오기 전에는 undefined를 돌려주는 원본 훅을 두고, 화면은 이걸로 준비됐는지 판단한다.
+export function useCategoriesQuery() {
+  return useLiveQuery(() => db.categories.orderBy('order').toArray())
+}
+
 export function useCategories() {
-  return useLiveQuery(() => db.categories.orderBy('order').toArray()) ?? []
+  return useCategoriesQuery() ?? []
 }
 
 export function useRules() {
   return useLiveQuery(() => db.rules.toArray()) ?? []
 }
 
-export function useUncategorized() {
+export function useUncategorizedQuery() {
   return useLiveQuery(async () => {
     const transactions = await db.transactions.where('category').anyOf(UNCATEGORIZED, '').toArray()
     return transactions
       .filter(transaction => !transaction.deleted && !isAggregate(transaction.source))
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
-  }) ?? []
+  })
 }
 
-export function usePendingCaptures() {
+export function useUncategorized() {
+  return useUncategorizedQuery() ?? []
+}
+
+export function usePendingCapturesQuery() {
   return useLiveQuery(async () => {
     const captures = await db.captures.where('status').anyOf('대기', '중복').toArray()
     return captures.sort((left, right) => right.postedAt - left.postedAt)
-  }) ?? []
+  })
+}
+
+export function usePendingCaptures() {
+  return usePendingCapturesQuery() ?? []
 }
 
 export function useSyncStatus() {

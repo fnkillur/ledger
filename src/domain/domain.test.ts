@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateAmount } from './amountExpression'
+import { evaluateAmount, formatAmountText } from './amountExpression'
 import { classifyMerchant } from './classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification } from './notificationParser'
 import { expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
@@ -292,5 +292,15 @@ describe('aggregateByCategory', () => {
       { kind: '지출', category: '식비', total: 150000, byPerson: { 쿠리만쥬: 100000, 우사기: 50000 } },
       { kind: '수입', category: '월급', total: 3000000, byPerson: { 쿠리만쥬: 3000000, 우사기: 0 } },
     ])
+  })
+})
+
+describe('formatAmountText', () => {
+  it('숫자마다 세 자리 쉼표를 넣는다', () => {
+    expect(formatAmountText('12000')).toBe('12,000')
+    expect(formatAmountText('1,2000')).toBe('12,000')
+    expect(formatAmountText('12000+3500*2')).toBe('12,000+3,500*2')
+    expect(formatAmountText('-1234.5')).toBe('-1,234.5')
+    expect(formatAmountText('')).toBe('')
   })
 })

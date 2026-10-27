@@ -1,30 +1,19 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { dayTone, monthGrid, weekLayout, type CalendarEvent } from '../../domain/calendar'
 import CalendarEventChip from './CalendarEventChip'
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 날짜 숫자 줄 높이와 주 아래쪽 여백.
 const WEEK_CHROME_HEIGHT = 26
 const LANE_STEP = 20
-const SWIPE_DISTANCE = 50
 
 type CalendarGridProps = {
   monthKey: string
   events: CalendarEvent[]
   onSelectDay: (dateKey: string) => void
-  onSwipe: (offset: 1 | -1) => void
 }
 
-const weekdayClass = (index: number) => {
-  if (index === 0) return 'is-sunday'
-  if (index === 6) return 'is-saturday'
-  return ''
-}
-
-function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridProps) {
+function CalendarGrid({ monthKey, events, onSelectDay }: CalendarGridProps) {
   const gridRef = useRef<HTMLDivElement>(null)
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
-  const didSwipeRef = useRef(false)
 
   const [maxLanes, setMaxLanes] = useState(3)
 
@@ -41,48 +30,11 @@ function CalendarGrid({ monthKey, events, onSelectDay, onSwipe }: CalendarGridPr
     return () => observer.disconnect()
   }, [weeks.length])
 
-  const handlePointerDown = (event: PointerEvent) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY }
-    didSwipeRef.current = false
-  }
-
-  const handlePointerUp = (event: PointerEvent) => {
-    const start = pointerStartRef.current
-    pointerStartRef.current = null
-    if (!start) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    if (Math.abs(dx) < SWIPE_DISTANCE || Math.abs(dx) < Math.abs(dy)) return
-    didSwipeRef.current = true
-    onSwipe(dx < 0 ? 1 : -1)
-  }
-
-  const handleSelect = (dateKey: string) => {
-    if (didSwipeRef.current) return
-    onSelectDay(dateKey)
-  }
-
   return (
-    <div className="cal">
-      <div className="cal-weekdays" aria-hidden="true">
-        {WEEKDAYS.map((label, index) => (
-          <span key={label} className={weekdayClass(index)}>
-            {label}
-          </span>
-        ))}
-      </div>
-      <div
-        ref={gridRef}
-        className="cal-grid"
-        style={{ '--weeks': weeks.length } as CSSProperties}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => (pointerStartRef.current = null)}
-      >
-        {weeks.map(week => (
-          <CalendarWeek key={week[0]} week={week} monthKey={monthKey} events={events} maxLanes={maxLanes} onSelect={handleSelect} />
-        ))}
-      </div>
+    <div ref={gridRef} className="cal-grid" style={{ '--weeks': weeks.length } as CSSProperties}>
+      {weeks.map(week => (
+        <CalendarWeek key={week[0]} week={week} monthKey={monthKey} events={events} maxLanes={maxLanes} onSelect={onSelectDay} />
+      ))}
     </div>
   )
 }

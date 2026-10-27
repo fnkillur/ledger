@@ -1,4 +1,5 @@
-import { TARGET_TONE, type CalendarBar, type CalendarTarget } from '../../domain/calendar'
+import { CakeIcon, PushPinIcon } from '@phosphor-icons/react'
+import { isDayInfo, TARGET_TONE, type CalendarBar, type CalendarTarget } from '../../domain/calendar'
 import PersonAvatar from '../PersonAvatar'
 
 type CalendarEventChipProps = {
@@ -31,13 +32,28 @@ type TargetAvatarsProps = {
 }
 
 export function TargetAvatars({ target, size, className = '' }: TargetAvatarsProps) {
-  if (target === '없음') return null
+  if (isDayInfo(target)) return null
   const people = target === '공동' ? (['쿠리만쥬', '우사기'] as const) : [target]
   return (
     <span className={`target-avatars ${people.length > 1 ? 'is-pair ' : ''}${className}`}>
       {people.map(person => (
         <PersonAvatar key={person} person={person} size={size} />
       ))}
+    </span>
+  )
+}
+
+type DayInfoIconProps = {
+  target: '기념일' | '없음'
+  size: number
+}
+
+// 사람 짤 자리와 같은 크기의 동그라미에 대상 색으로 아이콘을 넣어 칩 높이와 리듬을 맞춘다.
+export function DayInfoIcon({ target, size }: DayInfoIconProps) {
+  const Icon = target === '기념일' ? CakeIcon : PushPinIcon
+  return (
+    <span className="day-info-icon" style={{ width: size, height: size }} aria-hidden="true">
+      <Icon size={Math.round(size * 0.62)} weight="fill" />
     </span>
   )
 }

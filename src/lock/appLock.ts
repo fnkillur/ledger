@@ -46,7 +46,7 @@ export function useLockAvailable() {
 export const authenticate = () =>
   BiometricAuth.authenticate({
     allowDeviceCredential: true,
-    androidTitle: '가계부 잠금 해제',
+    androidTitle: '가뿌까 잠금 해제',
     androidSubtitle: '지문 또는 화면 잠금으로 열어주세요',
   })
 

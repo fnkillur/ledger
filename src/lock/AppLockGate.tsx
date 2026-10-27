@@ -71,7 +71,7 @@ function LockScreen({ errorMessage, onUnlock }: LockScreenProps) {
   return (
     <div className="lock-screen">
       <Sticker name="default" size={120} />
-      <p className="lock-title">가계부가 잠겨 있어요</p>
+      <p className="lock-title">가뿌까가 잠겨 있어요</p>
       {errorMessage && <p className="lock-error">{errorMessage}</p>}
       <button type="button" className="button" onClick={onUnlock}>
         잠금 해제

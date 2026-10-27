@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CalendarEvent } from './calendar'
-import { canSaveForm, formFromEvent, moveStart, newForm, toEventInput } from './calendarForm'
+import { canSaveForm, changeTarget, formatDatePill, formatTimePill, formFromEvent, moveStart, newForm, toEventInput } from './calendarForm'
 
 describe('newForm', () => {
   it('고른 날짜에 다음 정시부터 1시간, 대상은 이 폰의 사람', () => {
@@ -77,5 +77,41 @@ describe('canSaveForm', () => {
     expect(canSaveForm({ ...form, title: '  ' })).toBe(false)
     expect(canSaveForm({ ...form, endTime: '14:00' })).toBe(false)
     expect(canSaveForm({ ...form, allDay: true, endDate: '2026-10-29' })).toBe(false)
+  })
+})
+
+describe('changeTarget', () => {
+  const base = newForm('2026-10-30', '우사기', new Date(2026, 9, 26, 14))
+
+  it('기념일로 처음 바꾸면 하루 종일·매년으로 맞춘다', () => {
+    expect(changeTarget(base, '기념일')).toMatchObject({ target: '기념일', allDay: true, endDate: '2026-10-30', repeat: 'yearly' })
+  })
+
+  it('지정일은 하루 종일만 맞추고 반복은 그대로 둔다', () => {
+    expect(changeTarget({ ...base, repeat: 'monthly' }, '없음')).toMatchObject({ allDay: true, repeat: 'monthly' })
+  })
+
+  it('이미 기념일·지정일이면 다른 값은 건드리지 않는다', () => {
+    const anniversary = { ...changeTarget(base, '기념일'), repeat: 'none' as const }
+
+    expect(changeTarget(anniversary, '없음')).toMatchObject({ target: '없음', repeat: 'none' })
+  })
+})
+
+describe('formatDatePill', () => {
+  it('올해면 연도를 빼고 요일을 붙인다', () => {
+    expect(formatDatePill('2026-10-27', 2026)).toBe('10월 27일 (화)')
+  })
+
+  it('다른 해면 연도를 붙인다', () => {
+    expect(formatDatePill('2027-01-31', 2026)).toBe('2027년 1월 31일 (일)')
+  })
+})
+
+describe('formatTimePill', () => {
+  it('오전·오후 12시간제로 보여 준다', () => {
+    expect(formatTimePill('00:05')).toBe('오전 12:05')
+    expect(formatTimePill('12:00')).toBe('오후 12:00')
+    expect(formatTimePill('23:30')).toBe('오후 11:30')
   })
 })

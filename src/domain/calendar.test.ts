@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { dayTone, eventsOnDay, gridRange, monthGrid, weekLayout, type CalendarEvent } from './calendar'
+import { dayTone, eventsOnDay, gridRange, monthGrid, targetLabel, weekLayout, type CalendarEvent } from './calendar'
 
 const event = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   id: 'event',
@@ -116,5 +116,19 @@ describe('weekLayout', () => {
     expect(layout.bars.map(bar => bar.event.id)).toEqual(['a'])
     expect(layout.hidden[1]).toBe(2)
     expect(layout.moreLane).toBe(1)
+  })
+})
+
+describe('targetLabel', () => {
+  it('캘린더에서는 공동을 우리로, 없음을 지정일로 보여 준다', () => {
+    const name = (person: string) => `${person} 이름`
+
+    expect(['공동', '쿠리만쥬', '우사기', '기념일', '없음'].map(target => targetLabel(target as never, name))).toEqual([
+      '우리',
+      '쿠리만쥬 이름',
+      '우사기 이름',
+      '기념일',
+      '지정일',
+    ])
   })
 })

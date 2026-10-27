@@ -201,6 +201,7 @@ function doPost(e) {
     if (body.action === 'calendarSave') return saveCalendarEvent_(body)
     if (body.action === 'calendarDelete') return deleteCalendarEvent_(body)
     if (body.action === 'calendarImport') return importCalendarEvents_(body)
+    if (body.action === 'calendarRecolor') return recolorCalendarEvents_()
     if (body.action === 'setup') {
       setup()
       return { migrated: body.migrate ? migrateFromYearTabs(body.migrate === 'resync') : null }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import PeriodHeader from '../components/PeriodHeader'
 import ScopeChips from '../components/ScopeChips'
 import UnderlineTabs from '../components/UnderlineTabs'
-import { useCategories, useTransactionsBetween } from '../db/hooks'
+import { useCategoriesQuery, useTransactionsBetween } from '../db/hooks'
 import {
   categoryChanges,
   compareByPerson,
@@ -73,8 +73,11 @@ function StatsPage() {
   }, [periodType, monthKey, today])
 
   const transactions = useTransactionsBetween(ranges.fetchStart, ranges.range.end)
-  const categories = useCategories()
+  const loadedCategories = useCategoriesQuery()
 
+  const categories = useMemo(() => loadedCategories ?? [], [loadedCategories])
+  // 처음 불러오는 동안 0원·빈 차트를 그렸다가 바꾸면 깜빡이므로, 다 불러온 뒤에 한 번에 그린다.
+  const isReady = transactions !== undefined && loadedCategories !== undefined
   const excluded = useMemo(() => toExcludedCategories(categories), [categories])
   const loaded = useMemo(() => transactions ?? [], [transactions])
   const current = useMemo(() => loaded.filter(transaction => inRange(transaction, ranges.range)), [loaded, ranges])
@@ -142,28 +145,32 @@ function StatsPage() {
       </PeriodHeader>
 
       <main className="page-content">
-        {tab !== '요약' && <ScopeChips value={scopeFilter} onChange={setScopeFilter} />}
+        {isReady && (
+          <>
+            {tab !== '요약' && <ScopeChips value={scopeFilter} onChange={setScopeFilter} />}
 
-        {tab === '요약' && (
-          <SummaryTab
-            period={ranges.period}
-            previousLabel={ranges.previousLabel}
-            totals={summary.totals}
-            previousTotals={summary.previousTotals}
-            byScope={summary.byScope}
-            tips={summary.tips}
-            trend={summary.trend}
-          />
+            {tab === '요약' && (
+              <SummaryTab
+                period={ranges.period}
+                previousLabel={ranges.previousLabel}
+                totals={summary.totals}
+                previousTotals={summary.previousTotals}
+                byScope={summary.byScope}
+                tips={summary.tips}
+                trend={summary.trend}
+              />
+            )}
+            {tab === '카테고리' && (
+              <CategoryTab
+                isMonthly={periodType === '월별'}
+                previousLabel={ranges.previousLabel}
+                total={sumByKind(scopedCurrent, excluded).지출}
+                {...categoryData}
+              />
+            )}
+            {tab === '소비 패턴' && <PatternTab {...patternData} />}
+          </>
         )}
-        {tab === '카테고리' && (
-          <CategoryTab
-            isMonthly={periodType === '월별'}
-            previousLabel={ranges.previousLabel}
-            total={sumByKind(scopedCurrent, excluded).지출}
-            {...categoryData}
-          />
-        )}
-        {tab === '소비 패턴' && <PatternTab {...patternData} />}
       </main>
     </div>
   )

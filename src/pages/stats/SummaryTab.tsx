@@ -185,6 +185,7 @@ function TrendChart({ data }: { data: TrendRow[] }) {
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 5, stroke: 'var(--color-surface)', strokeWidth: 2 }}
+              isAnimationActive={false}
             />
           ))}
         </LineChart>

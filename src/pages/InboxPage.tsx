@@ -7,7 +7,7 @@ import TopBar from '../components/TopBar'
 import PersonAvatar from '../components/PersonAvatar'
 import { markCapture, toTransactionInput } from '../db/captures'
 import type { CaptureItem } from '../db/database'
-import { useCategories, useCategoryIcons, usePendingCaptures, usePersonName, useRecentInputs, useRules, useUncategorized } from '../db/hooks'
+import { useCategories, useCategoryIcons, usePendingCapturesQuery, usePersonName, useRecentInputs, useRules, useUncategorizedQuery } from '../db/hooks'
 import { saveRule, saveTransaction } from '../db/repository'
 import { suggestCategory } from '../domain/classify'
 import { UNCATEGORIZED, type Transaction } from '../domain/types'
@@ -20,11 +20,15 @@ import { formatDayLabel, formatTime, formatWon } from '../utils/format'
 function InboxPage() {
   const navigate = useNavigate()
 
-  const captures = usePendingCaptures()
-  const uncategorized = useUncategorized()
+  const loadedCaptures = usePendingCapturesQuery()
+  const loadedUncategorized = useUncategorizedQuery()
 
   const [isConfirmingIgnoreAll, setIsConfirmingIgnoreAll] = useState(false)
 
+  const captures = loadedCaptures ?? []
+  const uncategorized = loadedUncategorized ?? []
+  // 처음 불러오는 동안 '모두 분류됐어요'가 잠깐 보였다 사라지지 않게, 다 불러온 뒤에 그린다.
+  const isReady = loadedCaptures !== undefined && loadedUncategorized !== undefined
   const waiting = captures.filter(capture => capture.status === '대기')
   const duplicates = captures.filter(capture => capture.status === '중복')
 
@@ -53,7 +57,7 @@ function InboxPage() {
     <div className="page">
       <TopBar title="수집함" />
 
-      <main className="page-content">
+      <main className="page-content" hidden={!isReady}>
         {(isCaptureSupported() || waiting.length > 0 || duplicates.length > 0 || IS_WEB_BUILD) && (
           <section className="inbox-section">
             <h2 className="section-title">

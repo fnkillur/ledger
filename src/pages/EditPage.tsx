@@ -1,40 +1,46 @@
-import { CaretDownIcon, CaretUpIcon, ClipboardTextIcon } from '@phosphor-icons/react'
+import { ClipboardTextIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
+import { DateTimeRow } from '../components/calendar/DateTimePicker'
 import FieldHint from '../components/FieldHint'
-import PersonToggle from '../components/PersonToggle'
+import PersonAvatar from '../components/PersonAvatar'
 import Segmented from '../components/Segmented'
 import TopBar from '../components/TopBar'
 import { markCapture } from '../db/captures'
+import { db } from '../db/database'
 import { buildPastedDraft } from '../db/pastedDraft'
 import { useCategories, usePersonName, useRecentInputs, useRules, useTransaction } from '../db/hooks'
 import { celebrate } from '../celebration/store'
-import { deleteTransaction, getRecordActivity, saveRule, saveTransaction, splitTransaction, type TransactionInput } from '../db/repository'
-import { evaluateAmount } from '../domain/amountExpression'
+import { deleteTransaction, getRecordActivity, recategorize, saveRule, saveTransaction, splitTransaction, type TransactionInput } from '../db/repository'
+import { evaluateAmount, formatAmountText } from '../domain/amountExpression'
 import type { FrequentEntry } from '../domain/insights'
 import { cheerSubline } from '../domain/celebration'
-import { classifyMerchant, suggestCategory } from '../domain/classify'
+import { classifyMerchant, findSameMerchant, suggestCategory } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { myShare } from '../domain/stats'
-import { KINDS, SCOPES, UNCATEGORIZED, type Category, type Kind, type Transaction } from '../domain/types'
+import { KINDS, PEOPLE, SCOPES, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
 import { LIST_PATH } from '../paths'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
-import { formatDayLabel, formatShortDateTime, formatTime, formatWon, fromLocalInputValue, toLocalInputValue } from '../utils/format'
+import { formatDayLabel, formatTime, formatWon, toDateKey } from '../utils/format'
 import NotFoundPage from './NotFoundPage'
 
-const hasCustomOptions = (input: TransactionInput) => input.shareCount > 1 || input.excluded || input.memo.trim() !== ''
+const MAX_SUGGESTIONS = 6
 
-const describeOptions = (input: TransactionInput) => {
-  const parts = [formatShortDateTime(input.occurredAt)]
-  if (input.shareCount > 1) parts.push(`${input.shareCount}명이 나눠 냄`)
-  if (input.excluded) parts.push('통계 제외')
-  if (input.memo.trim()) parts.push('메모')
-  return parts.join(' · ')
+const isRuleOfferedFor = (draft: TransactionInput, rules: Rule[]) =>
+  draft.merchant.trim() !== '' && draft.category !== '' && draft.category !== UNCATEGORIZED && classifyMerchant(draft.merchant, rules) !== draft.category
+
+const toIso = (date: string, time: string) => new Date(`${date}T${time}`).toISOString()
+
+// 저장 버튼이 무엇이 비었는지 알려 준다.
+const saveLabel = (amount: number | null, category: string) => {
+  if (amount === null || amount === 0) return '금액을 입력해 주세요'
+  if (category === '') return '카테고리를 골라 주세요'
+  return `${formatWon(amount)} 저장`
 }
 
 type EditLocationState = { draft?: TransactionInput; captureKey?: string } | null
@@ -90,7 +96,19 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const [draft, setDraft] = useState(initial)
   const [amountText, setAmountText] = useState(initial.amount ? String(initial.amount) : '')
   const [shouldSaveRule, setShouldSaveRule] = useState(true)
+  const [shouldUpdatePast, setShouldUpdatePast] = useState(true)
   const [sheet, setSheet] = useState<'delete' | 'split' | 'paste' | null>(null)
+  const [openedPicker, setOpenedPicker] = useState<string | null>(null)
+
+  // 입력 중인 가맹점·카테고리에 따라 달라지므로 지역 상태 뒤에 둔다.
+  const pastSameMerchant =
+    useLiveQuery(
+      async () =>
+        isRuleOfferedFor(draft, rules)
+          ? findSameMerchant(await db.transactions.toArray(), { merchant: draft.merchant, kind: draft.kind, category: draft.category, exceptId: transaction?.id })
+          : [],
+      [draft.merchant, draft.kind, draft.category, rules, transaction?.id],
+    ) ?? []
 
   const amount = evaluateAmount(amountText)
   const kindCategories = useMemo(() => categories.filter(category => category.kind === draft.kind), [categories, draft.kind])
@@ -98,6 +116,11 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const categoryNames = categories.map(category => category.name)
   const canOfferRule = draft.merchant.trim() !== '' && draft.category !== '' && draft.category !== UNCATEGORIZED
   const canSave = amount !== null && amount !== 0 && draft.category !== ''
+  const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category
+  const merchantQuery = draft.merchant.trim()
+  const merchantSuggestions = merchantQuery
+    ? recent.merchants.filter(merchant => merchant !== merchantQuery && merchant.includes(merchantQuery)).slice(0, MAX_SUGGESTIONS)
+    : []
 
   const update = (patch: Partial<TransactionInput>) => setDraft(previous => ({ ...previous, ...patch }))
 
@@ -152,8 +175,9 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const handleSave = async () => {
     if (!canSave) return
     const saved = await saveTransaction({ ...draft, amount: amount!, merchant: draft.merchant.trim() }, transaction?.id)
-    if (canOfferRule && shouldSaveRule && existingRuleCategory !== draft.category) {
+    if (isRuleOffered && shouldSaveRule) {
       await saveRule(draft.merchant, draft.category)
+      if (shouldUpdatePast && pastSameMerchant.length > 0) await recategorize(pastSameMerchant, draft.category)
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved)
     syncNow().catch(() => {})
@@ -192,152 +216,178 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
         }
       />
 
-      <main className="page-content form edit-form">
+      <main className="page-content tx-form">
         {!transaction && !captureKey && recent.frequent.length > 0 && (
           <FrequentEntries entries={recent.frequent} onPick={handleFrequentPick} />
         )}
 
-        <section className="card form-section">
-          <Segmented label="구분" options={KINDS} value={draft.kind} onChange={handleKindChange} />
-          <label className="field">
-            <span className="field-label">금액</span>
-            <input
-              className="amount-hero-input"
-              inputMode="text"
-              placeholder="0"
-              value={amountText}
-              onChange={event => setAmountText(event.target.value)}
-              autoFocus={!transaction && !captureKey}
-            />
-            <AmountHint text={amountText} amount={amount} shareCount={draft.shareCount} />
-          </label>
-        </section>
-
-        <section className="card form-section">
-          <div className="field">
-            <span className="field-label">누가</span>
-            <PersonToggle value={draft.person} onChange={person => update({ person })} />
+        <section className="tx-hero">
+          <div className="tx-kind">
+            <Segmented label="구분" options={KINDS} value={draft.kind} onChange={handleKindChange} />
           </div>
-          {draft.kind === '지출' && (
-            <div className="field">
-              <span className="field-label">공동·개인</span>
-              <Segmented label="공동·개인" options={SCOPES} value={draft.scope} onChange={scope => update({ scope })} />
-              <FieldHint>{draft.scope === '공동' ? '둘이 함께 쓴 지출이에요' : `${personName(draft.person)}의 개인 지출로 잡혀요`}</FieldHint>
-            </div>
-          )}
+          <AmountInput text={amountText} kind={draft.kind} onChange={setAmountText} autoFocus={!transaction && !captureKey} />
+          <AmountHint text={amountText} amount={amount} shareCount={draft.shareCount} />
         </section>
 
-        <section className="card form-section">
-          <label className="field">
-            <span className="field-label">가맹점·내용</span>
+        <section className="form-group">
+          <div className="form-row">
             <input
-              className="field-input"
-              placeholder="예: 스타벅스"
-              list="merchant-suggestions"
+              className="tx-merchant"
+              aria-label="가맹점·내용"
+              placeholder={draft.kind === '지출' ? '어디에 썼나요?' : '어디서 받았나요?'}
+              enterKeyHint="done"
               value={draft.merchant}
               onChange={event => handleMerchantChange(event.target.value)}
               onBlur={handleMerchantBlur}
             />
-            <datalist id="merchant-suggestions">
-              {recent.merchants.map(merchant => (
-                <option key={merchant} value={merchant} />
+          </div>
+          {merchantSuggestions.length > 0 && (
+            <div className="form-row tx-suggestions">
+              {merchantSuggestions.map(merchant => (
+                <button key={merchant} type="button" className="tx-suggestion" onClick={() => handleMerchantChange(merchant)}>
+                  {merchant}
+                </button>
               ))}
-            </datalist>
-          </label>
+            </div>
+          )}
+        </section>
 
-          <div className="field">
-            <span className="field-label">카테고리</span>
-            <CategoryGrid categories={kindCategories} recent={recent.categories} value={draft.category} onChange={handleCategoryChange} />
-            {canOfferRule && existingRuleCategory !== draft.category && (
-              <label className="checkbox">
-                <input type="checkbox" checked={shouldSaveRule} onChange={event => setShouldSaveRule(event.target.checked)} />
-                앞으로 "{draft.merchant.trim()}"은(는) {draft.category}(으)로 분류
-              </label>
-            )}
+        <section className="tx-section" aria-label="카테고리">
+          <h2 className="tx-section-title">카테고리</h2>
+          <CategoryChips categories={kindCategories} recent={recent.categories} value={draft.category} onChange={handleCategoryChange} />
+          {isRuleOffered && (
+            <div className="form-group">
+              <div className="form-row">
+                <span className="rule-text">
+                  앞으로 "{draft.merchant.trim()}"은(는)
+                  <span>{draft.category}(으)로 자동 분류</span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={shouldSaveRule}
+                  aria-label="자동 분류 규칙 저장"
+                  className="switch"
+                  onClick={() => setShouldSaveRule(!shouldSaveRule)}
+                />
+              </div>
+              {shouldSaveRule && pastSameMerchant.length > 0 && (
+                <div className="form-row">
+                  <span className="rule-text">
+                    지난 내역 {pastSameMerchant.length}건도
+                    <span>{draft.category}(으)로 바꾸기</span>
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={shouldUpdatePast}
+                    aria-label="지난 내역도 바꾸기"
+                    className="switch"
+                    onClick={() => setShouldUpdatePast(!shouldUpdatePast)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="form-group">
+          <div className="form-row">
+            <span>누가</span>
+            <PersonSegmented value={draft.person} onChange={person => update({ person })} />
+          </div>
+          {draft.kind === '지출' && (
+            <div className="form-row">
+              <span className="form-row-text">
+                공동·개인
+                <small>{draft.scope === '공동' ? '둘이 함께 쓴 지출' : `${personName(draft.person)}의 개인 지출`}</small>
+              </span>
+              <div className="tx-compact">
+                <Segmented label="공동·개인" options={SCOPES} value={draft.scope} onChange={scope => update({ scope })} />
+              </div>
+            </div>
+          )}
+          <DateTimeRow
+            label="날짜"
+            pickerId="occurred"
+            date={toDateKey(draft.occurredAt)}
+            time={formatTime(draft.occurredAt)}
+            showTime
+            opened={openedPicker}
+            onToggle={picker => setOpenedPicker(previous => (previous === picker ? null : picker))}
+            onDate={date => update({ occurredAt: toIso(date, formatTime(draft.occurredAt)) })}
+            onTime={time => update({ occurredAt: toIso(toDateKey(draft.occurredAt), time) })}
+          />
+        </section>
+
+        <section className="form-group">
+          <div className="form-row">
+            <span>나눠 낸 인원</span>
+            <div className="tx-stepper">
+              <button
+                type="button"
+                className="tx-stepper-button"
+                aria-label="인원 줄이기"
+                disabled={draft.shareCount <= 1}
+                onClick={() => update({ shareCount: draft.shareCount - 1 })}
+              >
+                <MinusIcon size={16} weight="bold" />
+              </button>
+              <span className="tx-stepper-value">{draft.shareCount === 1 ? '혼자' : `${draft.shareCount}명`}</span>
+              <button type="button" className="tx-stepper-button" aria-label="인원 늘리기" onClick={() => update({ shareCount: draft.shareCount + 1 })}>
+                <PlusIcon size={16} weight="bold" />
+              </button>
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="form-row-text">
+              통계에서 제외
+              <small>대신 결제해 준 돈 등</small>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.excluded}
+              aria-label="통계에서 제외"
+              className="switch"
+              onClick={() => update({ excluded: !draft.excluded })}
+            />
+          </div>
+          <div className="form-row">
+            <span>메모</span>
+            <input
+              className="tx-memo"
+              aria-label="메모"
+              placeholder="남길 말"
+              enterKeyHint="done"
+              value={draft.memo}
+              onChange={event => update({ memo: event.target.value })}
+            />
           </div>
         </section>
 
-        <details className="more-options" open={hasCustomOptions(initial)}>
-          <summary>
-            더 보기
-            <span className="more-options-summary">{describeOptions(draft)}</span>
-            <CaretDownIcon className="more-options-caret" size={16} weight="bold" aria-hidden="true" />
-          </summary>
-          <div className="more-options-body">
-            <div className="field">
-              <span className="field-label">나눠 낸 인원</span>
-              <div className="stepper">
-                <button
-                  type="button"
-                  className="stepper-button"
-                  aria-label="인원 줄이기"
-                  disabled={draft.shareCount <= 1}
-                  onClick={() => update({ shareCount: draft.shareCount - 1 })}
-                >
-                  −
-                </button>
-                <span className="stepper-value">{draft.shareCount === 1 ? '혼자' : `${draft.shareCount}명`}</span>
-                <button type="button" className="stepper-button" aria-label="인원 늘리기" onClick={() => update({ shareCount: draft.shareCount + 1 })}>
-                  +
-                </button>
-              </div>
-            </div>
-
-            <label className="field">
-              <span className="field-label">날짜·시간</span>
-              <input
-                className="field-input"
-                type="datetime-local"
-                value={toLocalInputValue(draft.occurredAt)}
-                onChange={event => event.target.value && update({ occurredAt: fromLocalInputValue(event.target.value) })}
-              />
-            </label>
-
-            <label className="checkbox">
-              <input type="checkbox" checked={draft.excluded} onChange={event => update({ excluded: event.target.checked })} />
-              통계에서 제외 (대신 결제해 준 돈 등)
-            </label>
-
-            <label className="field">
-              <span className="field-label">메모</span>
-              <input className="field-input" value={draft.memo} onChange={event => update({ memo: event.target.value })} />
-            </label>
-
-            {draft.rawText && (
-              <details className="raw-text">
-                <summary>원본 알림</summary>
-                <pre>{draft.rawText}</pre>
-              </details>
-            )}
-          </div>
-        </details>
+        {draft.rawText && (
+          <details className="raw-text">
+            <summary>원본 알림</summary>
+            <pre>{draft.rawText}</pre>
+          </details>
+        )}
 
         {transaction && (
-          <div className="form-actions">
-            <button type="button" className="button" onClick={() => setSheet('split')}>
+          <section className="form-group">
+            <button type="button" className="form-row form-row-action" onClick={() => setSheet('split')}>
               다른 카테고리로 나누기
             </button>
-            <button type="button" className="button button-danger-outline" onClick={() => setSheet('delete')}>
+            <button type="button" className="form-row form-row-danger" onClick={() => setSheet('delete')}>
               삭제
             </button>
-          </div>
+          </section>
         )}
       </main>
 
-      <div className="save-bar">
-        <div className="save-bar-totals">
-          <span>
-            {draft.kind}
-            {draft.category && ` · ${draft.category}`}
-          </span>
-          {amount === null || amount === 0 ? (
-            <span className="save-bar-placeholder">금액을 입력해 주세요</span>
-          ) : (
-            <strong className={draft.kind === '지출' ? 'amount-지출' : 'amount-수입'}>{formatWon(myShare({ amount, shareCount: draft.shareCount }))}</strong>
-          )}
-        </div>
+      <div className="bottom-cta">
         <button type="button" className="button button-primary" disabled={!canSave} onClick={handleSave}>
-          저장
+          {saveLabel(amount, draft.category)}
         </button>
       </div>
 
@@ -444,14 +494,14 @@ const orderByRecent = (categories: Category[], recent: string[]) => {
   return [...recent.slice(0, 4).flatMap(name => categories.filter(category => category.name === name)), ...categories.filter(category => !recentSet.has(category.name))]
 }
 
-type CategoryGridProps = {
+type CategoryChipsProps = {
   categories: Category[]
   recent?: string[]
   value: string
   onChange: (category: string) => void
 }
 
-function CategoryGrid({ categories, recent = [], value, onChange }: CategoryGridProps) {
+function CategoryChips({ categories, recent = [], value, onChange }: CategoryChipsProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const ordered = orderByRecent(categories, recent)
@@ -460,29 +510,80 @@ function CategoryGrid({ categories, recent = [], value, onChange }: CategoryGrid
   const shown = hiddenSelected ? [...visible.slice(0, COLLAPSED_COUNT - 1), ...ordered.filter(category => category.name === value)] : visible
 
   return (
-    <>
-      <div className="category-grid" role="radiogroup" aria-label="카테고리">
-        {shown.map(category => (
-          <button
-            key={category.name}
-            type="button"
-            role="radio"
-            aria-checked={category.name === value}
-            className="category-cell"
-            onClick={() => onChange(category.name)}
-          >
-            <CategoryIcon name={category.name} emoji={category.icon} size={20} />
-            <span className="category-cell-name">{category.name}</span>
-          </button>
-        ))}
-      </div>
+    <div className="category-chips" role="radiogroup" aria-label="카테고리">
+      {shown.map(category => (
+        <button
+          key={category.name}
+          type="button"
+          role="radio"
+          aria-checked={category.name === value}
+          className="category-chip"
+          onClick={() => onChange(category.name)}
+        >
+          <CategoryIcon name={category.name} emoji={category.icon} size={16} />
+          {category.name}
+        </button>
+      ))}
       {ordered.length > COLLAPSED_COUNT && (
-        <button type="button" className="text-button category-more" onClick={() => setIsExpanded(!isExpanded)}>
-          {isExpanded ? '접기' : `전체 ${ordered.length}개 보기`}
-          {isExpanded ? <CaretUpIcon size={14} weight="bold" aria-hidden="true" /> : <CaretDownIcon size={14} weight="bold" aria-hidden="true" />}
+        <button type="button" className="category-chip is-more" onClick={() => setIsExpanded(!isExpanded)}>
+          {isExpanded ? '접기' : `+${ordered.length - shown.length}`}
         </button>
       )}
-    </>
+    </div>
+  )
+}
+
+type AmountInputProps = {
+  text: string
+  kind: Kind
+  onChange: (text: string) => void
+  autoFocus: boolean
+}
+
+// 입력한 글자 폭만큼만 칸이 늘어나서 '원'이 숫자 바로 옆에 붙는다.
+function AmountInput({ text, kind, onChange, autoFocus }: AmountInputProps) {
+  const display = formatAmountText(text)
+
+  return (
+    <label className={`tx-amount amount-${kind}`}>
+      <span className="tx-amount-field">
+        <span className="tx-amount-mirror" aria-hidden="true">
+          {display || '0'}
+        </span>
+        <input
+          aria-label="금액"
+          inputMode="text"
+          size={1}
+          placeholder="0"
+          value={display}
+          onChange={event => onChange(event.target.value.replace(/,/g, ''))}
+          autoFocus={autoFocus}
+        />
+      </span>
+      <span className="tx-amount-unit">원</span>
+    </label>
+  )
+}
+
+function PersonSegmented({ value, onChange }: { value: Person; onChange: (person: Person) => void }) {
+  const personName = usePersonName()
+
+  return (
+    <div className="segmented tx-compact" role="radiogroup" aria-label="누가">
+      {PEOPLE.map(person => (
+        <button
+          key={person}
+          type="button"
+          role="radio"
+          aria-checked={person === value}
+          className="segmented-option with-avatar"
+          onClick={() => onChange(person)}
+        >
+          <PersonAvatar person={person} size={18} />
+          {personName(person)}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -514,7 +615,7 @@ function SplitSheet({ total, categories, onSplit, onCancel }: SplitSheetProps) {
           onChange={event => setAmountText(event.target.value)}
           autoFocus
         />
-        <CategoryGrid categories={categories} value={category} onChange={setCategory} />
+        <CategoryChips categories={categories} value={category} onChange={setCategory} />
         <div className="sheet-actions">
           <button type="button" className="button" onClick={onCancel}>
             취소

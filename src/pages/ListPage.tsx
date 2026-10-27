@@ -7,7 +7,7 @@ import PeriodHeader from '../components/PeriodHeader'
 import PersonAvatar from '../components/PersonAvatar'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
-import { useCategories, useCategoryIcons, usePersonName, useTransactionsBetween } from '../db/hooks'
+import { useCategoriesQuery, useCategoryIcons, usePersonName, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
 import {
   aggregateByCategory,
@@ -45,8 +45,11 @@ function ListPage() {
 
   const range = toRange({ type: periodType, monthKey })
   const transactions = useTransactionsBetween(range.start, range.end)
-  const categories = useCategories()
+  const loadedCategories = useCategoriesQuery()
 
+  const categories = useMemo(() => loadedCategories ?? [], [loadedCategories])
+  // 처음 불러오는 동안 0원·빈 목록을 그렸다가 바꾸면 깜빡이므로, 다 불러온 뒤에 한 번에 그린다.
+  const isReady = transactions !== undefined && loadedCategories !== undefined
   const excludedCategories = useMemo(() => toExcludedCategories(categories), [categories])
   const periodTransactions = useMemo(() => transactions ?? [], [transactions])
   const totals = useMemo(() => sumByKind(periodTransactions, excludedCategories), [periodTransactions, excludedCategories])
@@ -63,25 +66,29 @@ function ListPage() {
           </Link>
         )}
 
-        <section className="summary-card" aria-label="요약">
-          <ExpenseRatio totals={totals} />
-          <SummaryItem label="지출" amount={totals.지출} tone="지출" />
-          <SummaryItem label="수입" amount={totals.수입} tone="수입" />
-          <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출} tone="남은" />
-          {totals.지출 > 0 && (
-            <div className="summary-split">
-              <span className="summary-label">지출 나눠보기</span>
-              <ScopeSplit items={byScope} showLabels />
-            </div>
-          )}
-        </section>
+        {isReady && (
+          <>
+            <section className="summary-card" aria-label="요약">
+              <ExpenseRatio totals={totals} />
+              <SummaryItem label="지출" amount={totals.지출} tone="지출" />
+              <SummaryItem label="수입" amount={totals.수입} tone="수입" />
+              <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출} tone="남은" />
+              {byScope.filter(item => item.amount !== 0).length > 1 && (
+                <div className="summary-split">
+                  <span className="summary-label">지출 나눠보기</span>
+                  <ScopeSplit items={byScope} showLabels />
+                </div>
+              )}
+            </section>
 
-        {transactions?.length === 0 && <EmptyState sticker="peek">이 기간의 내역이 없어요.</EmptyState>}
+            {transactions?.length === 0 && <EmptyState sticker="peek">이 기간의 내역이 없어요.</EmptyState>}
 
-        {periodType === '연도별' ? (
-          <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
-        ) : (
-          <MonthDetail monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
+            {periodType === '연도별' ? (
+              <YearMonthList monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
+            ) : (
+              <MonthDetail monthKey={monthKey} transactions={periodTransactions} excludedCategories={excludedCategories} />
+            )}
+          </>
         )}
       </main>
 

@@ -71,3 +71,11 @@ export const evaluateAmount = (expression: string): number | null => {
     return null
   }
 }
+
+// 식 안의 숫자마다 세 자리 쉼표를 넣어 보여 준다. 계산할 때는 쉼표를 무시한다.
+export const formatAmountText = (text: string) =>
+  text.replace(/,/g, '').replace(/\d+(\.\d*)?/g, number => {
+    const [integer, fraction] = number.split('.')
+    const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return fraction === undefined ? grouped : `${grouped}.${fraction}`
+  })

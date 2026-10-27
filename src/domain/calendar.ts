@@ -1,7 +1,8 @@
-import { toDateKey } from '../utils/format'
+import { shiftMonth, toDateKey } from '../utils/format'
 import type { Person } from './types'
 
-export type CalendarTarget = '공동' | Person | '없음'
+// '없음'은 지정일(마트 휴무 같은 날짜 정보)이다. 예전에 저장한 값이라 이름을 바꾸지 않는다.
+export type CalendarTarget = '공동' | Person | '기념일' | '없음'
 export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type RepeatScope = 'one' | 'following' | 'all'
 
@@ -28,7 +29,10 @@ export type CalendarEventInput = Omit<CalendarEvent, 'id' | 'seriesId' | 'origin
   recurrence?: string[]
 }
 
-export const CALENDAR_TARGETS: CalendarTarget[] = ['공동', '쿠리만쥬', '우사기', '없음']
+export const CALENDAR_TARGETS: CalendarTarget[] = ['공동', '쿠리만쥬', '우사기', '기념일', '없음']
+
+// 누가 하는 일정이 아니라 그날의 정보(기념일·지정일)라서, 달력에서 공휴일처럼 따로 보여 준다.
+export const isDayInfo = (target: CalendarTarget): target is '기념일' | '없음' => target === '기념일' || target === '없음'
 export const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly', 'yearly']
 
 // TimeTree에서 쓰던 색을 이어서, 공동은 검정·쿠리만쥬는 초록·우사기는 노랑 계열로 칠한다.
@@ -36,6 +40,7 @@ export const TARGET_TONE: Record<CalendarTarget, string> = {
   공동: 'target-shared',
   쿠리만쥬: 'target-kurimanju',
   우사기: 'target-usagi',
+  기념일: 'target-anniversary',
   없음: 'target-none',
 }
 
@@ -90,7 +95,7 @@ const lastDayOf = (event: CalendarEvent) => {
 }
 
 const sortRank = (event: CalendarEvent) => {
-  if (event.target === '없음') return 0
+  if (isDayInfo(event.target)) return 0
   if (event.allDay) return 1
   return 2
 }
@@ -173,4 +178,22 @@ export const weekLayout = (week: string[], events: CalendarEvent[], maxLanes: nu
     hidden,
     moreLane: isOverflow ? visibleLanes : null,
   }
+}
+
+export const overlapsRange = (event: CalendarEvent, start: string, end: string) => startDayOf(event) <= end && lastDayOf(event) >= start
+
+// 앱에 받아 두는 범위: 기준 달의 앞뒤 12개월.
+export const WINDOW_MONTHS = 12
+
+export const calendarWindow = (monthKey: string) => ({
+  start: gridRange(shiftMonth(monthKey, -WINDOW_MONTHS)).start,
+  end: gridRange(shiftMonth(monthKey, WINDOW_MONTHS)).end,
+})
+
+// 대상 값 '공동'·'없음'은 시트·구글에 저장된 키라 그대로 두고, 캘린더 화면에는 '우리'·'지정일'로 보여 준다.
+export const targetLabel = (target: CalendarTarget, personName: (person: Person) => string) => {
+  if (target === '없음') return '지정일'
+  if (target === '기념일') return '기념일'
+  if (target === '공동') return '우리'
+  return personName(target)
 }

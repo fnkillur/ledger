@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
 import PersonAvatar from '../components/PersonAvatar'
+import PeriodSwitcher from '../components/PeriodSwitcher'
 import PersonToggle from '../components/PersonToggle'
 import Sticker from '../components/Sticker'
 import TopBar from '../components/TopBar'
 import { db } from '../db/database'
 import { useCategories, usePersonName } from '../db/hooks'
 import { saveMonthlyTotals } from '../db/repository'
-import { evaluateAmount } from '../domain/amountExpression'
+import { evaluateAmount, formatAmountText } from '../domain/amountExpression'
 import { parseMonthlySummary, type OthersCheck } from '../domain/monthlySummary'
 import { isAggregate, KINDS, type Category, type Kind, type Person } from '../domain/types'
 import { recognizeImages, type OcrProgress } from '../ocr/recognize'
@@ -74,23 +75,20 @@ function MonthlyPage() {
       <TopBar showBack title="월 합계 입력" />
       <main className="page-content form">
         <div className="monthly-target">
-          <input
-            className="field-input monthly-month-input"
-            type="month"
-            aria-label="월"
-            min={EARLIEST_MONTH_KEY}
-            max={currentMonthKey()}
-            value={monthKey}
-            onChange={event => event.target.value && setMonthKey(event.target.value)}
-          />
-          {IS_WEB_BUILD ? (
-            <span className="person-chip">
-              <PersonAvatar person={person} size={22} /> {personName(person)}
-            </span>
-          ) : (
-            <PersonToggle value={person} onChange={setPerson} />
-          )}
+          <PeriodSwitcher monthOnly period={{ type: '월별', monthKey }} onChange={period => setMonthKey(period.monthKey)} />
         </div>
+        <section className="form-group">
+          <div className="form-row">
+            <span>누구의 합계</span>
+            {IS_WEB_BUILD ? (
+              <span className="person-chip">
+                <PersonAvatar person={person} size={22} /> {personName(person)}
+              </span>
+            ) : (
+              <PersonToggle value={person} onChange={setPerson} />
+            )}
+          </div>
+        </section>
 
         {(detailedCount ?? 0) > 0 && (
           <p className="status status-warning icon-note">
@@ -203,46 +201,42 @@ function MonthlyForm({ categories, initial, onSave }: MonthlyFormProps) {
       </section>
 
       {KINDS.map(kind => (
-        <section key={kind} className="card">
-          <h2 className="card-title">
+        <section key={kind} className="tx-section" aria-label={kind}>
+          <h2 className="tx-section-title monthly-title">
             {kind}
-            <span className="count"> {formatWon(sumAmounts(texts, categories, kind))}</span>
+            <strong className={`amount-${kind}`}>{formatWon(kind === '지출' ? expenseSum : incomeSum)}</strong>
           </h2>
-          {kind === '지출' && filledByOcr.size > 0 && <p className="card-description">파란 칸은 캡처에서 채운 값이에요. 고치면 표시가 사라져요.</p>}
-          <ul className="monthly-list">
+          <ul className="form-group monthly-list">
             {categories
               .filter(category => category.kind === kind && isInputCategory(category))
               .map(category => (
-                <li key={category.name} className="monthly-row">
+                <li key={category.name} className="form-row">
                   <span className="monthly-label">
-                    <CategoryIcon name={category.name} emoji={category.icon} size={14} />
+                    <CategoryIcon name={category.name} emoji={category.icon} size={16} />
                     <span className="label-text">{category.name}</span>
                   </span>
-                  <input
-                    className={`field-input monthly-input${invalidCategories.includes(category.name) ? ' is-invalid' : ''}${filledByOcr.has(category.name) ? ' is-filled' : ''}`}
-                    inputMode="text"
-                    placeholder="0"
-                    aria-label={`${category.name} 금액`}
-                    value={texts[category.name] ?? ''}
-                    onChange={event => handleChange(category.name, event.target.value)}
-                  />
+                  <span className="monthly-amount">
+                    <input
+                      className={`row-input monthly-input${invalidCategories.includes(category.name) ? ' is-invalid' : ''}${filledByOcr.has(category.name) ? ' is-filled' : ''}`}
+                      inputMode="text"
+                      placeholder="0"
+                      enterKeyHint="next"
+                      aria-label={`${category.name} 금액`}
+                      value={formatAmountText(texts[category.name] ?? '')}
+                      onChange={event => handleChange(category.name, event.target.value.replace(/,/g, ''))}
+                    />
+                    원
+                  </span>
                 </li>
               ))}
           </ul>
+          {kind === '지출' && filledByOcr.size > 0 && <p className="settings-note">파란 숫자는 캡처에서 채운 값이에요. 고치면 표시가 사라져요.</p>}
         </section>
       ))}
 
-      <div className="save-bar">
-        <div className="save-bar-totals">
-          <span>
-            지출 <strong className="amount-지출">{formatWon(expenseSum)}</strong>
-          </span>
-          <span>
-            수입 <strong className="amount-수입">{formatWon(incomeSum)}</strong>
-          </span>
-        </div>
+      <div className="bottom-cta">
         <button type="button" className="button button-primary" disabled={isSaving || invalidCategories.length > 0} onClick={handleSave}>
-          저장
+          {invalidCategories.length > 0 ? '계산할 수 없는 금액이 있어요' : '저장하기'}
         </button>
       </div>
     </>

@@ -1,10 +1,10 @@
 {
-  "name": "가계부",
-  "short_name": "가계부",
+  "name": "가뿌까",
+  "short_name": "가뿌까",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#FFE7A8",
+  "background_color": "#FFFFFF",
   "theme_color": "#f7f6f3",
   "lang": "ko",
   "icons": [
