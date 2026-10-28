@@ -81,7 +81,7 @@ function MealTrend({ history }: { history: MealCardProps['history'] }) {
         const share = eatingOutShare(row)
         return (
           <div key={row.monthKey} className={`meal-trend-month${index === history.length - 1 ? ' is-current' : ''}`}>
-            <div className="meal-trend-bar">
+            <div className={`meal-trend-bar${share === null ? ' is-empty' : ''}`}>
               {share !== null && (
                 <>
                   <span style={{ height: `${share}%`, background: 'var(--slice-2)' }} />

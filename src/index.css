@@ -4401,6 +4401,13 @@ button.pill-input {
   opacity: 0.55;
 }
 
+/* 기록 없는 달은 빈 점선 칸으로 두어 데이터와 헷갈리지 않게 한다. */
+.meal-trend-month .meal-trend-bar.is-empty {
+  border: 1.5px dashed var(--color-border);
+  background: transparent;
+  opacity: 1;
+}
+
 .meal-trend-label {
   color: var(--color-text-sub);
   font-size: var(--font-xs);
