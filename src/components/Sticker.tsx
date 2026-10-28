@@ -13,6 +13,7 @@ export type StickerName =
   | 'puzzled'
   | 'excited'
   | 'eat'
+  | 'rolling'
 
 // 웹은 우사기 전용, 안드로이드 앱은 쿠리만쥬 위주로 꾸민다.
 const CHARACTER = IS_WEB_BUILD ? 'usagi' : 'kurimanju'
@@ -29,7 +30,8 @@ const STICKERS = Object.fromEntries(
 const FALLBACK: Partial<Record<StickerName, StickerName>> = {
   proud: 'thinking',
   thinking: 'proud',
-  victory: 'default',
+  victory: 'thinking',
+  rolling: 'celebrate',
   excited: 'celebrate',
   done: 'dance',
   celebrate: 'dance',

@@ -31,12 +31,13 @@ const pushOutbox = async () => {
   const captures = (await db.captures.bulkGet(pending.filter(item => item.type === 'capture').map(item => item.id))).filter(
     (item): item is CaptureItem => !!item,
   )
+  const skippedKeys = new Set(pending.filter(item => item.type === 'skippedCapture').map(item => item.id))
 
   await push(getSettings(), {
     transactions,
     rules,
     settings: shared && { 월예산: shared.월예산, 월저축목표: shared.월저축목표, ...nicknamesToSettings(shared.닉네임 ?? {}) },
-    captures: captures.map(capture => ({ key: capture.key, status: capture.status })),
+    captures: [...captures.map(capture => ({ key: capture.key, status: capture.status })), ...[...skippedKeys].map(key => ({ key, status: '무시' }))],
   })
 
   // 전송 중 다시 수정된 항목은 outbox에 남겨 다음 동기화에 보낸다.
@@ -47,6 +48,7 @@ const pushOutbox = async () => {
     const current = await db.outbox.toArray()
     const doneIds = await Promise.all(
       current.map(async item => {
+        if (item.type === 'skippedCapture') return skippedKeys.has(item.id) ? item.id : null
         const latest = await findLatest(item)
         return latest && sentAt.get(item.id) === latest.updatedAt ? item.id : null
       }),
@@ -61,7 +63,7 @@ const pullChanges = async () => {
   const pendingIds = new Set((await db.outbox.toArray()).map(item => item.id))
 
   // 수집함 반영이 실패하면 받은 시각도 남기지 않아서, 다음 동기화 때 다시 받는다.
-  await db.transaction('rw', [db.transactions, db.rules, db.categories, db.meta, db.shared, db.captures], async () => {
+  await db.transaction('rw', [db.transactions, db.rules, db.categories, db.meta, db.shared, db.captures, db.outbox], async () => {
     await db.transactions.bulkPut(response.transactions.filter(item => !pendingIds.has(item.id)))
     await db.rules.bulkPut(response.rules.filter(item => !pendingIds.has(item.keyword)))
     if (response.categories.length > 0) {

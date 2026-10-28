@@ -21,7 +21,7 @@ function ScopeSplit({ items, showLabels = false }: ScopeSplitProps) {
           >
             <PersonAvatar person={item.filter} size={14} />
             {showLabels && <span className="person-split-label">{item.filter === '공동' ? '공동' : personName(item.filter)}</span>}
-            {item.amount.toLocaleString('ko-KR')}
+            {item.amount.toLocaleString('ko-KR')}원
           </span>
         ))}
     </span>

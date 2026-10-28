@@ -6,7 +6,7 @@ import CalendarCarousel from '../components/calendar/CalendarCarousel'
 import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
 import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
-import { eventsOnDay } from '../domain/calendar'
+import { eventsOnDay, gridRange } from '../domain/calendar'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, shiftMonth, toDateKey } from '../utils/format'
 import { setCalendarMonth, useCalendarMonthKey } from '../utils/viewState'
@@ -31,15 +31,28 @@ function CalendarPage() {
   const { error, pendingCount } = useCalendarStatus()
 
   const [pickedDay, setPickedDay] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
+  // 날짜를 한 번 누르면 고른 표시만 하고, 고른 날짜를 한 번 더 누르면 그날 일정을 연다.
+  const [focusedDate, setFocusedDate] = useState(todayKey)
 
   const opened = linkedDate ? { dateKey: linkedDate, view: { type: 'list' } as DaySheetView } : pickedDay
+
+  const handleSelectDay = (dateKey: string) => {
+    if (dateKey !== focusedDate) {
+      setFocusedDate(dateKey)
+      return
+    }
+    setPickedDay({ dateKey, view: { type: 'list' } })
+  }
 
   const closeSheet = () => {
     setPickedDay(null)
     if (linkedDate) setSearchParams({}, { replace: true })
   }
 
-  const newEventDate = monthKey === currentMonthKey() ? todayKey() : `${monthKey}-01`
+  const visibleRange = gridRange(monthKey)
+  const isFocusVisible = focusedDate >= visibleRange.start && focusedDate <= visibleRange.end
+  const fallbackDate = monthKey === currentMonthKey() ? todayKey() : `${monthKey}-01`
+  const newEventDate = isFocusVisible ? focusedDate : fallbackDate
 
   useCalendarSync(monthKey)
 
@@ -83,7 +96,8 @@ function CalendarPage() {
             monthKey={monthKey}
             events={events}
             onChangeMonth={offset => setCalendarMonth(shiftMonth(monthKey, offset))}
-            onSelectDay={dateKey => setPickedDay({ dateKey, view: { type: 'list' } })}
+            focusedDate={focusedDate}
+            onSelectDay={handleSelectDay}
           />
         )}
       </div>

@@ -7,7 +7,6 @@ import PersonAvatar from '../../components/PersonAvatar'
 import Segmented from '../../components/Segmented'
 import { useCategoryIcons, usePersonName } from '../../db/hooks'
 import type { CategoryChange, PersonComparison } from '../../domain/insights'
-import type { Slice } from '../../domain/stats'
 import { PEOPLE } from '../../domain/types'
 import { formatWon } from '../../utils/format'
 import MoreToggle from './MoreToggle'
@@ -18,7 +17,11 @@ const PERSON_COLORS = { 쿠리만쥬: 'var(--person-1)', 우사기: 'var(--perso
 const CHANGE_LIMIT = 3
 const COLLAPSED_COUNT = 5
 
-const sliceColor = (slice: Slice, index: number) => (slice.isOther ? 'var(--slice-other)' : SLICE_COLORS[index])
+// 상위 다섯 개만 색으로, 나머지는 회색 두 단계를 번갈아 칠해 작은 조각끼리도 구분되게 한다.
+const categoryColor = (index: number) => {
+  if (index < SLICE_COLORS.length) return SLICE_COLORS[index]
+  return index % 2 === 0 ? 'var(--slice-other)' : 'color-mix(in srgb, var(--slice-other) 55%, var(--color-surface))'
+}
 
 export type CompareTarget = '이전 기간' | '작년 같은 달'
 
@@ -26,13 +29,12 @@ type CategorySectionProps = {
   isMonthly: boolean
   previousLabel: string | null
   total: number
-  slices: Slice[]
   ranking: { category: string; amount: number }[]
   changes: Record<CompareTarget, { increased: CategoryChange[]; decreased: CategoryChange[] }>
 }
 
-// 어디에 썼나: 카테고리 비중, 많이 달라진 카테고리, 순위.
-function CategorySection({ isMonthly, previousLabel, total, slices, ranking, changes }: CategorySectionProps) {
+// 어디에 썼나: 카테고리 비중(도넛 + 순위), 많이 달라진 카테고리.
+function CategorySection({ isMonthly, previousLabel, total, ranking, changes }: CategorySectionProps) {
   const [compareTarget, setCompareTarget] = useState<CompareTarget>('이전 기간')
 
   if (ranking.length === 0) {
@@ -47,7 +49,8 @@ function CategorySection({ isMonthly, previousLabel, total, slices, ranking, cha
     <>
       <section className="card">
         <h2 className="card-title">카테고리별 지출</h2>
-        <CategoryDonut slices={slices} total={total} />
+        <CategoryDonut items={ranking} total={total} />
+        <CategoryRanking items={ranking} />
       </section>
 
       {previousLabel && (
@@ -62,11 +65,6 @@ function CategorySection({ isMonthly, previousLabel, total, slices, ranking, cha
           <ChangeList changes={changes[compareTarget]} />
         </section>
       )}
-
-      <section className="card">
-        <h2 className="card-title">카테고리 순위</h2>
-        <CategoryRanking items={ranking} />
-      </section>
     </>
   )
 }
@@ -81,52 +79,36 @@ export function PersonComparisonCard({ rows }: { rows: PersonComparison[] }) {
   )
 }
 
-function CategoryDonut({ slices, total }: { slices: Slice[]; total: number }) {
-  const sliceTotal = slices.reduce((sum, slice) => sum + slice.amount, 0)
-  const icons = useCategoryIcons()
-
+// 도넛에는 모든 카테고리를 조각으로 그리고, 이름과 금액은 바로 아래 순위 목록이 범례 역할을 한다.
+function CategoryDonut({ items, total }: { items: { category: string; amount: number }[]; total: number }) {
   return (
-    <div className="donut">
-      <div className="donut-chart">
-        <ResponsiveContainer width="100%" height={180}>
-          <PieChart>
-            <Pie
-              data={slices}
-              dataKey="amount"
-              nameKey="label"
-              innerRadius="62%"
-              outerRadius="100%"
-              startAngle={90}
-              endAngle={-270}
-              paddingAngle={1}
-              stroke="var(--color-surface)"
-              strokeWidth={2}
-              isAnimationActive={false}
-            >
-              {slices.map((slice, index) => (
-                <Cell key={slice.label} fill={sliceColor(slice, index)} />
-              ))}
-            </Pie>
-            <Tooltip formatter={value => formatWon(Number(value))} {...TOOLTIP_STYLE} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="donut-center" aria-hidden="true">
-          <span>총 지출</span>
-          <strong>{formatCompactWon(total)}</strong>
-        </div>
+    <div className="donut-chart donut-solo">
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie
+            data={items}
+            dataKey="amount"
+            nameKey="category"
+            innerRadius="62%"
+            outerRadius="100%"
+            startAngle={90}
+            endAngle={-270}
+            paddingAngle={1}
+            stroke="var(--color-surface)"
+            strokeWidth={2}
+            isAnimationActive={false}
+          >
+            {items.map((item, index) => (
+              <Cell key={item.category} fill={categoryColor(index)} />
+            ))}
+          </Pie>
+          <Tooltip formatter={value => formatWon(Number(value))} {...TOOLTIP_STYLE} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="donut-center" aria-hidden="true">
+        <span>총 지출</span>
+        <strong>{formatCompactWon(total)}</strong>
       </div>
-      <ul className="donut-legend">
-        {slices.map((slice, index) => (
-          <li key={slice.label}>
-            <span className="legend-swatch" style={{ background: sliceColor(slice, index) }} />
-            <span className="legend-label">
-              {!slice.isOther && <CategoryIcon name={slice.label} emoji={icons.get(slice.label)} size={12} />}
-              <span className="label-text">{slice.label}</span>
-            </span>
-            <span className="legend-value">{percent(slice.amount, sliceTotal)}%</span>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
@@ -172,11 +154,12 @@ function CategoryRanking({ items }: { items: { category: string; amount: number 
           <li key={item.category} className="bar-row">
             <span className="bar-rank">{index + 1}</span>
             <span className="bar-label">
+              <span className="legend-swatch" style={{ background: categoryColor(index) }} />
               <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
               <span className="label-text">{item.category}</span>
             </span>
             <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%` }} />
+              <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%`, background: categoryColor(index) }} />
             </div>
             <span className="bar-value">
               {item.amount.toLocaleString('ko-KR')}

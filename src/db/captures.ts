@@ -86,12 +86,14 @@ export const ingestSheetCaptures = async (rows: SheetCapture[], pendingKeys: Set
 
   const fresh = rows.filter((row, index) => !known[index] && row.status === '대기')
   const personOf = new Map(fresh.map(row => [row.key, PEOPLE.find(person => person === row.person)]))
-  return ingestCaptures(
-    fresh.map(row => ({ key: row.key, packageName: 'sheet', appLabel: SHEET_APP_LABEL, title: '', text: row.text, postedAt: Date.parse(row.receivedAt) })),
-    notification => ({ fromSheet: true, person: personOf.get(notification.key) }),
-    // 문자는 받은 시각보다 본문에 적힌 결제 시각이 정확하다.
-    notification => parsePastedPayment(notification.text, new Date(notification.postedAt)),
-  )
+  // 문자는 받은 시각보다 본문에 적힌 결제 시각이 정확하다.
+  const parseRow = (notification: CapturedNotification) => parsePastedPayment(notification.text, new Date(notification.postedAt))
+  const notifications = fresh.map(row => ({ key: row.key, packageName: 'sheet', appLabel: SHEET_APP_LABEL, title: '', text: row.text, postedAt: Date.parse(row.receivedAt) }))
+
+  const skipped = notifications.filter(notification => !parseRow(notification))
+  await db.outbox.bulkPut(skipped.map(notification => ({ id: notification.key, type: 'skippedCapture' as const })))
+
+  return ingestCaptures(notifications, notification => ({ fromSheet: true, person: personOf.get(notification.key) }), parseRow)
 }
 
 export const markCapture = async (key: string, status: CaptureItem['status'], transaction?: Transaction) => {

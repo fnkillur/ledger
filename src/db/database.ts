@@ -16,7 +16,8 @@ export type CaptureItem = CapturedNotification & {
   updatedAt?: string
 }
 
-export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' }
+// skippedCapture: 결제 문자가 아니라서 앱이 걸러 낸 시트 수집함 문자. 시트에도 '무시'로 돌려보낸다.
+export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' | 'skippedCapture' }
 
 export type SharedSettingsRecord = SharedSettings & { key: 'shared'; updatedAt: string }
 

@@ -11,7 +11,8 @@ import {
   topMerchants,
   weekdayTimeMatrix,
 } from '../domain/insights'
-import { monthKeysOfYear, previousComparison, shiftPeriod, toRange, type Period } from '../domain/period'
+import { mealSplit, monthlyMealSplits, seasonalByMonth, SEASONAL_CATEGORIES, type SeasonalCategory, type SeasonalSeries } from '../domain/lifestyle'
+import { EARLIEST_MONTH_KEY, monthKeysOfYear, previousComparison, shiftPeriod, toRange, type Period } from '../domain/period'
 import { savingTips } from '../domain/savingTips'
 import {
   expenseByScope,
@@ -21,19 +22,18 @@ import {
   sumByCategory,
   sumByKind,
   toExcludedCategories,
-  toSlices,
   topExpenses,
   type ScopeFilter,
 } from '../domain/stats'
 import { currentMonthKey } from '../utils/format'
 import { useViewState } from '../utils/viewState'
 import CategorySection, { FixedVariableCard, PersonComparisonCard } from './stats/CategorySection'
+import { MealCard, SeasonalCard } from './stats/LifestyleCards'
 import OverviewSection, { TrendCard } from './stats/OverviewSection'
 import PatternSection from './stats/PatternSection'
 import { inRange } from './stats/shared'
 
 const TREND_MONTHS = 12
-const MAX_SLICES = 6
 const PERSON_COMPARE_LIMIT = 8
 const TOP_COUNT = 10
 const MERCHANT_COUNT = 5
@@ -68,11 +68,13 @@ function StatsPage() {
   }, [periodType, monthKey, today])
 
   const transactions = useTransactionsBetween(ranges.fetchStart, ranges.range.end)
+  // 계절별 소비는 고른 기간과 상관없이 쌓인 기록 전체를 본다.
+  const allTime = useTransactionsBetween(toRange({ type: '월별', monthKey: EARLIEST_MONTH_KEY }).start, toRange({ type: '월별', monthKey: currentMonthKey() }).end)
   const loadedCategories = useCategoriesQuery()
 
   const categories = useMemo(() => loadedCategories ?? [], [loadedCategories])
   // 처음 불러오는 동안 0원·빈 차트를 그렸다가 바꾸면 깜빡이므로, 다 불러온 뒤에 한 번에 그린다.
-  const isReady = transactions !== undefined && loadedCategories !== undefined
+  const isReady = transactions !== undefined && loadedCategories !== undefined && allTime !== undefined
   const excluded = useMemo(() => toExcludedCategories(categories), [categories])
   const loaded = useMemo(() => transactions ?? [], [transactions])
   const current = useMemo(() => loaded.filter(transaction => inRange(transaction, ranges.range)), [loaded, ranges])
@@ -115,7 +117,6 @@ function StatsPage() {
     const ranking = sumByCategory(scopedCurrent, '지출', excluded)
     return {
       ranking,
-      slices: toSlices(ranking, MAX_SLICES),
       changes: {
         '이전 기간': categoryChanges(scopedCurrent, scopedPrevious, excluded),
         '작년 같은 달': categoryChanges(scopedCurrent, scopedLastYear, excluded),
@@ -124,6 +125,19 @@ function StatsPage() {
       personComparison: scopeFilter === '전체' ? compareByPerson(current, excluded, PERSON_COMPARE_LIMIT) : [],
     }
   }, [scopedCurrent, scopedPrevious, scopedLastYear, current, categories, excluded, scopeFilter])
+
+  const lifestyle = useMemo(() => {
+    const scopedLoaded = loaded.filter(transaction => matchesScope(transaction, scopeFilter))
+    const scopedAllTime = (allTime ?? []).filter(transaction => matchesScope(transaction, scopeFilter))
+    return {
+      meal: mealSplit(scopedCurrent, excluded),
+      mealHistory: monthlyMealSplits(scopedLoaded, recentMonthKeys(monthKey, TREND_MONTHS), excluded),
+      seasonal: Object.fromEntries(SEASONAL_CATEGORIES.map(category => [category, seasonalByMonth(scopedAllTime, category, excluded)])) as Record<
+        SeasonalCategory,
+        SeasonalSeries[]
+      >,
+    }
+  }, [loaded, allTime, scopedCurrent, scopeFilter, monthKey, excluded])
 
   const patternData = useMemo(
     () => ({
@@ -161,16 +175,17 @@ function StatsPage() {
               isMonthly={periodType === '월별'}
               previousLabel={ranges.previousLabel}
               total={summary.totals.지출}
-              slices={categoryData.slices}
               ranking={categoryData.ranking}
               changes={categoryData.changes}
             />
+            {periodType === '월별' && <MealCard split={lifestyle.meal} history={lifestyle.mealHistory} />}
 
             <h2 className="stats-section-title">어떻게 썼나</h2>
             <PatternSection {...patternData} />
 
             <h2 className="stats-section-title">흐름</h2>
             <TrendCard period={ranges.period} scopeFilter={scopeFilter} data={summary.trend} />
+            <SeasonalCard seriesByCategory={lifestyle.seasonal} />
             {categoryData.ranking.length > 0 && <FixedVariableCard {...categoryData.fixedVariable} />}
             <PersonComparisonCard rows={categoryData.personComparison} />
           </>

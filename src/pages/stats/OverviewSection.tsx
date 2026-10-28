@@ -1,12 +1,12 @@
 import { ArrowsClockwiseIcon, CoffeeIcon, MopedIcon, MoonStarsIcon, ScalesIcon, TrendUpIcon, type Icon } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Sticker, { type StickerName } from '../../components/Sticker'
 import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace } from '../../domain/insights'
 import type { Period } from '../../domain/period'
 import type { SavingTip, SavingTipId } from '../../domain/savingTips'
-import { expenseRatio, ratioLevel, ratioMessage, type expenseByScope, type KindTotals, type RatioLevel, type ScopeFilter } from '../../domain/stats'
+import { expenseRatio, ratioLevel, type expenseByScope, type KindTotals, type RatioLevel, type ScopeFilter } from '../../domain/stats'
 import type { Kind } from '../../domain/types'
 import { formatMonthLabel, formatWon } from '../../utils/format'
 import { formatAxisWon, niceTicks, TOOLTIP_STYLE } from './shared'
@@ -43,7 +43,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
       <section className="stat-tiles" aria-label="요약">
         <div className="stat-tile">
           <span className="stat-label">지출</span>
-          <strong className="stat-value is-expense">{formatWon(totals.지출)}</strong>
+          <StatValue className="is-expense" text={formatWon(totals.지출)} />
           {previousTotals && previousLabel && <ExpenseDelta label={previousLabel} delta={totals.지출 - previousTotals.지출} />}
           {pace?.isCurrent && pace.projected > totals.지출 && <span className="stat-delta">이 속도면 월말 약 {formatWon(roundToThousand(pace.projected))}</span>}
           {isAll && <ScopeSplit items={byScope} />}
@@ -51,7 +51,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
         {isAll ? (
           <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio)}>
             <span className="stat-label">수입 대비 지출</span>
-            <strong className="stat-value ratio-tile-value">{ratio === null ? '–' : `${ratio}%`}</strong>
+            <StatValue className="ratio-tile-value" text={ratio === null ? '–' : `${ratio}%`} />
             <span className="stat-delta">
               {ratio !== null && previousRatio !== null
                 ? `${previousLabel} 대비 ${ratio - previousRatio >= 0 ? '+' : '−'}${Math.abs(ratio - previousRatio)}%p`
@@ -63,7 +63,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
         ) : (
           <div className="stat-tile">
             <span className="stat-label">전체 지출 중</span>
-            <strong className="stat-value">{householdExpense > 0 ? `${Math.round((totals.지출 / householdExpense) * 100)}%` : '–'}</strong>
+            <StatValue text={householdExpense > 0 ? `${Math.round((totals.지출 / householdExpense) * 100)}%` : '–'} />
             <span className="stat-delta">전체 지출 {formatWon(householdExpense)}</span>
           </div>
         )}
@@ -101,6 +101,9 @@ const TIP_VISUALS: Record<SavingTipId, [Icon, string]> = {
   recurring: [ArrowsClockwiseIcon, 'teal'],
 }
 
+// '편의점·마트·잡화'처럼 가운뎃점이 든 카테고리 이름이 점에서 끊기지 않게, 점 앞뒤에 줄바꿈 금지 문자를 넣는다.
+const keepCategoryWhole = (text: string) => text.replaceAll('·', '\u2060·\u2060')
+
 function SavingTips({ tips }: { tips: SavingTip[] }) {
   return (
     <section className="card">
@@ -117,8 +120,15 @@ function SavingTips({ tips }: { tips: SavingTip[] }) {
                   <Glyph size={20} weight="duotone" />
                 </span>
                 <span className="tip-text">
-                  <strong>{tip.title}</strong>
-                  <span>{tip.detail}</span>
+                  <strong>{keepCategoryWhole(tip.title)}</strong>
+                  <span>
+                    {tip.detail.split(' → ').map((part, index) => (
+                      <span key={part} className="tip-line">
+                        {index > 0 && '→ '}
+                        {keepCategoryWhole(part)}
+                      </span>
+                    ))}
+                  </span>
                 </span>
               </li>
             )
@@ -126,6 +136,14 @@ function SavingTips({ tips }: { tips: SavingTip[] }) {
         </ul>
       )}
     </section>
+  )
+}
+
+function StatValue({ text, className = '' }: { text: string; className?: string }) {
+  return (
+    <strong className={`stat-value ${className}`} style={{ '--chars': text.length } as CSSProperties}>
+      {text}
+    </strong>
   )
 }
 
@@ -141,9 +159,17 @@ function ExpenseDelta({ label, delta }: { label: string; delta: number }) {
 // 번 것보다 많이 쓴 달은 울고, 지난 기간보다 지출률이 줄면 축하한다.
 const moodSticker = (level: RatioLevel, isImproved: boolean): StickerName => {
   if (level === '초과') return 'cry'
-  if (isImproved) return 'celebrate'
-  if (level === '여유') return 'proud'
+  if (isImproved) return 'rolling'
+  if (level === '여유') return 'victory'
   return 'thinking'
+}
+
+// 좁은 칸에서도 한 줄로 끝나도록 짧게 쓴다. 칸 높이가 달마다 달라지지 않게 하려는 것.
+const moodMessage = (level: RatioLevel, isImproved: boolean) => {
+  if (level === '초과') return '수입을 넘었어요'
+  if (isImproved) return '지출이 줄었어요'
+  if (level === '빠듯') return '조금 빠듯해요'
+  return '여유 있어요'
 }
 
 function RatioMood({ ratio, previousRatio }: { ratio: number | null; previousRatio: number | null }) {
@@ -153,8 +179,8 @@ function RatioMood({ ratio, previousRatio }: { ratio: number | null; previousRat
   const isImproved = previousRatio !== null && ratio < previousRatio
   return (
     <div className="tile-mood">
-      <Sticker name={moodSticker(level, isImproved)} size={56} />
-      <span>{isImproved && level !== '초과' ? '지난번보다 덜 썼어요' : ratioMessage(level)}</span>
+      <Sticker name={moodSticker(level, isImproved)} size={104} />
+      <span>{moodMessage(level, isImproved)}</span>
     </div>
   )
 }

@@ -204,6 +204,19 @@ describe('시트 수집함', () => {
     expect(await db.outbox.count()).toBe(0)
   })
 
+  it('결제 문자가 아니라서 걸러 낸 문자는 수집함에 넣지 않고, 시트에는 무시로 돌려보낸다', async () => {
+    rows.push({ key: 'sms-2', receivedAt: '2026-10-22T04:00:00.000Z', person: '우사기', text: '[Web발신] 로그인 승인 요청이 있어요', status: '대기', syncedAt: '2026-10-22T04:00:00.000Z' })
+    await syncNow()
+
+    expect(await db.captures.get('sms-2')).toBeUndefined()
+    expect(await db.outbox.get('sms-2')).toMatchObject({ type: 'skippedCapture' })
+
+    await syncNow()
+
+    expect(pushedCaptures).toEqual([{ key: 'sms-2', status: '무시' }])
+    expect(await db.outbox.count()).toBe(0)
+  })
+
   it('다른 기기에서 이미 처리한 문자는 상태만 맞춘다', async () => {
     await syncNow()
     rows[0] = { ...rows[0], status: '무시', syncedAt: '2026-10-23T00:01:00.000Z' }
