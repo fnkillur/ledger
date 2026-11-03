@@ -55,6 +55,17 @@ export function usePendingCapturesQuery() {
   })
 }
 
+// 무시한 알림은 최근 것만 다시 보여준다. 오래된 건 되돌릴 일이 거의 없다.
+const IGNORED_CAPTURE_DAYS = 30
+
+export function useIgnoredCapturesQuery() {
+  return useLiveQuery(async () => {
+    const since = Date.now() - IGNORED_CAPTURE_DAYS * 24 * 60 * 60 * 1000
+    const captures = await db.captures.where('status').equals('무시').filter(capture => capture.postedAt >= since).toArray()
+    return captures.sort((left, right) => right.postedAt - left.postedAt)
+  })
+}
+
 export function usePendingCaptures() {
   return usePendingCapturesQuery() ?? []
 }

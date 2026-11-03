@@ -23,14 +23,6 @@ export const deleteTransaction = async (id: string) => {
   })
 }
 
-export const splitTransaction = async (original: Transaction, splitAmount: number, category: string) => {
-  const remaining = original.amount - splitAmount
-  await db.transaction('rw', db.transactions, db.outbox, async () => {
-    await saveTransaction({ ...original, amount: remaining }, original.id)
-    await saveTransaction({ ...original, amount: splitAmount, category, memo: original.memo })
-  })
-}
-
 export const recategorize = async (transactions: Transaction[], category: string) => {
   const updatedAt = now()
   await db.transaction('rw', db.transactions, db.outbox, async () => {

@@ -6,7 +6,7 @@ import { formatWon } from '../../utils/format'
 import { formatAxisWon, niceTicks, percent, TOOLTIP_STYLE } from './shared'
 
 const MEAL_PARTS = [
-  { key: 'grocery', label: '장보기', color: 'var(--slice-3)' },
+  { key: 'grocery', label: '집밥', color: 'var(--slice-3)' },
   { key: 'delivery', label: '배달', color: 'var(--slice-4)' },
   { key: 'dining', label: '외식', color: 'var(--slice-2)' },
 ] as const
@@ -28,21 +28,20 @@ type MealCardProps = {
   history: ({ monthKey: string } & MealSplit)[]
 }
 
-// 장보기(편의점·마트·잡화)와 식비를 견줘, 집에서 해 먹었는지 밖에서 먹었는지 본다.
+// 식재료(집밥)와 외식·배달을 견줘, 집에서 해 먹었는지 밖에서 먹었는지 본다.
 export function MealCard({ split, history }: MealCardProps) {
   const share = eatingOutShare(split)
   const total = split.grocery + split.delivery + split.dining
   const previousShares = history.slice(0, -1).map(eatingOutShare)
-  const parts = MEAL_PARTS.filter(part => part.key !== 'delivery' || split.delivery > 0)
 
-  // 최근 12개월 내내 장보기·식비 기록이 없으면 보여줄 게 없으니 카드째 숨긴다.
+  // 최근 12개월 내내 식재료·외식·배달 기록이 없으면 보여줄 게 없으니 카드째 숨긴다.
   if (share === null && history.every(row => eatingOutShare(row) === null)) return null
 
   return (
     <section className="card">
       <h2 className="card-title">집밥 vs 외식</h2>
       {share === null ? (
-        <p className="card-description">이번 달은 아직 장보기·식비 기록이 없어요.</p>
+        <p className="card-description">이번 달은 아직 식재료·외식·배달 기록이 없어요.</p>
       ) : (
         <>
           <p className="meal-headline">
@@ -50,12 +49,12 @@ export function MealCard({ split, history }: MealCardProps) {
           </p>
           {mealComparison(share, previousShares) && <p className="card-description meal-compare">{mealComparison(share, previousShares)}</p>}
           <div className="meal-bar" aria-hidden="true">
-            {parts.map(part => (
+            {MEAL_PARTS.map(part => (
               <span key={part.key} style={{ width: `${percent(split[part.key], total)}%`, background: part.color }} />
             ))}
           </div>
           <ul className="meal-legend">
-            {parts.map(part => (
+            {MEAL_PARTS.map(part => (
               <li key={part.key}>
                 <span className="legend-swatch" style={{ background: part.color }} />
                 <span className="meal-legend-label">{part.label}</span>
@@ -69,7 +68,7 @@ export function MealCard({ split, history }: MealCardProps) {
         </>
       )}
       <MealTrend history={history} />
-      <p className="meal-note">장보기는 편의점·마트·잡화, 외식은 식비예요. 배달은 건별 기록부터 따로 나눠요.</p>
+      <p className="meal-note">집밥은 식재료, 외식은 식당·편의점 먹거리, 배달은 배달앱이에요. 2026년 11월부터 나눠 봐요.</p>
     </section>
   )
 }

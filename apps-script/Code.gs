@@ -37,7 +37,9 @@ const DEFAULT_CATEGORIES = [
   ['지출', '편의점·마트·잡화', '🛒'],
   ['지출', '여행·숙박', '✈️'],
   ['지출', '쇼핑', '🛍️', { personal: true }],
-  ['지출', '식비', '🍚'],
+  ['지출', '식재료', '🥬'],
+  ['지출', '외식', '🍚'],
+  ['지출', '배달', '🛵'],
   ['지출', '교통·자동차', '🚗'],
   ['지출', '주거·통신', '🏠', { fixed: true }],
   ['지출', '보험·세금·기타금융', '🧾', { fixed: true }],
@@ -65,7 +67,7 @@ const DEFAULT_CATEGORIES = [
   ['수입', 'K패스환급', '🚇'],
   ['수입', '인터넷환급', '🌐'],
   ['수입', '정산', '🔁', { excluded: true }],
-  ['저축', '저축·투자', '🐷', { excluded: true }],
+  ['지출', '저축·투자', '🐷'],
 ]
 
 const DEFAULT_SETTINGS = [
@@ -183,6 +185,76 @@ function migrateFromYearTabs(resync = false) {
   return result
 }
 
+// 토스 소비 분석은 저축·투자도 지출로 묶어서, 시트의 카테고리와 지난 기록을 지출로 바꾼다. 편집기에서 한 번만 실행한다.
+function migrateSavingsToExpense() {
+  const book = SpreadsheetApp.getActive()
+  const categorySheet = book.getSheetByName(SHEETS.categories)
+  const values = categorySheet.getDataRange().getValues()
+  const header = values[0]
+  const categoryRow = values.findIndex(row => row[header.indexOf('이름')] === '저축·투자')
+  if (categoryRow > 0) {
+    categorySheet.getRange(categoryRow + 1, header.indexOf('구분') + 1).setValue('지출')
+    categorySheet.getRange(categoryRow + 1, header.indexOf('통계제외') + 1).setValue(false)
+  }
+
+  const now = new Date().toISOString()
+  const sheet = book.getSheetByName(SHEETS.transactions)
+  const changed = readObjects_(sheet)
+    .map(fromRow_)
+    .filter(item => item.category === '저축·투자' && item.kind === '저축')
+    .map(item => ({ ...item, kind: '지출', updatedAt: now }))
+  upsert_(sheet, 'id', changed.map(item => toRow_(item, now)))
+  Logger.log('저축·투자 → 지출: 카테고리 %s, 기록 %s건', categoryRow > 0 ? '변경' : '없음', changed.length)
+  return { changed: changed.length }
+}
+
+const MEAL_DELIVERY_KEYWORDS = ['배달의민족', '배민', '요기요', '쿠팡이츠', '땡겨요']
+
+// 식비를 외식으로 바꾸고 식재료·배달 카테고리를 그 앞뒤에 넣는다. 지난 식비 기록과 분류 규칙도 옮긴다. 편집기에서 한 번만 실행한다.
+function migrateMealCategories() {
+  const book = SpreadsheetApp.getActive()
+  const now = new Date().toISOString()
+
+  const categorySheet = book.getSheetByName(SHEETS.categories)
+  const values = categorySheet.getDataRange().getValues()
+  const header = values[0]
+  const column = name => header.indexOf(name)
+  const names = values.slice(1).map(row => String(row[column('이름')]))
+  if (names.includes('식비') && !names.includes('외식')) {
+    const mealIndex = names.indexOf('식비') + 1
+    const mealOrder = Number(values[mealIndex][column('순서')])
+    values.slice(1).forEach((row, index) => {
+      if (Number(row[column('순서')]) > mealOrder) values[index + 1][column('순서')] = Number(row[column('순서')]) + 2
+    })
+    values[mealIndex][column('이름')] = '외식'
+    values[mealIndex][column('순서')] = mealOrder + 1
+    const newRow = (name, order, icon) =>
+      header.map(label => ({ 구분: '지출', 이름: name, 순서: order, 통계제외: false, 고정비: false, 아이콘: icon, 개인지출: false })[label] ?? '')
+    values.push(newRow('식재료', mealOrder, '🥬'), newRow('배달', mealOrder + 2, '🛵'))
+    categorySheet.getRange(1, 1, values.length, header.length).setValues(values)
+  }
+
+  const transactionSheet = book.getSheetByName(SHEETS.transactions)
+  const changed = readObjects_(transactionSheet)
+    .map(fromRow_)
+    .filter(item => item.category === '식비')
+    .map(item => ({ ...item, category: '외식', updatedAt: now }))
+  upsert_(transactionSheet, 'id', changed.map(item => toRow_(item, now)))
+
+  const ruleSheet = book.getSheetByName(SHEETS.rules)
+  const rules = readObjects_(ruleSheet)
+    .filter(row => String(row['카테고리']) === '식비')
+    .map(row => {
+      const keyword = String(row['키워드'])
+      const isDelivery = MEAL_DELIVERY_KEYWORDS.some(word => keyword.replace(/\s+/g, '').includes(word))
+      return [keyword, isDelivery ? '배달' : '외식', now, now]
+    })
+  upsert_(ruleSheet, '키워드', rules)
+
+  Logger.log('식비 → 외식: 기록 %s건, 규칙 %s개', changed.length, rules.length)
+  return { transactions: changed.length, rules: rules.length }
+}
+
 function doGet(e) {
   return handle_(() => {
     authorize_(e.parameter.token)
@@ -198,6 +270,7 @@ function doPost(e) {
     authorize_(body.token)
     if (body.action === 'push') return push_(body)
     if (body.action === 'capture') return capture_(body)
+    if (body.action === 'receipt') return analyzeReceipt_(body)
     if (body.action === 'calendarSave') {
       const result = saveCalendarEvent_(body)
       if (!body.event.ref) notifyCalendarAdded_(body.actor, body.event)

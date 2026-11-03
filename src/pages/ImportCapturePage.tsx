@@ -99,8 +99,9 @@ function ImportCapturePage() {
   const handleSave = async () => {
     if (checked.length === 0) return
     setIsSaving(true)
+    const savedIds: string[] = []
     for (const { payment, category } of checked) {
-      await saveTransaction({
+      const saved = await saveTransaction({
         occurredAt: payment.occurredAt,
         person,
         kind: payment.kind,
@@ -114,6 +115,7 @@ function ImportCapturePage() {
         rawText: payment.text,
         scope: categories.find(item => item.name === category)?.personal ? '개인' : '공동',
       })
+      savedIds.push(saved.id)
       // 여기서 고른 카테고리는 다음 캡처부터 자동으로 분류되도록 규칙으로 남긴다.
       if (payment.merchant && category !== UNCATEGORIZED && classifyMerchant(payment.merchant, rules) !== category) {
         await saveRule(payment.merchant, category)
@@ -121,7 +123,7 @@ function ImportCapturePage() {
     }
     syncNow().catch(() => {})
     navigate(LIST_PATH, { replace: true })
-    celebrate(`${checked.length}건을 한 번에 기록했어요`)
+    celebrate({ title: `${checked.length}건을 한 번에 기록했어요`, transactionIds: savedIds }, null)
   }
 
   return (

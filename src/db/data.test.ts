@@ -6,7 +6,7 @@ import { saveSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { ingestCaptures } from './captures'
 import { db } from './database'
-import { deleteTransaction, saveMonthlyTotals, saveTransaction, splitTransaction, type TransactionInput } from './repository'
+import { deleteTransaction, saveMonthlyTotals, saveTransaction, type TransactionInput } from './repository'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 
 const input = (overrides: Partial<TransactionInput> = {}): TransactionInput => ({
@@ -16,7 +16,7 @@ const input = (overrides: Partial<TransactionInput> = {}): TransactionInput => (
   amount: 10000,
   shareCount: 1,
   merchant: '가게',
-  category: '식비',
+  category: '외식',
   excluded: false,
   source: '수동',
   memo: '',
@@ -37,35 +37,24 @@ describe('repository', () => {
     expect((await db.transactions.get(saved.id))?.deleted).toBe(true)
     expect(await db.outbox.toArray()).toEqual([{ id: saved.id, type: 'transaction' }])
   })
-
-  it('거래를 나누면 원래 금액에서 빼고 새 거래를 만든다', async () => {
-    const salary = await saveTransaction(input({ kind: '수입', category: '월급', amount: 5616746 }))
-    await splitTransaction(salary, 113766, '은행이자지원')
-
-    const all = await db.transactions.toArray()
-    expect(all.map(item => [item.category, item.amount]).sort()).toEqual([
-      ['월급', 5502980],
-      ['은행이자지원', 113766],
-    ])
-  })
 })
 
 describe('saveMonthlyTotals', () => {
   it('같은 달·사람을 다시 저장하면 덮어쓰고 빠진 카테고리는 지우며, 개인 기본값을 따른다', async () => {
     await saveMonthlyTotals('2026-10', '우사기', [
-      { category: '식비', amount: 100000 },
+      { category: '외식', amount: 100000 },
       { category: '미용', amount: 50000 },
       { category: '월급', amount: 4000000 },
     ], DEFAULT_CATEGORIES)
     await saveMonthlyTotals('2026-10', '우사기', [
-      { category: '식비', amount: 120000 },
+      { category: '외식', amount: 120000 },
       { category: '월급', amount: 4000000 },
     ], DEFAULT_CATEGORIES)
-    await saveMonthlyTotals('2026-10', '쿠리만쥬', [{ category: '식비', amount: 1 }], DEFAULT_CATEGORIES)
+    await saveMonthlyTotals('2026-10', '쿠리만쥬', [{ category: '외식', amount: 1 }], DEFAULT_CATEGORIES)
 
     const rows = await db.transactions.where('id').startsWith('monthly-2026-10-우사기-').toArray()
     const byCategory = Object.fromEntries(rows.map(row => [row.category, row]))
-    expect(byCategory['식비']).toMatchObject({ amount: 120000, deleted: false, source: '월합계', scope: '공동', kind: '지출' })
+    expect(byCategory['외식']).toMatchObject({ amount: 120000, deleted: false, source: '월합계', scope: '공동', kind: '지출' })
     expect(byCategory['미용']).toMatchObject({ deleted: true, scope: '개인' })
     expect(byCategory['월급']).toMatchObject({ kind: '수입', deleted: false })
     expect(await db.transactions.where('id').startsWith('monthly-2026-10-쿠리만쥬-').count()).toBe(1)

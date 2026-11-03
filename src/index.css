@@ -2447,7 +2447,7 @@ a {
   flex-shrink: 0;
 }
 
-/* 저장 축하: 터치를 막지 않도록 레이어 전체가 pointer-events: none 이다. */
+/* 저장 알림: 터치를 막지 않도록 레이어 전체가 pointer-events: none 이다. */
 .celebration {
   position: fixed;
   inset: 0;
@@ -2455,86 +2455,70 @@ a {
   pointer-events: none;
 }
 
-.celebration-card {
+.celebration-toast {
   position: absolute;
-  bottom: calc(var(--tab-bar-height) + 112px + env(safe-area-inset-bottom, 0px));
-  left: 50%;
+  right: var(--space-4);
+  bottom: calc(var(--tab-bar-height) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+  left: var(--space-4);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
-  width: 200px;
-  padding: var(--space-3) var(--space-3) var(--space-4);
-  border-radius: var(--radius-xl);
+  gap: var(--space-3);
+  max-width: 480px;
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
-  text-align: center;
-  animation: celebration-life 2600ms var(--ease-out) forwards;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  animation: celebration-life 2800ms var(--ease-out) forwards;
 }
 
 .celebration-image {
-  width: 120px;
-  height: 120px;
-  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
   object-fit: cover;
 }
 
-.celebration-message {
-  margin-top: var(--space-1);
+.celebration-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.celebration-title {
+  overflow: hidden;
   font-size: var(--font-md);
-  word-break: keep-all;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .celebration-subline {
-  color: var(--color-primary);
+  color: var(--color-text-sub);
   font-size: var(--font-sm);
-  font-weight: 600;
-}
-
-.confetti {
-  position: absolute;
-  top: 35%;
-  left: 50%;
-  /* 카드 배경 위, 이미지·문구 아래에 깔려서 글자를 가리지 않는다. */
-  z-index: -1;
-}
-
-.confetti-bit {
-  position: absolute;
-  width: 8px;
-  height: 12px;
-  border-radius: 2px;
-  opacity: 0;
-  animation: confetti-burst 1900ms cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
-}
-
-.confetti-bit.is-round {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
 }
 
 @keyframes celebration-life {
-  0% { opacity: 0; transform: translate(-50%, 16px) scale(0.85); }
-  10% { opacity: 1; transform: translate(-50%, 0) scale(1.04); }
-  16% { transform: translate(-50%, 0) scale(1); }
-  85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, 8px) scale(0.98); }
+  0% { opacity: 0; transform: translateY(12px); }
+  8% { opacity: 1; transform: translateY(0); }
+  88% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(4px); }
 }
 
-@keyframes confetti-burst {
-  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(0.6); }
-  30% { opacity: 1; transform: translate(var(--dx), var(--dy)) rotate(calc(var(--spin) * 0.5)) scale(1); }
-  75% { opacity: 1; }
-  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.25), calc(var(--dy) + 220px)) rotate(var(--spin)) scale(0.9); }
+/* 방금 기록한 내역은 목록에서 잠깐 물들여 어디에 들어갔는지 보이게 한다. */
+.tx-row.is-just-saved {
+  animation: just-saved 2400ms var(--ease-out);
+}
+
+@keyframes just-saved {
+  0%, 40% { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+  100% { background: transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .confetti {
-    display: none;
-  }
-
-  .celebration-card {
+  .celebration-toast {
     animation-timing-function: linear;
   }
 }
@@ -3898,6 +3882,102 @@ button.pill-input {
   color: var(--color-text-sub);
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+.tx-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tx-section-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--space-1);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.receipt-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 var(--space-1);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.receipt-status small {
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+  font-weight: 400;
+}
+
+.receipt-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.receipt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.receipt-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.receipt-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+}
+
+.receipt-group-amount {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.receipt-item {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-full, 999px);
+  background: var(--color-pressed);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.receipt-item span {
+  color: var(--color-text-sub);
+  font-variant-numeric: tabular-nums;
 }
 
 .category-chips {

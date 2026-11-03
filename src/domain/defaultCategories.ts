@@ -6,7 +6,9 @@ const DEFAULTS: [Kind, string, string, Options?][] = [
   ['지출', '편의점·마트·잡화', '🛒'],
   ['지출', '여행·숙박', '✈️'],
   ['지출', '쇼핑', '🛍️', { personal: true }],
-  ['지출', '식비', '🍚'],
+  ['지출', '식재료', '🥬'],
+  ['지출', '외식', '🍚'],
+  ['지출', '배달', '🛵'],
   ['지출', '교통·자동차', '🚗'],
   ['지출', '주거·통신', '🏠', { fixed: true }],
   ['지출', '보험·세금·기타금융', '🧾', { fixed: true }],
@@ -34,7 +36,7 @@ const DEFAULTS: [Kind, string, string, Options?][] = [
   ['수입', 'K패스환급', '🚇'],
   ['수입', '인터넷환급', '🌐'],
   ['수입', '정산', '🔁', { excluded: true }],
-  ['저축', '저축·투자', '🐷', { excluded: true }],
+  ['지출', '저축·투자', '🐷'],
 ]
 
 export const DEFAULT_CATEGORIES: Category[] = DEFAULTS.map(([kind, name, icon, options = {}], index) => ({

@@ -1,41 +1,25 @@
 import { pickCheer } from '../domain/celebration'
 
-export type ConfettiPiece = { x: number; y: number; rotate: number; delay: number; color: number; isRound: boolean }
-
 export type CelebrationState = {
   id: number
-  message: string
-  subline: string | null
-  confetti: ConfettiPiece[]
+  title: string
+  subline: string
+  transactionIds: string[]
 }
 
-const SHOW_MS = 2600
-const CONFETTI_COUNT = 28
+const SHOW_MS = 2800
 
 let current: CelebrationState | null = null
-let lastMessage: string | undefined
+let lastCheer: string | undefined
 let hideTimer: ReturnType<typeof setTimeout> | undefined
 const listeners = new Set<() => void>()
 
 const emit = () => listeners.forEach(listener => listener())
 
-const makeConfetti = (): ConfettiPiece[] =>
-  Array.from({ length: CONFETTI_COUNT }, (_, index) => {
-    const angle = (index / CONFETTI_COUNT) * Math.PI * 2 + Math.random() * 0.4
-    const distance = 110 + Math.random() * 80
-    return {
-      x: Math.cos(angle) * distance,
-      y: Math.sin(angle) * distance * 0.8 - 60,
-      rotate: (Math.random() - 0.5) * 720,
-      delay: Math.random() * 120,
-      color: index % 5,
-      isRound: index % 3 === 0,
-    }
-  })
-
-export const celebrate = (subline: string | null) => {
-  lastMessage = pickCheer(Math.random, lastMessage)
-  current = { id: Date.now(), message: lastMessage, subline, confetti: makeConfetti() }
+// 방금 기록한 내용을 제목으로 보여주고, 연속 기록 같은 소식이 없으면 응원 문구를 곁들인다.
+export const celebrate = ({ title, transactionIds }: { title: string; transactionIds: string[] }, streakLine: string | null) => {
+  lastCheer = pickCheer(Math.random, lastCheer)
+  current = { id: Date.now(), title, subline: streakLine ?? lastCheer, transactionIds }
   emit()
   clearTimeout(hideTimer)
   hideTimer = setTimeout(() => {

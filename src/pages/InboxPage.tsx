@@ -7,7 +7,7 @@ import TopBar from '../components/TopBar'
 import PersonAvatar from '../components/PersonAvatar'
 import { markCapture, toTransactionInput } from '../db/captures'
 import type { CaptureItem } from '../db/database'
-import { useCategories, useCategoryIcons, usePendingCapturesQuery, usePersonName, useRecentInputs, useRules, useUncategorizedQuery } from '../db/hooks'
+import { useCategories, useCategoryIcons, useIgnoredCapturesQuery, usePendingCapturesQuery, usePersonName, useRecentInputs, useRules, useUncategorizedQuery } from '../db/hooks'
 import { saveRule, saveTransaction } from '../db/repository'
 import { suggestCategory } from '../domain/classify'
 import { UNCATEGORIZED, type Transaction } from '../domain/types'
@@ -22,6 +22,7 @@ function InboxPage() {
 
   const loadedCaptures = usePendingCapturesQuery()
   const loadedUncategorized = useUncategorizedQuery()
+  const ignored = useIgnoredCapturesQuery() ?? []
 
   const [isConfirmingIgnoreAll, setIsConfirmingIgnoreAll] = useState(false)
 
@@ -39,6 +40,11 @@ function InboxPage() {
 
   const handleIgnore = async (capture: CaptureItem) => {
     await markCapture(capture.key, '무시')
+    syncNow().catch(() => {})
+  }
+
+  const handleRestore = async (capture: CaptureItem) => {
+    await markCapture(capture.key, '대기')
     syncNow().catch(() => {})
   }
 
@@ -100,6 +106,17 @@ function InboxPage() {
                 </ul>
               </details>
             )}
+
+            {ignored.length > 0 && (
+              <details className="duplicates">
+                <summary>최근 무시한 알림 {ignored.length}개</summary>
+                <ul className="capture-list">
+                  {ignored.map(capture => (
+                    <CaptureCard key={capture.key} capture={capture} onRecord={handleRecord} onRestore={handleRestore} />
+                  ))}
+                </ul>
+              </details>
+            )}
           </section>
         )}
 
@@ -134,10 +151,11 @@ function InboxPage() {
 type CaptureCardProps = {
   capture: CaptureItem
   onRecord: (capture: CaptureItem) => void
-  onIgnore: (capture: CaptureItem) => void
+  onIgnore?: (capture: CaptureItem) => void
+  onRestore?: (capture: CaptureItem) => void
 }
 
-function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
+function CaptureCard({ capture, onRecord, onIgnore, onRestore }: CaptureCardProps) {
   const categories = useCategories()
   const rules = useRules()
   const icons = useCategoryIcons()
@@ -182,9 +200,15 @@ function CaptureCard({ capture, onRecord, onIgnore }: CaptureCardProps) {
         </p>
       </details>
       <div className="capture-actions">
-        <button type="button" className="button" onClick={() => onIgnore(capture)}>
-          무시
-        </button>
+        {onRestore ? (
+          <button type="button" className="button" onClick={() => onRestore(capture)}>
+            되돌리기
+          </button>
+        ) : (
+          <button type="button" className="button" onClick={() => onIgnore?.(capture)}>
+            무시
+          </button>
+        )}
         <button type="button" className="button button-primary" onClick={() => onRecord(capture)}>
           기록하기
         </button>

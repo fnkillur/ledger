@@ -32,3 +32,4 @@ apps-script/Secret.gs
 
 # Firebase 안드로이드 설정 (API 키 포함)
 android/app/google-services.json
+.vitest/

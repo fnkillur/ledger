@@ -50,12 +50,21 @@ const matchCategory = (line: string, categoryNames: string[]) => {
   )
 }
 
+// 토스 소비 분석의 카테고리 이름이 앱과 다른 것. 앱에 토스 이름 그대로인 카테고리가 있으면 그쪽을 쓴다.
+const TOSS_ALIASES: Record<string, string> = { 식비: '외식' }
+
 const OTHERS_PATTERN = /그\s*외\s*(\d+)\s*개/
 
 export type OthersCheck = { count: number; expected: number; actual: number; readCount: number }
 
 // 토스는 상위 3개 아래에 "그 외 N개 합계"를 보여주고, 그걸 누르면 N개 목록이 나온다. 두 캡처를 함께 넣으면 합계로 검산할 수 있다.
 export const parseMonthlySummary = (text: string, categoryNames: string[]) => {
+  const aliases = new Map(Object.entries(TOSS_ALIASES).filter(([toss, app]) => categoryNames.includes(app) && !categoryNames.includes(toss)))
+  const names = [...categoryNames, ...aliases.keys()]
+  const findCategory = (line: string) => {
+    const name = matchCategory(line, names)
+    return name && (aliases.get(name) ?? name)
+  }
   const lines = text
     .split('\n')
     .map(line => line.trim())
@@ -82,7 +91,7 @@ export const parseMonthlySummary = (text: string, categoryNames: string[]) => {
       return
     }
 
-    const category = matchCategory(line, categoryNames)
+    const category = findCategory(line)
     if (category) {
       if (amounts.length > 0) addItem(category, amounts[0], line)
       return
@@ -95,7 +104,7 @@ export const parseMonthlySummary = (text: string, categoryNames: string[]) => {
       total = Math.max(...amounts)
       return
     }
-    const previousCategory = matchCategory(previousLine, categoryNames)
+    const previousCategory = findCategory(previousLine)
     if (previousCategory && findAmounts(previousLine).length === 0) {
       addItem(previousCategory, amounts[0], `${previousLine} ${line}`)
       return

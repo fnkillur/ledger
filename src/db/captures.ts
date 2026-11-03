@@ -81,7 +81,10 @@ const SHEET_APP_LABEL = '문자'
 // 시트 수집함의 새 문자는 수집함에 넣고, 다른 기기에서 이미 처리한 문자는 상태만 맞춘다.
 export const ingestSheetCaptures = async (rows: SheetCapture[], pendingKeys: Set<string>) => {
   const known = await db.captures.bulkGet(rows.map(row => row.key))
-  const processed = rows.filter((row, index) => known[index] && row.status !== '대기' && known[index]!.status !== row.status && !pendingKeys.has(row.key))
+  // 시트의 '대기'는 처음 받은 상태라 보통 무시하지만, 다른 기기에서 무시를 되돌린 경우는 따라간다.
+  const isChangedRemotely = (row: SheetCapture, local: CaptureItem) =>
+    local.status !== row.status && (row.status !== '대기' || local.status === '무시')
+  const processed = rows.filter((row, index) => known[index] && isChangedRemotely(row, known[index]!) && !pendingKeys.has(row.key))
   await Promise.all(processed.map(row => db.captures.update(row.key, { status: row.status as CaptureItem['status'] })))
 
   const fresh = rows.filter((row, index) => !known[index] && row.status === '대기')

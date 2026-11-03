@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
+import { getCelebration, subscribeCelebration } from '../celebration/store'
 import { useCategoryIcons, usePersonName } from '../db/hooks'
 import { myShare } from '../domain/stats'
 import type { Transaction } from '../domain/types'
@@ -9,14 +11,16 @@ import PersonAvatar from './PersonAvatar'
 function TransactionRow({ transaction }: { transaction: Transaction }) {
   const icons = useCategoryIcons()
   const personName = usePersonName()
+  const celebration = useSyncExternalStore(subscribeCelebration, getCelebration)
 
+  const isJustSaved = celebration?.transactionIds.includes(transaction.id) === true
   const share = myShare(transaction)
   const category = transaction.category || '카테고리 없음'
   const title = transaction.merchant || category
 
   return (
     <li>
-      <Link to={`/tx/${transaction.id}`} className={`tx-row${transaction.excluded ? ' is-excluded' : ''}`}>
+      <Link to={`/tx/${transaction.id}`} className={`tx-row${transaction.excluded ? ' is-excluded' : ''}${isJustSaved ? ' is-just-saved' : ''}`}>
         <CategoryIcon name={category} emoji={icons.get(category)} size={20} />
         <div className="tx-row-main">
           <strong className="tx-row-title">{title}</strong>

@@ -10,6 +10,7 @@ describe('guessCategory', () => {
     expect(guessCategory('스타벅스 강남R점')).toBe('카페·간식')
     expect(guessCategory('메가MGC커피')).toBe('카페·간식')
     expect(guessCategory('GS25 역삼점')).toBe('편의점·마트·잡화')
+    expect(guessCategory('지에스25역삼점')).toBe('편의점·마트·잡화')
     expect(guessCategory('카카오T 택시')).toBe('교통·자동차')
     expect(guessCategory('아이파킹주식회사')).toBe('교통·자동차')
     expect(guessCategory('온누리약국')).toBe('의료·건강·피트니스')
@@ -20,7 +21,7 @@ describe('guessCategory', () => {
   })
 
   it('겹치는 단어는 더 긴 쪽을 따른다', () => {
-    expect(guessCategory('쿠팡이츠')).toBe('식비')
+    expect(guessCategory('쿠팡이츠')).toBe('배달')
     expect(guessCategory('쿠팡')).toBe('편의점·마트·잡화')
   })
 

@@ -1,32 +1,27 @@
 import { isCounted, myShare, toMonthKey } from './stats'
-import { isAggregate, type Transaction } from './types'
+import type { Transaction } from './types'
 
-export const GROCERY_CATEGORY = '편의점·마트·잡화'
-export const MEAL_CATEGORY = '식비'
 export const SEASONAL_CATEGORIES = ['여행·숙박', '쇼핑'] as const
 export type SeasonalCategory = (typeof SEASONAL_CATEGORIES)[number]
 
-const DELIVERY_KEYWORDS = ['배달의민족', '배민', '요기요', '쿠팡이츠', '땡겨요']
-
-// 배달은 건별 기록의 가맹점 이름으로만 알 수 있다. 월 합계로 옮겨 온 식비는 모두 외식으로 본다.
-const isDelivery = (transaction: Transaction) =>
-  !isAggregate(transaction.source) && DELIVERY_KEYWORDS.some(keyword => transaction.merchant.replace(/\s+/g, '').includes(keyword))
+// 2026년 11월부터 식재료·외식·배달을 카테고리로 나눠 기록한다. 그 전 달은 편의점·마트·잡화와 식비 합계뿐이라 나눌 수 없다.
+export const MEAL_START_MONTH = '2026-11'
+const MEAL_PART_BY_CATEGORY: Record<string, keyof MealSplit> = { 식재료: 'grocery', 배달: 'delivery', 외식: 'dining' }
 
 export type MealSplit = { grocery: number; delivery: number; dining: number }
 
 export const mealSplit = (transactions: Transaction[], excludedCategories: Set<string>): MealSplit =>
   transactions.reduce<MealSplit>(
     (split, transaction) => {
-      if (transaction.kind !== '지출' || !isCounted(transaction, excludedCategories)) return split
-      const amount = myShare(transaction)
-      if (transaction.category === GROCERY_CATEGORY) return { ...split, grocery: split.grocery + amount }
-      if (transaction.category !== MEAL_CATEGORY) return split
-      return isDelivery(transaction) ? { ...split, delivery: split.delivery + amount } : { ...split, dining: split.dining + amount }
+      const part = MEAL_PART_BY_CATEGORY[transaction.category]
+      if (!part || transaction.kind !== '지출' || !isCounted(transaction, excludedCategories)) return split
+      if (toMonthKey(transaction.occurredAt) < MEAL_START_MONTH) return split
+      return { ...split, [part]: split[part] + myShare(transaction) }
     },
     { grocery: 0, delivery: 0, dining: 0 },
   )
 
-// 장보기 대비 밖에서 먹은 돈(배달 + 외식)의 비율. 둘 다 없으면 null.
+// 집밥 대비 밖에서 먹은 돈(배달 + 외식)의 비율. 둘 다 없으면 null.
 export const eatingOutShare = (split: MealSplit) => {
   const total = split.grocery + split.delivery + split.dining
   return total === 0 ? null : Math.round(((split.delivery + split.dining) / total) * 100)

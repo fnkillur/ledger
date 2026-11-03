@@ -4,13 +4,13 @@ import type { Transaction } from './types'
 
 const transaction = (overrides: Partial<Transaction>): Transaction => ({
   id: crypto.randomUUID(),
-  occurredAt: new Date(2026, 9, 10, 13).toISOString(),
+  occurredAt: new Date(2026, 10, 10, 13).toISOString(),
   person: '쿠리만쥬',
   kind: '지출',
   amount: 10000,
   shareCount: 1,
   merchant: '',
-  category: '식비',
+  category: '외식',
   excluded: false,
   source: '알림',
   memo: '',
@@ -22,22 +22,28 @@ const transaction = (overrides: Partial<Transaction>): Transaction => ({
 })
 
 describe('mealSplit', () => {
-  it('장보기·배달·외식으로 나누고, 배달은 건별 기록의 가맹점으로만 가른다', () => {
+  it('식재료·배달·외식 카테고리로 나눈다', () => {
     const split = mealSplit(
       [
-        transaction({ category: '편의점·마트·잡화', amount: 30000 }),
-        transaction({ merchant: '배달의민족', amount: 20000 }),
-        transaction({ merchant: '쿠팡 이츠', amount: 5000 }),
-        transaction({ merchant: '김밥천국', amount: 8000 }),
-        transaction({ source: '이관', merchant: '배민', amount: 40000 }),
-        transaction({ category: '쇼핑', amount: 99000 }),
-        transaction({ amount: 6000, shareCount: 2 }),
-        transaction({ amount: 1000, excluded: true }),
+        transaction({ category: '식재료', amount: 30000 }),
+        transaction({ category: '배달', amount: 25000 }),
+        transaction({ category: '외식', amount: 8000 }),
+        transaction({ category: '편의점·마트·잡화', amount: 40000 }),
+        transaction({ category: '외식', amount: 6000, shareCount: 2 }),
+        transaction({ category: '외식', amount: 1000, excluded: true }),
       ],
       new Set(),
     )
-    expect(split).toEqual({ grocery: 30000, delivery: 25000, dining: 51000 })
-    expect(eatingOutShare(split)).toBe(72)
+    expect(split).toEqual({ grocery: 30000, delivery: 25000, dining: 11000 })
+    expect(eatingOutShare(split)).toBe(55)
+  })
+
+  it('2026년 11월 전 기록은 나눌 수 없어서 세지 않는다', () => {
+    expect(mealSplit([transaction({ category: '외식', occurredAt: new Date(2026, 9, 31).toISOString() })], new Set())).toEqual({
+      grocery: 0,
+      delivery: 0,
+      dining: 0,
+    })
   })
 
   it('먹는 데 쓴 돈이 없으면 비율은 없다', () => {
@@ -46,13 +52,13 @@ describe('mealSplit', () => {
 
   it('달마다 나눈다', () => {
     const rows = monthlyMealSplits(
-      [transaction({ occurredAt: new Date(2026, 8, 3).toISOString(), category: '편의점·마트·잡화' }), transaction({})],
-      ['2026-09', '2026-10'],
+      [transaction({ category: '식재료' }), transaction({ occurredAt: new Date(2026, 11, 3).toISOString() })],
+      ['2026-11', '2026-12'],
       new Set(),
     )
     expect(rows).toEqual([
-      { monthKey: '2026-09', grocery: 10000, delivery: 0, dining: 0 },
-      { monthKey: '2026-10', grocery: 0, delivery: 0, dining: 10000 },
+      { monthKey: '2026-11', grocery: 10000, delivery: 0, dining: 0 },
+      { monthKey: '2026-12', grocery: 0, delivery: 0, dining: 10000 },
     ])
   })
 })

@@ -1,6 +1,6 @@
-import { ClipboardTextIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
+import { ClipboardTextIcon, MinusIcon, PlusIcon, ReceiptIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -14,19 +14,22 @@ import { db } from '../db/database'
 import { buildPastedDraft } from '../db/pastedDraft'
 import { useCategories, usePersonName, useRecentInputs, useRules, useTransaction } from '../db/hooks'
 import { celebrate } from '../celebration/store'
-import { deleteTransaction, getRecordActivity, recategorize, saveRule, saveTransaction, splitTransaction, type TransactionInput } from '../db/repository'
+import { deleteTransaction, getRecordActivity, recategorize, saveRule, saveTransaction, type TransactionInput } from '../db/repository'
 import { evaluateAmount, formatAmountText } from '../domain/amountExpression'
 import type { FrequentEntry } from '../domain/insights'
 import { cheerSubline } from '../domain/celebration'
 import { classifyMerchant, findSameMerchant, suggestCategory } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
+import { groupReceipt, moveReceiptItem, receiptMemo, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
 import { myShare } from '../domain/stats'
 import { KINDS, PEOPLE, SCOPES, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
 import { LIST_PATH } from '../paths'
+import { analyzeReceipt } from '../sync/api'
 import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatTime, formatWon, toDateKey } from '../utils/format'
+import { toJpegBase64 } from '../utils/image'
 import NotFoundPage from './NotFoundPage'
 
 const MAX_SUGGESTIONS = 6
@@ -37,10 +40,27 @@ const isRuleOfferedFor = (draft: TransactionInput, rules: Rule[]) =>
 const toIso = (date: string, time: string) => new Date(`${date}T${time}`).toISOString()
 
 // 저장 버튼이 무엇이 비었는지 알려 준다.
-const saveLabel = (amount: number | null, category: string) => {
+const saveLabel = (amount: number | null, category: string, splitCount: number) => {
   if (amount === null || amount === 0) return '금액을 입력해 주세요'
+  if (splitCount > 1) return `${formatWon(amount)}을 ${splitCount}개로 저장`
+  if (splitCount === 1) return `${formatWon(amount)} 저장`
   if (category === '') return '카테고리를 골라 주세요'
   return `${formatWon(amount)} 저장`
+}
+
+type ReceiptState = { status: 'reading' } | { status: 'error'; message: string } | { status: 'done'; total: number; items: ReceiptItem[] }
+
+// 마지막 글자에 받침이 있으면 '이에요', 없으면 '예요'. 한글이 아니면 받침 없는 쪽으로 본다.
+const withCopula = (word: string) => {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  return code >= 0 && code <= 11171 && code % 28 !== 0 ? `${word}이에요` : `${word}예요`
+}
+
+// 무료 한도를 넘기면 Gemini가 429로 거절한다. 그때는 무엇을 하면 되는지 알려 준다.
+const toReceiptErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : '영수증을 읽지 못했어요.'
+  if (/429|RESOURCE_EXHAUSTED/.test(message)) return '오늘 쓸 수 있는 영수증 분석을 다 썼어요. 잠시 뒤 다시 하거나, 카테고리를 직접 골라 주세요.'
+  return message
 }
 
 type EditLocationState = { draft?: TransactionInput; captureKey?: string } | null
@@ -97,7 +117,8 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const [amountText, setAmountText] = useState(initial.amount ? String(initial.amount) : '')
   const [shouldSaveRule, setShouldSaveRule] = useState(true)
   const [shouldUpdatePast, setShouldUpdatePast] = useState(true)
-  const [sheet, setSheet] = useState<'delete' | 'split' | 'paste' | null>(null)
+  const [sheet, setSheet] = useState<'delete' | 'paste' | null>(null)
+  const [receipt, setReceipt] = useState<ReceiptState | null>(null)
   const [openedPicker, setOpenedPicker] = useState<string | null>(null)
 
   // 입력 중인 가맹점·카테고리에 따라 달라지므로 지역 상태 뒤에 둔다.
@@ -115,8 +136,11 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const existingRuleCategory = classifyMerchant(draft.merchant, rules)
   const categoryNames = categories.map(category => category.name)
   const canOfferRule = draft.merchant.trim() !== '' && draft.category !== '' && draft.category !== UNCATEGORIZED
-  const canSave = amount !== null && amount !== 0 && draft.category !== ''
-  const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category
+  const receiptGroups = receipt?.status === 'done' && amount !== null ? groupReceipt(receipt.items, amount) : []
+  const isSplitByReceipt = receiptGroups.length > 0
+  const canSave = amount !== null && amount !== 0 && (isSplitByReceipt || draft.category !== '')
+  const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && receipt === null
+  const canUseReceipt = !transaction && draft.kind === '지출'
   const merchantQuery = draft.merchant.trim()
   const merchantSuggestions = merchantQuery
     ? recent.merchants.filter(merchant => merchant !== merchantQuery && merchant.includes(merchantQuery)).slice(0, MAX_SUGGESTIONS)
@@ -172,8 +196,42 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     setSheet(null)
   }
 
+  const handleReceiptFile = async (file: File) => {
+    setReceipt({ status: 'reading' })
+    try {
+      const settings = getSettings()
+      if (!settings.endpoint) throw new Error('구글 시트와 연결돼야 영수증을 읽을 수 있어요.')
+      const names = kindCategories.filter(category => !category.excluded && category.name !== UNCATEGORIZED).map(category => category.name)
+      const result = await analyzeReceipt(settings, { image: await toJpegBase64(file), mimeType: 'image/jpeg', categories: names })
+      const itemSum = result.items.reduce((sum, item) => sum + item.amount, 0)
+      if (amount === null || amount === 0) setAmountText(String(result.total || itemSum))
+      if (!draft.merchant.trim() && result.merchant) update({ merchant: result.merchant })
+      setReceipt({ status: 'done', total: result.total || itemSum, items: result.items })
+    } catch (caught) {
+      setReceipt({ status: 'error', message: toReceiptErrorMessage(caught) })
+    }
+  }
+
+  const handleReceiptMove = (index: number, category: string) =>
+    setReceipt(previous => (previous?.status === 'done' ? { ...previous, items: moveReceiptItem(previous.items, index, category) } : previous))
+
+  const saveSplit = async () => {
+    const merchant = draft.merchant.trim()
+    const saved = []
+    for (const group of receiptGroups) {
+      const memo = [draft.memo.trim(), receiptMemo(group.items)].filter(Boolean).join(' · ')
+      saved.push(await saveTransaction({ ...draft, merchant, amount: group.amount, category: group.category, scope: defaultScopeOf(group.category), memo }))
+    }
+    if (captureKey) await markCapture(captureKey, '기록됨', saved[0])
+    syncNow().catch(() => {})
+    goBack()
+    const title = saved.length === 1 ? `${merchant || saved[0].category} ${formatWon(saved[0].amount)} 기록했어요` : `${merchant || '영수증'} ${saved.length}개로 나눠 기록했어요`
+    celebrate({ title, transactionIds: saved.map(item => item.id) }, cheerSubline(await getRecordActivity(draft.person)))
+  }
+
   const handleSave = async () => {
     if (!canSave) return
+    if (isSplitByReceipt) return saveSplit()
     const saved = await saveTransaction({ ...draft, amount: amount!, merchant: draft.merchant.trim() }, transaction?.id)
     if (isRuleOffered && shouldSaveRule) {
       await saveRule(draft.merchant, draft.category)
@@ -182,19 +240,15 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     if (captureKey) await markCapture(captureKey, '기록됨', saved)
     syncNow().catch(() => {})
     goBack()
-    if (!transaction) celebrate(cheerSubline(await getRecordActivity(draft.person)))
+    if (!transaction) {
+      const title = `${saved.merchant || saved.category} ${formatWon(saved.amount)} 기록했어요`
+      celebrate({ title, transactionIds: [saved.id] }, cheerSubline(await getRecordActivity(draft.person)))
+    }
   }
 
   const handleDelete = async () => {
     if (!transaction) return
     await deleteTransaction(transaction.id)
-    syncNow().catch(() => {})
-    goBack()
-  }
-
-  const handleSplit = async (splitAmount: number, category: string) => {
-    if (!transaction) return
-    await splitTransaction({ ...transaction, ...draft, amount: amount ?? transaction.amount }, splitAmount, category)
     syncNow().catch(() => {})
     goBack()
   }
@@ -253,8 +307,15 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
         </section>
 
         <section className="tx-section" aria-label="카테고리">
-          <h2 className="tx-section-title">카테고리</h2>
-          <CategoryChips categories={kindCategories} recent={recent.categories} value={draft.category} onChange={handleCategoryChange} />
+          <div className="tx-section-header">
+            <h2 className="tx-section-title">카테고리</h2>
+            {canUseReceipt && <ReceiptPicker hasReceipt={receipt !== null} onPick={handleReceiptFile} onClear={() => setReceipt(null)} />}
+          </div>
+          {receipt ? (
+            <ReceiptPanel receipt={receipt} groups={receiptGroups} amount={amount} categories={kindCategories} onMove={handleReceiptMove} onClear={() => setReceipt(null)} />
+          ) : (
+            <CategoryChips categories={kindCategories} recent={recent.categories} value={draft.category} onChange={handleCategoryChange} />
+          )}
           {isRuleOffered && (
             <div className="form-group">
               <div className="form-row">
@@ -375,9 +436,6 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
 
         {transaction && (
           <section className="form-group">
-            <button type="button" className="form-row form-row-action" onClick={() => setSheet('split')}>
-              다른 카테고리로 나누기
-            </button>
             <button type="button" className="form-row form-row-danger" onClick={() => setSheet('delete')}>
               삭제
             </button>
@@ -387,7 +445,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
 
       <div className="bottom-cta">
         <button type="button" className="button button-primary" disabled={!canSave} onClick={handleSave}>
-          {saveLabel(amount, draft.category)}
+          {saveLabel(amount, draft.category, receiptGroups.length)}
         </button>
       </div>
 
@@ -395,9 +453,6 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
         <ConfirmSheet message="이 내역을 삭제할까요?" confirmLabel="삭제" onConfirm={handleDelete} onCancel={() => setSheet(null)} />
       )}
       {sheet === 'paste' && <PasteSheet onApply={handlePasteApply} onCancel={() => setSheet(null)} />}
-      {sheet === 'split' && (
-        <SplitSheet total={amount ?? draft.amount} categories={kindCategories} onSplit={handleSplit} onCancel={() => setSheet(null)} />
-      )}
     </div>
   )
 }
@@ -423,6 +478,114 @@ function FrequentEntries({ entries, onPick }: FrequentEntriesProps) {
         ))}
       </div>
     </section>
+  )
+}
+
+type ReceiptPickerProps = {
+  hasReceipt: boolean
+  onPick: (file: File) => void
+  onClear: () => void
+}
+
+function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) onPick(file)
+  }
+
+  if (hasReceipt) {
+    return (
+      <button type="button" className="text-button tx-section-action" onClick={onClear}>
+        영수증 지우기
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={handleChange} />
+      <button type="button" className="text-button text-primary tx-section-action" onClick={() => inputRef.current?.click()}>
+        <ReceiptIcon size={16} weight="bold" aria-hidden="true" />
+        영수증으로 나누기
+      </button>
+    </>
+  )
+}
+
+type ReceiptPanelProps = {
+  receipt: ReceiptState
+  groups: ReceiptGroup[]
+  amount: number | null
+  categories: Category[]
+  onMove: (index: number, category: string) => void
+  onClear: () => void
+}
+
+// 영수증 품목을 카테고리별로 묶어 보여준다. 품목을 누르면 다른 카테고리로 옮길 수 있다.
+function ReceiptPanel({ receipt, groups, amount, categories, onMove, onClear }: ReceiptPanelProps) {
+  const [movingItem, setMovingItem] = useState<ReceiptItem | null>(null)
+
+  if (receipt.status === 'reading') return <p className="receipt-status">영수증을 읽고 있어요…</p>
+  if (receipt.status === 'error') {
+    return (
+      <div className="receipt-error">
+        <FieldHint tone="error">{receipt.message}</FieldHint>
+        <button type="button" className="button" onClick={onClear}>
+          직접 고르기
+        </button>
+      </div>
+    )
+  }
+  if (groups.length === 0) return <FieldHint tone="error">금액을 입력하면 영수증대로 나눠요.</FieldHint>
+
+  const isAdjusted = amount !== null && amount !== receipt.total
+
+  return (
+    <div className="receipt-panel">
+      <p className="receipt-status">
+        {groups.length === 1 ? `품목이 모두 ${withCopula(groups[0].category)}` : `영수증에서 ${groups.length}개로 나눴어요`}
+        {isAdjusted && <small>영수증 합계 {formatWon(receipt.total)}을 결제 금액에 맞춰 나눴어요</small>}
+      </p>
+      <ul className="receipt-groups">
+        {groups.map(group => (
+          <li key={group.category} className="receipt-group">
+            <div className="receipt-group-header">
+              <CategoryIcon name={group.category} emoji={categories.find(category => category.name === group.category)?.icon} size={16} />
+              <strong>{group.category}</strong>
+              <span className="receipt-group-amount">{formatWon(group.amount)}</span>
+            </div>
+            <div className="receipt-items">
+              {group.items.map(item => (
+                <button key={receipt.items.indexOf(item)} type="button" className="receipt-item" onClick={() => setMovingItem(item)}>
+                  {item.name} <span>{formatWon(item.amount)}</span>
+                </button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {movingItem && (
+        <div className="sheet-backdrop" onClick={() => setMovingItem(null)}>
+          <div className="sheet" role="dialog" aria-label="품목 카테고리 바꾸기" onClick={event => event.stopPropagation()}>
+            <p className="sheet-message">
+              {movingItem.name} {formatWon(movingItem.amount)}을(를) 어디로 옮길까요?
+            </p>
+            <CategoryChips
+              categories={categories.filter(category => !category.excluded && category.name !== UNCATEGORIZED)}
+              value={movingItem.category}
+              isInitiallyExpanded
+              onChange={category => {
+                onMove(receipt.items.indexOf(movingItem), category)
+                setMovingItem(null)
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -499,10 +662,11 @@ type CategoryChipsProps = {
   recent?: string[]
   value: string
   onChange: (category: string) => void
+  isInitiallyExpanded?: boolean
 }
 
-function CategoryChips({ categories, recent = [], value, onChange }: CategoryChipsProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+function CategoryChips({ categories, recent = [], value, onChange, isInitiallyExpanded = false }: CategoryChipsProps) {
+  const [isExpanded, setIsExpanded] = useState(isInitiallyExpanded)
 
   const ordered = orderByRecent(categories, recent)
   const visible = isExpanded ? ordered : ordered.slice(0, COLLAPSED_COUNT)
@@ -583,48 +747,6 @@ function PersonSegmented({ value, onChange }: { value: Person; onChange: (person
           {personName(person)}
         </button>
       ))}
-    </div>
-  )
-}
-
-type SplitSheetProps = {
-  total: number
-  categories: Category[]
-  onSplit: (amount: number, category: string) => void
-  onCancel: () => void
-}
-
-function SplitSheet({ total, categories, onSplit, onCancel }: SplitSheetProps) {
-  const [amountText, setAmountText] = useState('')
-  const [category, setCategory] = useState('')
-
-  const amount = evaluateAmount(amountText)
-  const isValid = amount !== null && amount > 0 && amount < total && category !== ''
-
-  return (
-    <div className="sheet-backdrop" onClick={onCancel}>
-      <div className="sheet" role="dialog" aria-label="다른 카테고리로 나누기" onClick={event => event.stopPropagation()}>
-        <p className="sheet-message">
-          {formatWon(total)} 중 일부를 다른 카테고리로 떼어내요.
-          {amount !== null && amount > 0 && amount < total && ` 남는 금액 ${formatWon(total - amount)}`}
-        </p>
-        <input
-          className="field-input"
-          placeholder="떼어낼 금액"
-          value={amountText}
-          onChange={event => setAmountText(event.target.value)}
-          autoFocus
-        />
-        <CategoryChips categories={categories} value={category} onChange={setCategory} />
-        <div className="sheet-actions">
-          <button type="button" className="button" onClick={onCancel}>
-            취소
-          </button>
-          <button type="button" className="button button-primary" disabled={!isValid} onClick={() => onSplit(amount!, category)}>
-            나누기
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

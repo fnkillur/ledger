@@ -80,4 +80,12 @@ describe('parseMonthlySummary', () => {
     expect(othersCheck).toEqual({ count: 14, expected: 1842651, actual: 241100, readCount: 2 })
     expect(unmatched).toEqual([])
   })
+
+  it('토스의 식비는 앱의 외식 칸에 넣는다', () => {
+    const { items } = parseMonthlySummary('식비 12% 183,600원\n편의점·마트·잡화 32% 1,243,342원', ['외식', '편의점·마트·잡화'])
+    expect(items.map(item => [item.category, item.amount])).toEqual([
+      ['외식', 183600],
+      ['편의점·마트·잡화', 1243342],
+    ])
+  })
 })

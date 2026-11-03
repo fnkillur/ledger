@@ -107,7 +107,7 @@ export const savingTips = ({ monthKey, transactions, categories, today, limit = 
     })
   }
 
-  const delivery = detailed.filter(transaction => DELIVERY_PATTERN.test(transaction.merchant))
+  const delivery = detailed.filter(transaction => transaction.category === '배달' || DELIVERY_PATTERN.test(transaction.merchant))
   if (delivery.length >= DELIVERY_MIN_COUNT) {
     const total = sum(delivery)
     const average = Math.round(total / delivery.length)
