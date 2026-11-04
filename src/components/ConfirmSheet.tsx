@@ -1,3 +1,5 @@
+import { useBackHandler } from '../navigation/back'
+
 type ConfirmSheetProps = {
   message: string
   confirmLabel: string
@@ -6,6 +8,8 @@ type ConfirmSheetProps = {
 }
 
 function ConfirmSheet({ message, confirmLabel, onConfirm, onCancel }: ConfirmSheetProps) {
+  useBackHandler(onCancel)
+
   return (
     <div className="sheet-backdrop" onClick={onCancel}>
       <div className="sheet" role="alertdialog" aria-label={message} onClick={event => event.stopPropagation()}>

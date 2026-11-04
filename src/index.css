@@ -3528,6 +3528,14 @@ a {
   font-size: var(--font-sm);
 }
 
+/* 일정 폼: 이 일정이 기록되는 주기 항목 */
+.cycle-event-hint {
+  margin: calc(var(--space-2) * -1) var(--space-1) 0;
+  color: var(--color-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
 /* 날짜 시트의 일정 카드: 왼쪽 시간, 대상 색 포인트 선, 오른쪽 제목과 정보. */
 .day-sheet-item {
   display: flex;
@@ -3931,6 +3939,12 @@ button.pill-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.tx-section-caption {
+  margin-right: var(--space-1);
+  color: var(--color-text-sub);
+  font-size: var(--font-xs);
 }
 
 .tx-section-action {
@@ -4606,11 +4620,17 @@ button.pill-input {
 }
 
 /* 주기 목록 */
+.cycles-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .cycle-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -4622,9 +4642,40 @@ button.pill-input {
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+  box-shadow: inset 4px 0 0 var(--tone-solid);
 }
 
-.cycle-row.is-linked {
+/* 누구 일정인지: 사람 색 원 안의 아바타와 이름 */
+.cycle-who {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 52px;
+}
+
+.cycle-who-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--tone-bg);
+}
+
+.cycle-who-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--tone-fg);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cycle-row.is-linked,
+.cycle-tile.is-linked {
   animation: cycle-linked 1600ms var(--ease-out);
 }
 
@@ -4653,22 +4704,18 @@ button.pill-input {
   cursor: pointer;
 }
 
-.cycle-icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--color-pressed);
-  font-size: 20px;
-}
-
 .cycle-text {
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.cycle-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -4733,23 +4780,91 @@ button.pill-input {
   font-weight: 600;
 }
 
-.cycle-done {
-  flex: none;
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+/* 마지막으로 한 지: 두 칸 격자 */
+.cycle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.cycle-done:active {
-  transform: scale(0.95);
+.cycle-tile {
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: inset 4px 0 0 var(--tone-solid);
+}
+
+.cycle-tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-3);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cycle-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cycle-tile-head strong {
+  overflow: hidden;
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cycle-tile-icon {
+  flex: none;
+  font-size: 18px;
+}
+
+.cycle-tile-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-1);
+  padding: 2px 10px 2px 2px;
+  border-radius: var(--radius-full);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.cycle-tile-elapsed {
+  margin-top: var(--space-1);
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cycle-tile-elapsed.is-empty {
+  color: var(--color-text-sub);
+  font-size: var(--font-md);
+}
+
+.cycle-tile-main small {
+  color: var(--color-text-sub);
+  font-size: var(--font-xs);
+}
+
+.cycle-tile-main .cycle-tile-reservation {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .cycle-presets {
@@ -4757,29 +4872,6 @@ button.pill-input {
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-2);
-}
-
-.cycle-undo {
-  position: fixed;
-  right: var(--space-4);
-  bottom: calc(var(--tab-bar-height) + 92px + env(safe-area-inset-bottom, 0px));
-  left: var(--space-4);
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 480px;
-  margin-inline: auto;
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-text);
-  color: var(--color-bg);
-  font-weight: 600;
-}
-
-.cycle-undo .text-button {
-  color: var(--color-bg);
-  font-weight: 700;
 }
 
 /* 주기 항목 폼 */
@@ -4795,19 +4887,6 @@ button.pill-input {
   text-align: center;
 }
 
-.cycle-targets,
-.cycle-offsets {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.cycle-offsets .chip[aria-checked='true'] {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
 .cycle-period {
   display: flex;
   align-items: center;
@@ -4817,24 +4896,6 @@ button.pill-input {
 .cycle-number {
   width: 56px;
   text-align: center;
-}
-
-.cycle-push-hint {
-  color: var(--color-primary);
-  font-size: var(--font-sm);
-  text-decoration: none;
-}
-
-.cycle-logs {
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cycle-log-person {
-  flex: 1;
-  color: var(--color-text-sub);
-  font-size: var(--font-sm);
 }
 
 .text-danger {

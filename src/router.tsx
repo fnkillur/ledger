@@ -5,7 +5,7 @@ import CalendarPage from './pages/CalendarPage'
 import CycleEditPage from './pages/CycleEditPage'
 import CyclesPage from './pages/CyclesPage'
 import EditPage from './pages/EditPage'
-import ScrollManager from './components/ScrollManager'
+import RootLayout from './components/RootLayout'
 import ImportCapturePage from './pages/ImportCapturePage'
 import InboxPage from './pages/InboxPage'
 import ListPage from './pages/ListPage'
@@ -17,7 +17,7 @@ import { LIST_PATH } from './paths'
 
 export const router = createHashRouter([
   {
-    element: <ScrollManager />,
+    element: <RootLayout />,
     children: [
       {
         element: <TabLayout />,

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { deleteEvent, saveEvent, toCalendarError } from '../../db/calendar'
-import { usePersonName } from '../../db/hooks'
+import { saveCycle } from '../../db/cycles'
+import { useCycleItems, usePersonName } from '../../db/hooks'
 import {
   CALENDAR_TARGETS,
   isDayInfo,
@@ -13,8 +14,10 @@ import {
   type Repeat,
   type RepeatScope,
 } from '../../domain/calendar'
+import { cycleFromEvent, findCycleForEvent } from '../../domain/cycle'
 import { canSaveForm, changeTarget, formFromEvent, moveStart, newForm, toEventInput, type CalendarForm } from '../../domain/calendarForm'
 import { getSettings } from '../../sync/settings'
+import { toDateKey } from '../../utils/format'
 import ConfirmSheet from '../ConfirmSheet'
 import Segmented from '../Segmented'
 import TopBar from '../TopBar'
@@ -36,12 +39,17 @@ type CalendarEventFormProps = {
 }
 
 function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEventFormProps) {
+  const cycleItems = useCycleItems()
+  const personName = usePersonName()
+
   const [form, setForm] = useState<CalendarForm>(() => (event ? formFromEvent(event) : newForm(date, getSettings().defaultPerson, new Date())))
   const [sheet, setSheet] = useState<'saveScope' | 'deleteScope' | 'delete' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [opened, setOpened] = useState<string | null>(null)
   const [lastRepeat, setLastRepeat] = useState<Repeat>(form.repeat === 'none' ? 'weekly' : form.repeat)
+  const [shouldAddCycle, setShouldAddCycle] = useState(false)
+  const [today] = useState(() => toDateKey(new Date().toISOString()))
 
   const title = event ? '일정 수정' : '새 일정'
   const isRepeatOn = form.repeat !== 'none'
@@ -50,6 +58,10 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
   const isRepeatChanged = !!event && form.repeat !== event.repeat
   const isTimeInvalid = !canSaveForm({ ...form, title: form.title || '제목' })
   const canSave = canSaveForm(form) && !isSaving
+  // 제목이 주기 항목에 맞으면 어디에 기록되는지 알려 주고, 없으면 새로 챙길 수 있게 한다.
+  const matchedCycle = findCycleForEvent(cycleItems ?? [], { title: form.title, start: form.startDate, target: form.target })
+  const canAddCycle = !matchedCycle && form.title.trim() !== '' && form.target !== '기념일'
+  const isReservation = form.startDate > today
   const ref = event && { id: event.id, seriesId: event.seriesId, originalStart: event.originalStart, start: event.start }
 
   const update = (patch: Partial<CalendarForm>) => setForm(previous => ({ ...previous, ...patch }))
@@ -80,7 +92,11 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
     }
   }
 
-  const save = (scope?: RepeatScope) => run(() => saveEvent({ ...toEventInput(form), ref }, scope), '저장하지 못했어요.')
+  const save = (scope?: RepeatScope) =>
+    run(async () => {
+      await saveEvent({ ...toEventInput(form), ref }, scope)
+      if (shouldAddCycle && canAddCycle) await saveCycle(cycleFromEvent(form.title, form.target))
+    }, '저장하지 못했어요.')
 
   const remove = (scope: RepeatScope) => run(() => deleteEvent(ref!, scope), '지우지 못했어요.')
 
@@ -180,6 +196,31 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
             </div>
           )}
         </section>
+
+        {matchedCycle && (
+          <p className="form-hint cycle-event-hint">
+            {matchedCycle.icon || '🔁'} {matchedCycle.name} · {matchedCycle.target === '공동' ? '공동' : personName(matchedCycle.target)} 주기에
+            {isReservation ? ' 예약으로 보여요' : ' 기록돼요'}
+          </p>
+        )}
+        {canAddCycle && (
+          <section className="form-group" aria-label="주기">
+            <div className="form-row">
+              <span className="form-row-text">
+                주기로 챙기기
+                <small>저장하면 '{form.title.trim()}' 주기 항목도 만들어요</small>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shouldAddCycle}
+                aria-label="주기로 챙기기"
+                className="switch"
+                onClick={() => setShouldAddCycle(!shouldAddCycle)}
+              />
+            </div>
+          </section>
+        )}
 
         {error && <p className="status status-error">{error}</p>}
 

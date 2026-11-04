@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useMemo } from 'react'
-import { cycleState, sortCycles } from '../domain/cycle'
+import { cycleState } from '../domain/cycle'
 import { frequentEntries } from '../domain/insights'
 import { displayName } from '../domain/nickname'
 import { isAggregate, UNCATEGORIZED, type Kind, type Person } from '../domain/types'
@@ -113,20 +113,16 @@ export function usePersonName() {
   return useCallback((person: Person) => displayName(person, nicknames ?? {}), [nicknames])
 }
 
-// 결제 연결 항목은 거래내역에서 마지막 결제일을 찾아야 해서, 거래가 바뀌어도 다시 계산한다.
+// 마지막 날·예약은 받아 둔 캘린더 일정(앞뒤 12개월)에서 찾는다. 일정이 바뀌면 다시 계산한다.
 export function useCycleRows(today: string) {
   return useLiveQuery(async () => {
-    const [items, logs, transactions] = await Promise.all([db.cycles.toArray(), db.cycleLogs.toArray(), db.transactions.toArray()])
-    const liveLogs = logs.filter(log => !log.deleted)
-    const rows = items
-      .filter(item => !item.deleted)
-      .map(item => ({
-        item,
-        state: cycleState(item, liveLogs, transactions, today),
-        logs: liveLogs.filter(log => log.cycleId === item.id).sort((left, right) => right.date.localeCompare(left.date)),
-      }))
-    return sortCycles(rows)
+    const [items, events] = await Promise.all([db.cycles.toArray(), db.calendarEvents.toArray()])
+    return items.filter(item => !item.deleted).map(item => ({ item, state: cycleState(item, events, today) }))
   }, [today])
+}
+
+export function useCycleItems() {
+  return useLiveQuery(() => db.cycles.filter(item => !item.deleted).toArray(), [])
 }
 
 export function useCycle(id: string | undefined) {
@@ -134,7 +130,6 @@ export function useCycle(id: string | undefined) {
     if (!id) return null
     const item = await db.cycles.get(id)
     if (!item || item.deleted) return null
-    const logs = (await db.cycleLogs.where('cycleId').equals(id).toArray()).filter(log => !log.deleted).sort((left, right) => right.date.localeCompare(left.date))
-    return { item, logs }
+    return item
   }, [id])
 }

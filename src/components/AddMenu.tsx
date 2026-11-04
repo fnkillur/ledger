@@ -1,6 +1,7 @@
 import { CameraIcon, CaretRightIcon, ChatCircleTextIcon, PencilSimpleLineIcon, PlusIcon, ReceiptIcon, type Icon } from '@phosphor-icons/react'
 import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { useBackHandler } from '../navigation/back'
 
 type AddOption = { to: string; title: string; description: string; Glyph: Icon; tone: string; picksPhoto?: boolean }
 
@@ -16,6 +17,8 @@ function AddMenu() {
   const navigate = useNavigate()
 
   const [isOpen, setIsOpen] = useState(false)
+
+  useBackHandler(() => setIsOpen(false), isOpen)
 
   useEffect(() => {
     if (!isOpen) return

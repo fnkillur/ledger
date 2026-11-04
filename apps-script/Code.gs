@@ -5,7 +5,6 @@ const SHEETS = {
   settings: '설정',
   captures: '수집함',
   cycles: '주기항목',
-  cycleLogs: '주기기록',
 }
 
 const TRANSACTION_COLUMNS = [
@@ -363,7 +362,6 @@ function pull_(since) {
           }))
       : [],
     cycles: book.getSheetByName(SHEETS.cycles) ? readObjects_(book.getSheetByName(SHEETS.cycles)).filter(isNewer).map(fromCycleRow_) : [],
-    cycleLogs: book.getSheetByName(SHEETS.cycleLogs) ? readObjects_(book.getSheetByName(SHEETS.cycleLogs)).filter(isNewer).map(fromCycleLogRow_) : [],
   }
 }
 
@@ -408,11 +406,11 @@ function toSettingValue_(value) {
 }
 
 function push_(body) {
+  const book = SpreadsheetApp.getActive()
+  const now = new Date().toISOString()
   const lock = LockService.getScriptLock()
   lock.waitLock(20000)
   try {
-    const book = SpreadsheetApp.getActive()
-    const now = new Date().toISOString()
     upsert_(book.getSheetByName(SHEETS.transactions), 'id', (body.transactions || []).map(item => toRow_(item, now)))
     upsert_(
       book.getSheetByName(SHEETS.rules),
@@ -426,16 +424,12 @@ function push_(body) {
       Object.entries(body.settings || {}).map(([key, value]) => [key, toSettingValue_(value), now]),
     )
     updateCaptureStatuses_(book, body.captures || [], now)
-    if ((body.cycles || []).length > 0 || (body.cycleLogs || []).length > 0) {
-      const sheets = cycleSheets_(book)
-      upsert_(sheets.items, 'id', (body.cycles || []).map(item => toCycleRow_(item, now)))
-      upsert_(sheets.logs, 'id', (body.cycleLogs || []).map(log => toCycleLogRow_(log, now)))
-    }
-    // 주기를 아는 서버라는 표시. 옛 서버로 보낸 주기 변경은 앱이 outbox에 남겨 둔다.
-    return { serverTime: now, acceptsCycles: true }
+    if ((body.cycles || []).length > 0) upsert_(cycleSheet_(book), 'id', body.cycles.map(item => toCycleRow_(item, now)))
   } finally {
     lock.releaseLock()
   }
+  // 주기를 아는 서버라는 표시. 옛 서버로 보낸 주기 변경은 앱이 outbox에 남겨 둔다.
+  return { serverTime: now, acceptsCycles: true }
 }
 
 const CATEGORY_FIELDS = { personal: '개인지출', fixed: '고정비', excluded: '통계제외', icon: '아이콘' }

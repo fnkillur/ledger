@@ -1,4 +1,5 @@
 import type { RepeatScope } from '../../domain/calendar'
+import { useBackHandler } from '../../navigation/back'
 
 const SCOPE_OPTIONS: { scope: RepeatScope; label: string }[] = [
   { scope: 'one', label: '이 일정만' },
@@ -14,6 +15,8 @@ type RepeatScopeSheetProps = {
 }
 
 function RepeatScopeSheet({ action, allowOne = true, onSelect, onClose }: RepeatScopeSheetProps) {
+  useBackHandler(onClose)
+
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-label={`반복 일정 ${action}`} onClick={event => event.stopPropagation()}>

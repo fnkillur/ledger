@@ -24,6 +24,7 @@ import { parsePastedPayment } from '../domain/pastedPayment'
 import { groupReceipt, moveReceiptItem, receiptMemo, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
 import { myShare } from '../domain/stats'
 import { KINDS, PEOPLE, SCOPES, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
+import { useBackHandler } from '../navigation/back'
 import { LIST_PATH } from '../paths'
 import { analyzeReceipt } from '../sync/api'
 import { getSettings } from '../sync/settings'
@@ -551,6 +552,8 @@ type ReceiptPanelProps = {
 function ReceiptPanel({ receipt, groups, amount, categories, onMove, onClear }: ReceiptPanelProps) {
   const [movingItem, setMovingItem] = useState<ReceiptItem | null>(null)
 
+  useBackHandler(() => setMovingItem(null), movingItem !== null)
+
   if (receipt.status === 'reading') return <p className="receipt-status">영수증을 읽고 있어요…</p>
   if (receipt.status === 'error') {
     return (
@@ -618,6 +621,8 @@ type PasteSheetProps = {
 }
 
 function PasteSheet({ onApply, onCancel }: PasteSheetProps) {
+  useBackHandler(onCancel)
+
   const [text, setText] = useState('')
 
   const parsed = useMemo(() => (text.trim() ? parsePastedPayment(text) : null), [text])

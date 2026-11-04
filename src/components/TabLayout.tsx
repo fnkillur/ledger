@@ -47,7 +47,7 @@ type TabLinkProps = {
 
 function TabLink({ to, label, icon: TabIcon, badge = 0, end, isAlsoActive = false, onClick }: TabLinkProps) {
   return (
-    <NavLink to={to} end={end} className={({ isActive }) => `tab-link${isActive || isAlsoActive ? ' active' : ''}`} onClick={onClick}>
+    <NavLink to={to} end={end} replace className={({ isActive }) => `tab-link${isActive || isAlsoActive ? ' active' : ''}`} onClick={onClick}>
       {({ isActive }) => (
         <>
           <span className="tab-icon">

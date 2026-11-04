@@ -1,6 +1,7 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { EARLIEST_MONTH_KEY, type Period } from '../domain/period'
+import { useBackHandler } from '../navigation/back'
 import { currentMonthKey } from '../utils/format'
 import FieldHint from './FieldHint'
 import Segmented from './Segmented'
@@ -22,6 +23,8 @@ function PeriodPickerSheet({ period, onSelect, onClose, monthOnly = false, unbou
   const latest = currentMonthKey()
   const latestYear = Number(latest.slice(0, 4))
   const earliestYear = Number(EARLIEST_MONTH_KEY.slice(0, 4))
+
+  useBackHandler(onClose)
 
   const [type, setType] = useState(period.type)
   const [year, setYear] = useState(Number(period.monthKey.slice(0, 4)))

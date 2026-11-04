@@ -10,6 +10,7 @@ import { IS_WEB_BUILD } from '../../platform'
 import { formatTime, toDateKey } from '../../utils/format'
 import CalendarEventForm from './CalendarEventForm'
 import { DayInfoIcon, TargetAvatars } from './CalendarEventChip'
+import { useBackHandler } from '../../navigation/back'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 아래로 이만큼 내리거나, 짧게라도 빠르게 튕기면 닫는다.
@@ -74,6 +75,9 @@ function DaySheet({ dateKey, events, cycles = [], initialView = { type: 'list' }
     sheet.classList.toggle('is-dragging', isDragging)
     sheet.style.transform = `translateY(${offset}px)`
   }
+
+  // 일정 폼을 보고 있으면 목록으로, 목록이면 시트를 닫는다.
+  useBackHandler(() => (view.type === 'form' ? showList() : close()))
 
   const close = () => {
     moveSheet(sheetRef.current?.offsetHeight ?? window.innerHeight, false)

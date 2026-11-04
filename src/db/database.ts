@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { CalendarEvent, CalendarEventInput, CalendarEventRef, RepeatScope } from '../domain/calendar'
-import type { CycleItem, CycleLog } from '../domain/cycle'
+import type { CycleItem } from '../domain/cycle'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
 import type { CapturedNotification, ParsedPayment } from '../domain/notificationParser'
@@ -18,7 +18,7 @@ export type CaptureItem = CapturedNotification & {
 }
 
 // skippedCapture: 결제 문자가 아니라서 앱이 걸러 낸 시트 수집함 문자. 시트에도 '무시'로 돌려보낸다.
-export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' | 'skippedCapture' | 'cycle' | 'cycleLog' }
+export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' | 'skippedCapture' | 'cycle' }
 
 export type SharedSettingsRecord = SharedSettings & { key: 'shared'; updatedAt: string }
 
@@ -47,7 +47,6 @@ export const db = new Dexie('ledger') as Dexie & {
   calendarOutbox: EntityTable<CalendarOp, 'seq'>
   calendarMeta: EntityTable<CalendarMeta, 'key'>
   cycles: EntityTable<CycleItem, 'id'>
-  cycleLogs: EntityTable<CycleLog, 'id'>
 }
 
 db.version(1).stores({
@@ -96,3 +95,18 @@ db.version(4).stores({ calendarMonths: 'monthKey' })
 db.version(5).stores({ calendarMonths: null, calendarEvents: 'id, seriesId', calendarOutbox: '++seq', calendarMeta: 'key' })
 
 db.version(6).stores({ cycles: 'id', cycleLogs: 'id, cycleId' })
+
+// 주기의 마지막 날은 캘린더 일정에서 읽으므로 직접 남긴 기록은 지운다.
+db.version(7).stores({ cycleLogs: null })
+
+// 일정 키워드가 생기기 전에 받아 둔 주기 항목은 이름으로 찾도록 빈 키워드를 채운다.
+db.version(8)
+  .stores({})
+  .upgrade(transaction =>
+    transaction
+      .table('cycles')
+      .toCollection()
+      .modify(item => {
+        item.keyword ??= ''
+      }),
+  )

@@ -1,5 +1,5 @@
 import type { SheetCapture } from '../db/captures'
-import type { CycleItem, CycleLog } from '../domain/cycle'
+import type { CycleItem } from '../domain/cycle'
 import type { Category, Rule, Transaction } from '../domain/types'
 import type { Settings } from './settings'
 
@@ -11,7 +11,6 @@ type PullResponse = {
   settings?: Record<string, number | string>
   captures?: SheetCapture[]
   cycles?: CycleItem[]
-  cycleLogs?: CycleLog[]
 }
 
 type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string }
@@ -50,7 +49,6 @@ export const push = async (
     settings?: Record<string, number | string>
     captures?: { key: string; status: string }[]
     cycles?: CycleItem[]
-    cycleLogs?: CycleLog[]
   },
 ) =>
   unwrap<{ serverTime: string; acceptsCycles?: boolean }>(

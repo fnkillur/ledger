@@ -1,5 +1,4 @@
-import type { CycleInput, CycleItem, CycleLog } from '../domain/cycle'
-import type { Person } from '../domain/types'
+import type { CycleInput, CycleItem } from '../domain/cycle'
 import { syncNow } from '../sync/sync'
 import { db } from './database'
 
@@ -21,35 +20,9 @@ export const saveCycle = async (input: CycleInput, id?: string) => {
 }
 
 export const deleteCycle = async (id: string) => {
-  const updatedAt = now()
-  await db.transaction('rw', db.cycles, db.cycleLogs, db.outbox, async () => {
-    await db.cycles.update(id, { deleted: true, updatedAt })
+  await db.transaction('rw', db.cycles, db.outbox, async () => {
+    await db.cycles.update(id, { deleted: true, updatedAt: now() })
     await db.outbox.put({ id, type: 'cycle' })
-    const logs = await db.cycleLogs.where('cycleId').equals(id).filter(log => !log.deleted).toArray()
-    await db.cycleLogs.bulkPut(logs.map(log => ({ ...log, deleted: true, updatedAt })))
-    await db.outbox.bulkPut(logs.map(log => ({ id: log.id, type: 'cycleLog' as const })))
   })
   sendSoon()
 }
-
-export const logCycle = async (cycleId: string, date: string, person: Person) => {
-  const log: CycleLog = { id: crypto.randomUUID(), cycleId, date, person, deleted: false, updatedAt: now() }
-  await db.transaction('rw', db.cycleLogs, db.outbox, async () => {
-    await db.cycleLogs.put(log)
-    await db.outbox.put({ id: log.id, type: 'cycleLog' })
-  })
-  sendSoon()
-  return log
-}
-
-const changeLog = async (id: string, changes: Partial<CycleLog>) => {
-  await db.transaction('rw', db.cycleLogs, db.outbox, async () => {
-    await db.cycleLogs.update(id, { ...changes, updatedAt: now() })
-    await db.outbox.put({ id, type: 'cycleLog' })
-  })
-  sendSoon()
-}
-
-export const updateCycleLog = (id: string, date: string) => changeLog(id, { date })
-
-export const deleteCycleLog = (id: string) => changeLog(id, { deleted: true })

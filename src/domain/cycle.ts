@@ -1,20 +1,18 @@
-import { isAggregate, type Person, type Transaction } from './types'
+import type { CalendarTarget } from './calendar'
+import type { Person } from './types'
 
 export type CycleUnit = 'day' | 'week' | 'month' | 'year'
 export type CyclePeriod = { amount: number; unit: CycleUnit }
 export type CycleTarget = '공동' | Person
-export type CycleLink = { category: string; keyword: string; person: Person | '' }
-// offsets: 다음 날 며칠 전에 알릴지(주기 있는 항목). afterDays: 마지막 날부터 며칠 지나면 알릴지(주기 없는 항목).
-export type CycleNotify = { enabled: boolean; offsets: number[]; afterDays: number | null }
 
 export type CycleItem = {
   id: string
   name: string
   icon: string
   target: CycleTarget
+  // 캘린더 일정 제목에 들어간 말. 비면 이름으로 찾는다.
+  keyword: string
   period: CyclePeriod | null
-  link: CycleLink | null
-  notify: CycleNotify
   memo: string
   deleted: boolean
   updatedAt: string
@@ -22,18 +20,16 @@ export type CycleItem = {
 
 export type CycleInput = Omit<CycleItem, 'id' | 'deleted' | 'updatedAt'>
 
-export type CycleLog = { id: string; cycleId: string; date: string; person: Person; deleted: boolean; updatedAt: string }
+export type CycleEvent = { title: string; start: string; target: CalendarTarget }
 
-// days: 주기 있는 항목은 다음 날까지 남은 날(지나면 음수), 주기 없는 항목은 마지막 날부터 지난 날.
+// reservation: 오늘 뒤로 가장 가까운 맞는 일정. days: 주기 있는 항목은 다음 날까지 남은 날(지나면 음수), 주기 없는 항목은 마지막 날부터 지난 날.
 export type CycleState = {
   lastDate: string | null
-  lastSource: 'log' | 'payment' | null
-  lastMerchant: string
+  reservation: string | null
   nextDate: string | null
+  isReservedNext: boolean
   days: number | null
 }
-
-export const NOTIFY_OFFSETS = [0, 1, 3, 7]
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000
@@ -47,8 +43,8 @@ const toUtcDate = (dateKey: string) => {
 
 const toKey = (date: Date) => `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
 
-// 결제 시각은 기기 시간대와 상관없이 한국 날짜로 본다.
-const toSeoulDateKey = (iso: string) => new Date(Date.parse(iso) + SEOUL_OFFSET_MS).toISOString().slice(0, 10)
+// 종일 일정은 날짜 그대로, 시간 일정은 기기 시간대와 상관없이 한국 날짜로 본다.
+const eventDateKey = (start: string) => (start.length === 10 ? start : new Date(Date.parse(start) + SEOUL_OFFSET_MS).toISOString().slice(0, 10))
 
 export const daysBetween = (from: string, to: string) => Math.round((toUtcDate(to).getTime() - toUtcDate(from).getTime()) / DAY_MS)
 
@@ -67,64 +63,63 @@ export const addPeriod = (dateKey: string, period: CyclePeriod) => {
   return toKey(target)
 }
 
-export const isLinkValid = (link: CycleLink | null) => !!link && (link.category.trim() !== '' || link.keyword.trim() !== '')
+const searchWord = (item: CycleItem) => normalize(item.keyword.trim() || item.name)
 
-const matchesLink = (link: CycleLink, transaction: Transaction) => {
-  if (transaction.deleted || transaction.kind !== '지출' || isAggregate(transaction.source)) return false
-  if (link.person && transaction.person !== link.person) return false
-  if (link.category.trim() && transaction.category !== link.category.trim()) return false
-  if (link.keyword.trim() && !normalize(transaction.merchant).includes(normalize(link.keyword))) return false
-  return true
+// 기념일은 보지 않고, 지정일은 누구 것이든 맞는다. 사람 항목은 그 사람과 공동 일정, 공동 항목은 모든 사람 일정을 본다.
+const isTargetMatched = (item: CycleItem, target: CalendarTarget) => {
+  if (target === '기념일') return false
+  if (target === '없음' || item.target === '공동') return true
+  return target === item.target || target === '공동'
 }
 
-export const lastPayment = (link: CycleLink, transactions: Transaction[]) => {
-  if (!isLinkValid(link)) return null
-  return transactions.reduce<{ date: string; merchant: string } | null>((latest, transaction) => {
-    if (!matchesLink(link, transaction)) return latest
-    const date = toSeoulDateKey(transaction.occurredAt)
-    return !latest || date > latest.date ? { date, merchant: transaction.merchant } : latest
-  }, null)
+export const matchesCycleEvent = (item: CycleItem, event: CycleEvent) =>
+  isTargetMatched(item, event.target) && searchWord(item) !== '' && normalize(event.title).includes(searchWord(item))
+
+export const cycleState = (item: CycleItem, events: CycleEvent[], today: string): CycleState => {
+  const dates = events.filter(event => matchesCycleEvent(item, event)).map(event => eventDateKey(event.start))
+  const lastDate = dates.filter(date => date <= today).reduce<string | null>((latest, date) => (!latest || date > latest ? date : latest), null)
+  const reservation = dates.filter(date => date > today).reduce<string | null>((earliest, date) => (!earliest || date < earliest ? date : earliest), null)
+
+  if (!item.period) return { lastDate, reservation, nextDate: null, isReservedNext: false, days: lastDate ? daysBetween(lastDate, today) : null }
+  const nextDate = reservation ?? (lastDate ? addPeriod(lastDate, item.period) : null)
+  return { lastDate, reservation, nextDate, isReservedNext: reservation !== null, days: nextDate ? daysBetween(today, nextDate) : null }
 }
 
-export const cycleState = (item: CycleItem, logs: CycleLog[], transactions: Transaction[], today: string): CycleState => {
-  const lastLog = logs
-    .filter(log => !log.deleted && log.cycleId === item.id)
-    .reduce<string | null>((latest, log) => (!latest || log.date > latest ? log.date : latest), null)
-  const payment = item.link ? lastPayment(item.link, transactions) : null
-  const isPaymentLatest = !!payment && (!lastLog || payment.date > lastLog)
-  const lastDate = isPaymentLatest ? payment.date : lastLog
+const byDaysNullLast = (compare: (left: number, right: number) => number) => (left: { state: CycleState }, right: { state: CycleState }) => {
+  if (left.state.days === null || right.state.days === null) return Number(left.state.days === null) - Number(right.state.days === null)
+  return compare(left.state.days, right.state.days)
+}
 
-  if (!lastDate) return { lastDate: null, lastSource: null, lastMerchant: '', nextDate: null, days: null }
-  const nextDate = item.period ? addPeriod(lastDate, item.period) : null
+// 주기 없는 항목도 예약이 잡혀 있으면 예약일을 다음 날로 보고 다가오는 쪽에 둔다.
+const asUpcoming = <Row extends { item: CycleItem; state: CycleState }>(row: Row, today: string): Row => {
+  if (row.item.period || !row.state.reservation) return row
+  return { ...row, state: { ...row.state, nextDate: row.state.reservation, isReservedNext: true, days: daysBetween(today, row.state.reservation) } }
+}
+
+// 다가오는 쪽은 기한이 가까운 순, 마지막으로 한 지는 오래된 순. 기록이 없으면 뒤로 보낸다.
+export const splitCycles = <Row extends { item: CycleItem; state: CycleState }>(rows: Row[], today: string) => {
+  const isUpcoming = (row: Row) => row.item.period !== null || row.state.reservation !== null
   return {
-    lastDate,
-    lastSource: isPaymentLatest ? 'payment' : 'log',
-    lastMerchant: isPaymentLatest ? payment.merchant : '',
-    nextDate,
-    days: nextDate ? daysBetween(today, nextDate) : daysBetween(lastDate, today),
+    periodic: rows
+      .filter(isUpcoming)
+      .map(row => asUpcoming(row, today))
+      .sort(byDaysNullLast((left, right) => left - right)),
+    elapsed: rows.filter(row => !isUpcoming(row)).sort(byDaysNullLast((left, right) => right - left)),
   }
 }
 
-export const dueOffsetToday = (item: CycleItem, state: CycleState) => {
-  if (!item.notify.enabled || state.days === null) return null
-  if (item.period) return state.days >= 0 && item.notify.offsets.includes(state.days) ? state.days : null
-  return item.notify.afterDays !== null && state.days === item.notify.afterDays ? state.days : null
-}
+// 일정 폼에서 이 일정이 어느 주기 항목에 기록되는지 알려 줄 때 쓴다.
+export const findCycleForEvent = (items: CycleItem[], event: CycleEvent) => items.find(item => !item.deleted && matchesCycleEvent(item, event)) ?? null
 
-const sortGroup = (row: { item: CycleItem; state: CycleState }) => {
-  if (row.item.period && row.state.days !== null) return 0
-  if (row.state.days === null) return 1
-  return 2
-}
-
-export const sortCycles = <Row extends { item: CycleItem; state: CycleState }>(rows: Row[]) =>
-  [...rows].sort((left, right) => {
-    const group = sortGroup(left) - sortGroup(right)
-    if (group !== 0) return group
-    if (sortGroup(left) === 0) return left.state.days! - right.state.days!
-    if (sortGroup(left) === 2) return right.state.days! - left.state.days!
-    return 0
-  })
+// 일정을 넣다가 바로 챙길 항목을 만든다. 지정일 일정은 사람이 없어 공동으로 둔다.
+export const cycleFromEvent = (title: string, target: CalendarTarget): CycleInput => ({
+  name: title.trim(),
+  icon: '',
+  target: target === '공동' || target === '쿠리만쥬' || target === '우사기' ? target : '공동',
+  keyword: title.trim(),
+  period: null,
+  memo: '',
+})
 
 // 캘린더에는 주기 있는 항목의 다음 날짜만 표시한다.
 export const cycleDueByDate = (rows: { item: CycleItem; state: CycleState }[]) =>
