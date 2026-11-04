@@ -71,7 +71,6 @@ function CalendarPage() {
     <div className="page calendar-page">
       <header className="period-header">
         <div className="period-header-row">
-          <CalendarModeSwitch mode="일정" />
           <PeriodSwitcher
             period={{ type: '월별', monthKey }}
             onChange={period => setCalendarMonth(period.monthKey)}
@@ -79,6 +78,7 @@ function CalendarPage() {
             unbounded
           />
         </div>
+        <CalendarModeSwitch mode="일정" />
       </header>
 
       {!isSyncConfigured(settings) && (

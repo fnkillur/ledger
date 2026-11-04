@@ -68,9 +68,9 @@ function CyclesPage() {
     <div className="page cycles-page">
       <header className="period-header">
         <div className="period-header-row">
-          <CalendarModeSwitch mode="주기" />
           <h1 className="cycles-title">챙길 것</h1>
         </div>
+        <CalendarModeSwitch mode="주기" />
       </header>
 
       <main className="page-content cycles-content">
