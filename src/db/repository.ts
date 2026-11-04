@@ -83,7 +83,7 @@ export const saveMonthlyTotals = async (monthKey: string, person: Person, amount
         rawText: '',
         deleted: false,
         updatedAt,
-        scope: info.kind === '지출' && info.personal ? '개인' : '공동',
+        scope: '공동',
       })
       await db.outbox.put({ id, type: 'transaction' })
     }

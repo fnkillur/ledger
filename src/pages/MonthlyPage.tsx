@@ -21,6 +21,7 @@ import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { EARLIEST_MONTH_KEY, toRange } from '../domain/period'
 import { currentMonthKey, formatWon, shiftMonth } from '../utils/format'
+import { scrollToTopOnReturn } from '../utils/scroll'
 
 type OcrResult = {
   unmatched: { line: string; amount: number }[]
@@ -105,6 +106,7 @@ function MonthlyPage() {
             onSave={async amounts => {
               await saveMonthlyTotals(monthKey, person, amounts, categories)
               syncNow().catch(() => {})
+              scrollToTopOnReturn()
               if (window.history.length > 1) navigate(-1)
               else navigate(LIST_PATH, { replace: true })
             }}

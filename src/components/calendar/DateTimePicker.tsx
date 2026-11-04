@@ -39,7 +39,7 @@ export function DateTimeRow({ label, pickerId, date, time, minDate, showTime, is
   if (IS_WEB_BUILD) {
     return (
       <div className="form-row">
-        <span>{label}</span>
+        <span className="form-row-label">{label}</span>
         <div className="pill-group">
           <input
             className={`pill-input${invalidClass}`}

@@ -40,7 +40,7 @@ describe('repository', () => {
 })
 
 describe('saveMonthlyTotals', () => {
-  it('같은 달·사람을 다시 저장하면 덮어쓰고 빠진 카테고리는 지우며, 개인 기본값을 따른다', async () => {
+  it('같은 달·사람을 다시 저장하면 덮어쓰고 빠진 카테고리는 지우며, 개인 카테고리도 공동으로 둔다', async () => {
     await saveMonthlyTotals('2026-10', '우사기', [
       { category: '외식', amount: 100000 },
       { category: '미용', amount: 50000 },
@@ -48,6 +48,7 @@ describe('saveMonthlyTotals', () => {
     ], DEFAULT_CATEGORIES)
     await saveMonthlyTotals('2026-10', '우사기', [
       { category: '외식', amount: 120000 },
+      { category: '쇼핑', amount: 30000 },
       { category: '월급', amount: 4000000 },
     ], DEFAULT_CATEGORIES)
     await saveMonthlyTotals('2026-10', '쿠리만쥬', [{ category: '외식', amount: 1 }], DEFAULT_CATEGORIES)
@@ -55,7 +56,8 @@ describe('saveMonthlyTotals', () => {
     const rows = await db.transactions.where('id').startsWith('monthly-2026-10-우사기-').toArray()
     const byCategory = Object.fromEntries(rows.map(row => [row.category, row]))
     expect(byCategory['외식']).toMatchObject({ amount: 120000, deleted: false, source: '월합계', scope: '공동', kind: '지출' })
-    expect(byCategory['미용']).toMatchObject({ deleted: true, scope: '개인' })
+    expect(byCategory['미용']).toMatchObject({ deleted: true })
+    expect(byCategory['쇼핑']).toMatchObject({ deleted: false, scope: '공동' })
     expect(byCategory['월급']).toMatchObject({ kind: '수입', deleted: false })
     expect(await db.transactions.where('id').startsWith('monthly-2026-10-쿠리만쥬-').count()).toBe(1)
   })

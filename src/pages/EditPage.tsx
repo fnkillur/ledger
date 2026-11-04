@@ -1,6 +1,6 @@
 import { ClipboardTextIcon, MinusIcon, PlusIcon, ReceiptIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -30,6 +30,7 @@ import { getSettings } from '../sync/settings'
 import { syncNow } from '../sync/sync'
 import { formatDayLabel, formatTime, formatWon, toDateKey } from '../utils/format'
 import { toJpegBase64 } from '../utils/image'
+import { scrollToTopOnReturn } from '../utils/scroll'
 import NotFoundPage from './NotFoundPage'
 
 const MAX_SUGGESTIONS = 6
@@ -63,7 +64,7 @@ const toReceiptErrorMessage = (error: unknown) => {
   return message
 }
 
-type EditLocationState = { draft?: TransactionInput; captureKey?: string } | null
+type EditLocationState = { draft?: TransactionInput; captureKey?: string; receiptFile?: File } | null
 
 const emptyDraft = (): TransactionInput => ({
   occurredAt: new Date().toISOString(),
@@ -91,7 +92,7 @@ function EditPage() {
   if (!id) {
     if (sharedText && sharedDraft === undefined) return null
     const state = location.state as EditLocationState
-    return <TransactionForm initial={sharedDraft ?? state?.draft ?? emptyDraft()} captureKey={state?.captureKey} />
+    return <TransactionForm initial={sharedDraft ?? state?.draft ?? emptyDraft()} captureKey={state?.captureKey} receiptFile={state?.receiptFile} />
   }
   if (transaction === undefined) return null
   if (transaction === null) return <NotFoundPage />
@@ -102,9 +103,10 @@ type TransactionFormProps = {
   initial: TransactionInput
   transaction?: Transaction
   captureKey?: string
+  receiptFile?: File
 }
 
-function TransactionForm({ initial, transaction, captureKey }: TransactionFormProps) {
+function TransactionForm({ initial, transaction, captureKey, receiptFile }: TransactionFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -141,10 +143,22 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const canSave = amount !== null && amount !== 0 && (isSplitByReceipt || draft.category !== '')
   const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && receipt === null
   const canUseReceipt = !transaction && draft.kind === '지출'
+  // 수입은 나눠 받거나 통계에서 뺄 일이 없다(돌려받은 돈은 '정산' 카테고리가 빠진다). 예전에 넣어 둔 값만 되돌릴 수 있게 보여 준다.
+  const showsSplitOptions = draft.kind === '지출' || (initial.kind === '수입' && (initial.shareCount > 1 || initial.excluded))
   const merchantQuery = draft.merchant.trim()
   const merchantSuggestions = merchantQuery
     ? recent.merchants.filter(merchant => merchant !== merchantQuery && merchant.includes(merchantQuery)).slice(0, MAX_SUGGESTIONS)
     : []
+
+  // + 메뉴에서 영수증 사진을 고르고 들어오면 바로 읽는다. 새로고침·뒤로가기로 다시 읽지 않게 기록에서 사진을 지운다.
+  const isReceiptFileHandled = useRef(false)
+  useEffect(() => {
+    if (!receiptFile || isReceiptFileHandled.current) return
+    isReceiptFileHandled.current = true
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null })
+    handleReceiptFile(receiptFile)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptFile])
 
   const update = (patch: Partial<TransactionInput>) => setDraft(previous => ({ ...previous, ...patch }))
 
@@ -224,6 +238,7 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved[0])
     syncNow().catch(() => {})
+    scrollToTopOnReturn()
     goBack()
     const title = saved.length === 1 ? `${merchant || saved[0].category} ${formatWon(saved[0].amount)} 기록했어요` : `${merchant || '영수증'} ${saved.length}개로 나눠 기록했어요`
     celebrate({ title, transactionIds: saved.map(item => item.id) }, cheerSubline(await getRecordActivity(draft.person)))
@@ -232,13 +247,15 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
   const handleSave = async () => {
     if (!canSave) return
     if (isSplitByReceipt) return saveSplit()
-    const saved = await saveTransaction({ ...draft, amount: amount!, merchant: draft.merchant.trim() }, transaction?.id)
+    const splitOptions = showsSplitOptions ? {} : { shareCount: 1, excluded: false }
+    const saved = await saveTransaction({ ...draft, ...splitOptions, amount: amount!, merchant: draft.merchant.trim() }, transaction?.id)
     if (isRuleOffered && shouldSaveRule) {
       await saveRule(draft.merchant, draft.category)
       if (shouldUpdatePast && pastSameMerchant.length > 0) await recategorize(pastSameMerchant, draft.category)
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved)
     syncNow().catch(() => {})
+    if (!transaction) scrollToTopOnReturn()
     goBack()
     if (!transaction) {
       const title = `${saved.merchant || saved.category} ${formatWon(saved.amount)} 기록했어요`
@@ -271,16 +288,15 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
       />
 
       <main className="page-content tx-form">
-        {!transaction && !captureKey && recent.frequent.length > 0 && (
-          <FrequentEntries entries={recent.frequent} onPick={handleFrequentPick} />
-        )}
-
         <section className="tx-hero">
-          <div className="tx-kind">
-            <Segmented label="구분" options={KINDS} value={draft.kind} onChange={handleKindChange} />
+          <div className="tx-hero-top">
+            <div className="tx-kind">
+              <Segmented label="구분" options={KINDS} value={draft.kind} onChange={handleKindChange} />
+            </div>
+            {canUseReceipt && <ReceiptPicker hasReceipt={receipt !== null} onPick={handleReceiptFile} onClear={() => setReceipt(null)} />}
           </div>
-          <AmountInput text={amountText} kind={draft.kind} onChange={setAmountText} autoFocus={!transaction && !captureKey} />
-          <AmountHint text={amountText} amount={amount} shareCount={draft.shareCount} />
+          <AmountInput text={amountText} kind={draft.kind} onChange={setAmountText} autoFocus={!transaction && !captureKey && !receiptFile} />
+          <AmountHint text={amountText} amount={amount} shareCount={showsSplitOptions ? draft.shareCount : 1} />
         </section>
 
         <section className="form-group">
@@ -306,10 +322,13 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
           )}
         </section>
 
+        {!transaction && !captureKey && receipt === null && draft.merchant === '' && recent.frequent.length > 0 && (
+          <FrequentEntries entries={recent.frequent} onPick={handleFrequentPick} />
+        )}
+
         <section className="tx-section" aria-label="카테고리">
           <div className="tx-section-header">
             <h2 className="tx-section-title">카테고리</h2>
-            {canUseReceipt && <ReceiptPicker hasReceipt={receipt !== null} onPick={handleReceiptFile} onClear={() => setReceipt(null)} />}
           </div>
           {receipt ? (
             <ReceiptPanel receipt={receipt} groups={receiptGroups} amount={amount} categories={kindCategories} onMove={handleReceiptMove} onClear={() => setReceipt(null)} />
@@ -382,38 +401,42 @@ function TransactionForm({ initial, transaction, captureKey }: TransactionFormPr
         </section>
 
         <section className="form-group">
-          <div className="form-row">
-            <span>나눠 낸 인원</span>
-            <div className="tx-stepper">
+          {showsSplitOptions && (
+            <div className="form-row">
+              <span>나눠 낸 인원</span>
+              <div className="tx-stepper">
+                <button
+                  type="button"
+                  className="tx-stepper-button"
+                  aria-label="인원 줄이기"
+                  disabled={draft.shareCount <= 1}
+                  onClick={() => update({ shareCount: draft.shareCount - 1 })}
+                >
+                  <MinusIcon size={16} weight="bold" />
+                </button>
+                <span className="tx-stepper-value">{draft.shareCount === 1 ? '혼자' : `${draft.shareCount}명`}</span>
+                <button type="button" className="tx-stepper-button" aria-label="인원 늘리기" onClick={() => update({ shareCount: draft.shareCount + 1 })}>
+                  <PlusIcon size={16} weight="bold" />
+                </button>
+              </div>
+            </div>
+          )}
+          {showsSplitOptions && (
+            <div className="form-row">
+              <span className="form-row-text">
+                통계에서 제외
+                <small>대신 결제해 준 돈 등</small>
+              </span>
               <button
                 type="button"
-                className="tx-stepper-button"
-                aria-label="인원 줄이기"
-                disabled={draft.shareCount <= 1}
-                onClick={() => update({ shareCount: draft.shareCount - 1 })}
-              >
-                <MinusIcon size={16} weight="bold" />
-              </button>
-              <span className="tx-stepper-value">{draft.shareCount === 1 ? '혼자' : `${draft.shareCount}명`}</span>
-              <button type="button" className="tx-stepper-button" aria-label="인원 늘리기" onClick={() => update({ shareCount: draft.shareCount + 1 })}>
-                <PlusIcon size={16} weight="bold" />
-              </button>
+                role="switch"
+                aria-checked={draft.excluded}
+                aria-label="통계에서 제외"
+                className="switch"
+                onClick={() => update({ excluded: !draft.excluded })}
+              />
             </div>
-          </div>
-          <div className="form-row">
-            <span className="form-row-text">
-              통계에서 제외
-              <small>대신 결제해 준 돈 등</small>
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draft.excluded}
-              aria-label="통계에서 제외"
-              className="switch"
-              onClick={() => update({ excluded: !draft.excluded })}
-            />
-          </div>
+          )}
           <div className="form-row">
             <span>메모</span>
             <input
@@ -509,7 +532,7 @@ function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={handleChange} />
       <button type="button" className="text-button text-primary tx-section-action" onClick={() => inputRef.current?.click()}>
         <ReceiptIcon size={16} weight="bold" aria-hidden="true" />
-        영수증으로 나누기
+        영수증 사진
       </button>
     </>
   )
@@ -704,28 +727,99 @@ type AmountInputProps = {
   autoFocus: boolean
 }
 
+const AMOUNT_OPERATORS = [
+  { label: '+', value: '+' },
+  { label: '−', value: '-' },
+  { label: '×', value: '*' },
+  { label: '÷', value: '/' },
+]
+
+const toDisplayAmount = (text: string) => formatAmountText(text).replace(/\*/g, '×').replace(/\//g, '÷')
+
+const fromDisplayAmount = (display: string) => display.replace(/,/g, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
+
 // 입력한 글자 폭만큼만 칸이 늘어나서 '원'이 숫자 바로 옆에 붙는다.
+// 숫자 키패드에는 사칙연산 기호가 없어서, 입력 중에만 기호 버튼을 띄운다.
 function AmountInput({ text, kind, onChange, autoFocus }: AmountInputProps) {
-  const display = formatAmountText(text)
+  const [isFocused, setIsFocused] = useState(false)
+  const isPointerDown = useRef(false)
+  const cancelPendingHide = useRef<(() => void) | null>(null)
+
+  const display = toDisplayAmount(text)
+
+  useEffect(() => {
+    const press = () => (isPointerDown.current = true)
+    const release = () => (isPointerDown.current = false)
+    window.addEventListener('pointerdown', press, true)
+    window.addEventListener('pointerup', release, true)
+    window.addEventListener('pointercancel', release, true)
+    return () => {
+      window.removeEventListener('pointerdown', press, true)
+      window.removeEventListener('pointerup', release, true)
+      window.removeEventListener('pointercancel', release, true)
+      cancelPendingHide.current?.()
+    }
+  }, [])
+
+  const handleFocus = () => {
+    cancelPendingHide.current?.()
+    setIsFocused(true)
+  }
+
+  // 다른 버튼을 누르다가 포커스가 빠질 때 기호 줄이 바로 사라지면, 그 아래 버튼이 위로 밀려 탭이 빗나간다.
+  // 손을 떼어 탭이 끝난 뒤에 숨긴다.
+  const handleBlur = () => {
+    if (!isPointerDown.current) return setIsFocused(false)
+    const hide = () => {
+      cancelPendingHide.current?.()
+      setIsFocused(false)
+    }
+    window.addEventListener('click', hide)
+    window.addEventListener('pointercancel', hide)
+    cancelPendingHide.current = () => {
+      window.removeEventListener('click', hide)
+      window.removeEventListener('pointercancel', hide)
+      cancelPendingHide.current = null
+    }
+  }
 
   return (
-    <label className={`tx-amount amount-${kind}`}>
-      <span className="tx-amount-field">
-        <span className="tx-amount-mirror" aria-hidden="true">
-          {display || '0'}
+    <>
+      <label className={`tx-amount amount-${kind}`}>
+        <span className="tx-amount-field">
+          <span className="tx-amount-mirror" aria-hidden="true">
+            {display || '0'}
+          </span>
+          <input
+            aria-label="금액"
+            inputMode="numeric"
+            size={1}
+            placeholder="0"
+            value={display}
+            onChange={event => onChange(fromDisplayAmount(event.target.value))}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            autoFocus={autoFocus}
+          />
         </span>
-        <input
-          aria-label="금액"
-          inputMode="text"
-          size={1}
-          placeholder="0"
-          value={display}
-          onChange={event => onChange(event.target.value.replace(/,/g, ''))}
-          autoFocus={autoFocus}
-        />
-      </span>
-      <span className="tx-amount-unit">원</span>
-    </label>
+        <span className="tx-amount-unit">원</span>
+      </label>
+      {isFocused && (
+        <div className="tx-amount-operators">
+          {AMOUNT_OPERATORS.map(operator => (
+            <button
+              key={operator.value}
+              type="button"
+              aria-label={`${operator.label} 넣기`}
+              onPointerDown={event => event.preventDefault()}
+              onClick={() => onChange(text + operator.value)}
+            >
+              {operator.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 

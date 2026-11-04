@@ -1,17 +1,20 @@
-import { CameraIcon, CaretRightIcon, ChatCircleTextIcon, PencilSimpleLineIcon, PlusIcon, type Icon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { CameraIcon, CaretRightIcon, ChatCircleTextIcon, PencilSimpleLineIcon, PlusIcon, ReceiptIcon, type Icon } from '@phosphor-icons/react'
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router'
 
-type AddOption = { to: string; title: string; description: string; Glyph: Icon; tone: string }
+type AddOption = { to: string; title: string; description: string; Glyph: Icon; tone: string; picksPhoto?: boolean }
 
 const ADD_OPTIONS: AddOption[] = [
   { to: '/tx/new', title: '직접 입력', description: '한 건씩 바로 기록', Glyph: PencilSimpleLineIcon, tone: 'blue' },
+  { to: '/tx/new', title: '영수증 사진', description: '품목을 읽어 카테고리별로 나눠 기록', Glyph: ReceiptIcon, tone: 'orange', picksPhoto: true },
   { to: '/import', title: '카톡 알림 캡처', description: '카드사 알림톡 캡처로 여러 건 한꺼번에', Glyph: ChatCircleTextIcon, tone: 'yellow' },
   { to: '/monthly', title: '토스 월 합계', description: '토스 캡처로 한 달 치 카테고리별 금액', Glyph: CameraIcon, tone: 'green' },
 ]
 
 // 기록하는 방법이 여러 가지라 + 버튼 하나에서 고르게 한다.
 function AddMenu() {
+  const navigate = useNavigate()
+
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
@@ -22,6 +25,14 @@ function AddMenu() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen])
+
+  const handlePhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setIsOpen(false)
+    navigate('/tx/new', { state: { receiptFile: file } })
+  }
 
   return (
     <>
@@ -34,9 +45,9 @@ function AddMenu() {
           <nav className="sheet add-menu" aria-label="기록 방법" onClick={event => event.stopPropagation()}>
             <h2 className="add-menu-title">어떻게 기록할까요?</h2>
             <ul className="add-menu-list">
-              {ADD_OPTIONS.map(({ to, title, description, Glyph, tone }) => (
-                <li key={to}>
-                  <Link to={to} className="add-menu-item">
+              {ADD_OPTIONS.map(({ to, title, description, Glyph, tone, picksPhoto }) => {
+                const content: ReactNode = (
+                  <>
                     <span className={`add-menu-icon tone-${tone}`}>
                       <Glyph size={24} weight="duotone" aria-hidden="true" />
                     </span>
@@ -45,9 +56,23 @@ function AddMenu() {
                       <span>{description}</span>
                     </span>
                     <CaretRightIcon size={16} weight="bold" aria-hidden="true" />
-                  </Link>
-                </li>
-              ))}
+                  </>
+                )
+                return (
+                  <li key={title}>
+                    {picksPhoto ? (
+                      <label className="add-menu-item">
+                        <input type="file" accept="image/*" hidden onChange={handlePhoto} />
+                        {content}
+                      </label>
+                    ) : (
+                      <Link to={to} className="add-menu-item">
+                        {content}
+                      </Link>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </nav>
         </div>

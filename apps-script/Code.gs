@@ -208,6 +208,19 @@ function migrateSavingsToExpense() {
   return { changed: changed.length }
 }
 
+// 토스 월 합계는 공동·개인을 나누지 않는다. 지난 월 합계 중 개인으로 저장된 기록을 공동으로 바꾼다. 편집기에서 한 번만 실행한다.
+function migrateMonthlyTotalsToShared() {
+  const now = new Date().toISOString()
+  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.transactions)
+  const changed = readObjects_(sheet)
+    .map(fromRow_)
+    .filter(item => item.source === '월합계' && item.scope === '개인')
+    .map(item => ({ ...item, scope: '공동', updatedAt: now }))
+  upsert_(sheet, 'id', changed.map(item => toRow_(item, now)))
+  Logger.log('월 합계 개인 → 공동: %s건', changed.length)
+  return { changed: changed.length }
+}
+
 const MEAL_DELIVERY_KEYWORDS = ['배달의민족', '배민', '요기요', '쿠팡이츠', '땡겨요']
 
 // 식비를 외식으로 바꾸고 식재료·배달 카테고리를 그 앞뒤에 넣는다. 지난 식비 기록과 분류 규칙도 옮긴다. 편집기에서 한 번만 실행한다.

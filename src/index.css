@@ -3463,6 +3463,11 @@ a {
   font-size: var(--font-md);
 }
 
+.form-row-label {
+  flex: none;
+  white-space: nowrap;
+}
+
 .form-row + .form-row {
   border-top: 1px solid var(--color-border);
 }
@@ -3491,6 +3496,7 @@ a {
 .pill-group {
   display: flex;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .pill-input {
@@ -3505,6 +3511,10 @@ a {
   font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.pill-group .pill-input {
+  min-width: 0;
 }
 
 .pill-input.is-invalid {
@@ -3741,6 +3751,14 @@ button.pill-input {
   padding: var(--space-2) var(--space-1) 0;
 }
 
+.tx-hero-top {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .tx-kind {
   width: 148px;
 }
@@ -3817,6 +3835,31 @@ button.pill-input {
 
 .tx-hero .field-hint {
   margin-top: calc(var(--space-2) * -1);
+}
+
+.tx-amount-operators {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.tx-amount-operators button {
+  width: 56px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-lg);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.tx-amount-operators button:active {
+  transform: scale(0.94);
+  background: var(--color-pressed);
 }
 
 .tx-merchant,
