@@ -2,7 +2,9 @@ import { PlusIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import kurimanjuThinking from '../../assets/stickers/kurimanju/thinking.webp'
 import usagiSigh from '../../assets/stickers/usagi/sigh.webp'
+import { Link } from 'react-router'
 import { usePersonName } from '../../db/hooks'
+import type { CycleItem } from '../../domain/cycle'
 import { isDayInfo, REPEAT_LABEL, TARGET_TONE, targetLabel, type CalendarEvent } from '../../domain/calendar'
 import { IS_WEB_BUILD } from '../../platform'
 import { formatTime, toDateKey } from '../../utils/format'
@@ -23,6 +25,7 @@ export type DaySheetView = { type: 'list' } | { type: 'form'; event?: CalendarEv
 type DaySheetProps = {
   dateKey: string
   events: CalendarEvent[]
+  cycles?: CycleItem[]
   initialView?: DaySheetView
   onClose: () => void
 }
@@ -56,7 +59,7 @@ const resist = (distance: number) => (distance >= 0 ? distance : -Math.sqrt(-dis
 // 입력칸이나 휠처럼 스스로 세로로 움직이는 곳에서는 시트를 끌지 않는다.
 const isFormControl = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, select, textarea, [data-sheet-nodrag]')
 
-function DaySheet({ dateKey, events, initialView = { type: 'list' }, onClose }: DaySheetProps) {
+function DaySheet({ dateKey, events, cycles = [], initialView = { type: 'list' }, onClose }: DaySheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<Drag | null>(null)
@@ -175,7 +178,19 @@ function DaySheet({ dateKey, events, initialView = { type: 'list' }, onClose }: 
         {view.type === 'list' ? (
           <div key="list" className="day-sheet-view">
             <div ref={scrollRef} className="day-sheet-scroll">
-              {events.length === 0 && <p className="day-sheet-empty">이 날은 아직 일정이 없어요.</p>}
+              {events.length === 0 && cycles.length === 0 && <p className="day-sheet-empty">이 날은 아직 일정이 없어요.</p>}
+              {cycles.length > 0 && (
+                <ul className="day-sheet-list day-sheet-cycles" aria-label="교체할 것">
+                  {cycles.map(item => (
+                    <li key={item.id}>
+                      <Link to={`/cycles?id=${item.id}`} className="day-sheet-cycle">
+                        <span aria-hidden="true">{item.icon || '🔁'}</span>
+                        {item.name} 바꾸는 날
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <ul className="day-sheet-list">
                 {events.map(event => (
                   <li key={event.id}>

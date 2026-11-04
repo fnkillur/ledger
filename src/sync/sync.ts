@@ -2,6 +2,7 @@ import { ingestSheetCaptures } from '../db/captures'
 import { db, type CaptureItem, type OutboxItem } from '../db/database'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import { nicknamesFromSettings, nicknamesToSettings } from '../domain/nickname'
+import type { CycleItem, CycleLog } from '../domain/cycle'
 import type { Rule, Transaction } from '../domain/types'
 import { isCaptureSupported } from '../native/notificationCapture'
 import { pull, push } from './api'
@@ -16,6 +17,8 @@ const findLatest = (item: OutboxItem) => {
   if (item.type === 'transaction') return db.transactions.get(item.id)
   if (item.type === 'rule') return db.rules.get(item.id)
   if (item.type === 'capture') return db.captures.get(item.id)
+  if (item.type === 'cycle') return db.cycles.get(item.id)
+  if (item.type === 'cycleLog') return db.cycleLogs.get(item.id)
   return db.shared.get('shared')
 }
 
@@ -32,23 +35,30 @@ const pushOutbox = async () => {
     (item): item is CaptureItem => !!item,
   )
   const skippedKeys = new Set(pending.filter(item => item.type === 'skippedCapture').map(item => item.id))
+  const cycles = (await db.cycles.bulkGet(pending.filter(item => item.type === 'cycle').map(item => item.id))).filter((item): item is CycleItem => !!item)
+  const cycleLogs = (await db.cycleLogs.bulkGet(pending.filter(item => item.type === 'cycleLog').map(item => item.id))).filter(
+    (item): item is CycleLog => !!item,
+  )
 
-  await push(getSettings(), {
+  const response = await push(getSettings(), {
     transactions,
     rules,
     settings: shared && { 월예산: shared.월예산, 월저축목표: shared.월저축목표, ...nicknamesToSettings(shared.닉네임 ?? {}) },
     captures: [...captures.map(capture => ({ key: capture.key, status: capture.status })), ...[...skippedKeys].map(key => ({ key, status: '무시' }))],
+    cycles,
+    cycleLogs,
   })
 
   // 전송 중 다시 수정된 항목은 outbox에 남겨 다음 동기화에 보낸다.
-  await db.transaction('rw', [db.outbox, db.transactions, db.rules, db.shared, db.captures], async () => {
-    const sentAt = new Map([...transactions, ...rules].map(item => ['id' in item ? item.id : item.keyword, item.updatedAt]))
+  await db.transaction('rw', [db.outbox, db.transactions, db.rules, db.shared, db.captures, db.cycles, db.cycleLogs], async () => {
+    const sentAt = new Map([...transactions, ...rules, ...cycles, ...cycleLogs].map(item => ['id' in item ? item.id : item.keyword, item.updatedAt]))
     if (shared) sentAt.set('shared', shared.updatedAt)
     captures.forEach(capture => sentAt.set(capture.key, capture.updatedAt ?? ''))
     const current = await db.outbox.toArray()
     const doneIds = await Promise.all(
       current.map(async item => {
         if (item.type === 'skippedCapture') return skippedKeys.has(item.id) ? item.id : null
+        if ((item.type === 'cycle' || item.type === 'cycleLog') && !response.acceptsCycles) return null
         const latest = await findLatest(item)
         return latest && sentAt.get(item.id) === latest.updatedAt ? item.id : null
       }),
@@ -63,8 +73,10 @@ const pullChanges = async () => {
   const pendingIds = new Set((await db.outbox.toArray()).map(item => item.id))
 
   // 수집함 반영이 실패하면 받은 시각도 남기지 않아서, 다음 동기화 때 다시 받는다.
-  await db.transaction('rw', [db.transactions, db.rules, db.categories, db.meta, db.shared, db.captures, db.outbox], async () => {
+  await db.transaction('rw', [db.transactions, db.rules, db.categories, db.meta, db.shared, db.captures, db.outbox, db.cycles, db.cycleLogs], async () => {
     await db.transactions.bulkPut(response.transactions.filter(item => !pendingIds.has(item.id)))
+    await db.cycles.bulkPut((response.cycles ?? []).filter(item => !pendingIds.has(item.id)))
+    await db.cycleLogs.bulkPut((response.cycleLogs ?? []).filter(item => !pendingIds.has(item.id)))
     await db.rules.bulkPut(response.rules.filter(item => !pendingIds.has(item.keyword)))
     if (response.categories.length > 0) {
       await db.categories.clear()
@@ -86,13 +98,22 @@ const pullChanges = async () => {
 }
 
 let running: Promise<void> | null = null
+let isRerunRequested = false
 
+// 보내는 중에 생긴 변경은 이번 회차에 실리지 않으므로, 끝난 뒤 한 번 더 돈다.
 export const syncNow = () => {
   if (!isSyncConfigured(getSettings())) return Promise.resolve()
-  running ??= (async () => {
+  if (running) {
+    isRerunRequested = true
+    return running
+  }
+  running = (async () => {
     try {
-      await pushOutbox()
-      await pullChanges()
+      do {
+        isRerunRequested = false
+        await pushOutbox()
+        await pullChanges()
+      } while (isRerunRequested)
     } finally {
       running = null
     }

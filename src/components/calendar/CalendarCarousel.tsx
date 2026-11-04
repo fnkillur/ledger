@@ -16,6 +16,7 @@ type CalendarCarouselProps = {
   monthKey: string
   events: CalendarEvent[]
   focusedDate: string | null
+  cycleDates?: ReadonlySet<string>
   onChangeMonth: (offset: 1 | -1) => void
   onSelectDay: (dateKey: string) => void
 }
@@ -23,7 +24,7 @@ type CalendarCarouselProps = {
 type Gesture = { x: number; y: number; time: number; isHorizontal: boolean | null }
 
 // 끄는 동안에는 매 프레임 React를 다시 그리지 않도록 트랙의 transform을 직접 바꾼다.
-function CalendarCarousel({ monthKey, events, focusedDate, onChangeMonth, onSelectDay }: CalendarCarouselProps) {
+function CalendarCarousel({ monthKey, events, focusedDate, cycleDates, onChangeMonth, onSelectDay }: CalendarCarouselProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const gestureRef = useRef<Gesture | null>(null)
@@ -125,7 +126,14 @@ function CalendarCarousel({ monthKey, events, focusedDate, onChangeMonth, onSele
       <div ref={trackRef} className="cal-track">
         {/* 자리(이전·현재·다음)마다 같은 그리드를 다시 써서, 달이 바뀌어도 칸 높이 계산이 처음부터 다시 돌지 않게 한다. */}
         {months.map((month, index) => (
-          <CalendarGrid key={index} monthKey={month} events={eventsByMonth[index]} focusedDate={focusedDate} onSelectDay={handleSelectDay} />
+          <CalendarGrid
+            key={index}
+            monthKey={month}
+            events={eventsByMonth[index]}
+            focusedDate={focusedDate}
+            cycleDates={cycleDates}
+            onSelectDay={handleSelectDay}
+          />
         ))}
       </div>
     </div>

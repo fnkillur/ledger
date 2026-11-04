@@ -1,10 +1,13 @@
 import { ArrowClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router'
 import CalendarCarousel from '../components/calendar/CalendarCarousel'
+import CalendarModeSwitch from '../components/calendar/CalendarModeSwitch'
 import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
+import { useCycleRows } from '../db/hooks'
+import { cycleDueByDate } from '../domain/cycle'
 import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
 import { eventsOnDay, gridRange } from '../domain/calendar'
 import { isSyncConfigured, useSettings } from '../sync/settings'
@@ -29,12 +32,15 @@ function CalendarPage() {
   const settings = useSettings()
   const events = useCalendarEvents()
   const { error, pendingCount } = useCalendarStatus()
+  const cycleRows = useCycleRows(todayKey())
 
   const [pickedDay, setPickedDay] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
   // 날짜를 한 번 누르면 고른 표시만 하고, 고른 날짜를 한 번 더 누르면 그날 일정을 연다.
   const [focusedDate, setFocusedDate] = useState(todayKey)
 
   const opened = linkedDate ? { dateKey: linkedDate, view: { type: 'list' } as DaySheetView } : pickedDay
+  const cyclesByDate = useMemo(() => cycleDueByDate(cycleRows ?? []), [cycleRows])
+  const cycleDates = useMemo(() => new Set(cyclesByDate.keys()), [cyclesByDate])
 
   const handleSelectDay = (dateKey: string) => {
     if (dateKey !== focusedDate) {
@@ -65,6 +71,7 @@ function CalendarPage() {
     <div className="page calendar-page">
       <header className="period-header">
         <div className="period-header-row">
+          <CalendarModeSwitch mode="일정" />
           <PeriodSwitcher
             period={{ type: '월별', monthKey }}
             onChange={period => setCalendarMonth(period.monthKey)}
@@ -97,6 +104,7 @@ function CalendarPage() {
             events={events}
             onChangeMonth={offset => setCalendarMonth(shiftMonth(monthKey, offset))}
             focusedDate={focusedDate}
+            cycleDates={cycleDates}
             onSelectDay={handleSelectDay}
           />
         )}
@@ -112,6 +120,7 @@ function CalendarPage() {
             key={opened.dateKey}
             dateKey={opened.dateKey}
             events={eventsOnDay(events ?? [], opened.dateKey)}
+            cycles={cyclesByDate.get(opened.dateKey)}
             initialView={opened.view}
             onClose={closeSheet}
           />,

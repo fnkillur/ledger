@@ -4,6 +4,8 @@ const SHEETS = {
   rules: '분류규칙',
   settings: '설정',
   captures: '수집함',
+  cycles: '주기항목',
+  cycleLogs: '주기기록',
 }
 
 const TRANSACTION_COLUMNS = [
@@ -360,6 +362,8 @@ function pull_(since) {
             status: String(row['상태']),
           }))
       : [],
+    cycles: book.getSheetByName(SHEETS.cycles) ? readObjects_(book.getSheetByName(SHEETS.cycles)).filter(isNewer).map(fromCycleRow_) : [],
+    cycleLogs: book.getSheetByName(SHEETS.cycleLogs) ? readObjects_(book.getSheetByName(SHEETS.cycleLogs)).filter(isNewer).map(fromCycleLogRow_) : [],
   }
 }
 
@@ -422,7 +426,13 @@ function push_(body) {
       Object.entries(body.settings || {}).map(([key, value]) => [key, toSettingValue_(value), now]),
     )
     updateCaptureStatuses_(book, body.captures || [], now)
-    return { serverTime: now }
+    if ((body.cycles || []).length > 0 || (body.cycleLogs || []).length > 0) {
+      const sheets = cycleSheets_(book)
+      upsert_(sheets.items, 'id', (body.cycles || []).map(item => toCycleRow_(item, now)))
+      upsert_(sheets.logs, 'id', (body.cycleLogs || []).map(log => toCycleLogRow_(log, now)))
+    }
+    // 주기를 아는 서버라는 표시. 옛 서버로 보낸 주기 변경은 앱이 outbox에 남겨 둔다.
+    return { serverTime: now, acceptsCycles: true }
   } finally {
     lock.releaseLock()
   }

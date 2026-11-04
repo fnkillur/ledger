@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { CalendarEvent, CalendarEventInput, CalendarEventRef, RepeatScope } from '../domain/calendar'
+import type { CycleItem, CycleLog } from '../domain/cycle'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
 import type { CapturedNotification, ParsedPayment } from '../domain/notificationParser'
@@ -17,7 +18,7 @@ export type CaptureItem = CapturedNotification & {
 }
 
 // skippedCapture: 결제 문자가 아니라서 앱이 걸러 낸 시트 수집함 문자. 시트에도 '무시'로 돌려보낸다.
-export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' | 'skippedCapture' }
+export type OutboxItem = { id: string; type: 'transaction' | 'rule' | 'settings' | 'capture' | 'skippedCapture' | 'cycle' | 'cycleLog' }
 
 export type SharedSettingsRecord = SharedSettings & { key: 'shared'; updatedAt: string }
 
@@ -45,6 +46,8 @@ export const db = new Dexie('ledger') as Dexie & {
   calendarEvents: EntityTable<CalendarEvent, 'id'>
   calendarOutbox: EntityTable<CalendarOp, 'seq'>
   calendarMeta: EntityTable<CalendarMeta, 'key'>
+  cycles: EntityTable<CycleItem, 'id'>
+  cycleLogs: EntityTable<CycleLog, 'id'>
 }
 
 db.version(1).stores({
@@ -91,3 +94,5 @@ db.version(4).stores({ calendarMonths: 'monthKey' })
 
 // 달별 캐시 대신 일정 회차를 통째로 받아 두고, 보낼 작업은 대기열에 쌓는다.
 db.version(5).stores({ calendarMonths: null, calendarEvents: 'id, seriesId', calendarOutbox: '++seq', calendarMeta: 'key' })
+
+db.version(6).stores({ cycles: 'id', cycleLogs: 'id, cycleId' })

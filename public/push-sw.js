@@ -11,16 +11,17 @@ self.addEventListener('push', event => {
       body: data.body || '',
       icon: 'icon-192.png',
       badge: 'icon-192.png',
-      data: { date: data.date || '' },
+      data: { date: data.date || '', link: data.link || '' },
     }),
   )
 })
 
-// 알림을 누르면 앱을 열고 그 날짜로 간다. 이미 열려 있으면 그 창을 앞으로 가져온다.
+// 알림을 누르면 앱을 열고 알림이 가리키는 화면(주기 항목 등)이나 그 날짜로 간다. 이미 열려 있으면 그 창을 앞으로 가져온다.
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const date = event.notification.data && event.notification.data.date
-  const url = new URL(date ? `./#/?date=${date}` : './', self.registration.scope).href
+  const data = event.notification.data || {}
+  const path = data.link || (data.date ? `/?date=${data.date}` : '')
+  const url = new URL(path ? `./#${path}` : './', self.registration.scope).href
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => {
       const opened = windows[0]

@@ -1,0 +1,739 @@
+[
+  {
+    "name": "기록만 있는 6개월 주기는 다음 날까지 남은 날을 센다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 6,
+        "unit": "month"
+      },
+      "link": null,
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-08-01",
+        "cycleId": "c1",
+        "date": "2026-08-01",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-08-01",
+      "lastSource": "log",
+      "nextDate": "2027-02-01",
+      "days": 89,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "기록보다 최근 결제가 있으면 결제일을 쓴다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": null,
+      "link": {
+        "category": "",
+        "keyword": "치과",
+        "person": ""
+      },
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-05-01",
+        "cycleId": "c1",
+        "date": "2026-05-01",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [
+      {
+        "id": "tx-2026-09-18T03:00:00.000Z-연세치과",
+        "occurredAt": "2026-09-18T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "연세치과",
+        "category": "",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-09-18",
+      "lastSource": "payment",
+      "nextDate": null,
+      "days": 47,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "삭제·월합계·이관·수입 기록은 결제로 보지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": null,
+      "link": {
+        "category": "미용",
+        "keyword": "",
+        "person": ""
+      },
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [],
+    "transactions": [
+      {
+        "id": "tx-2026-10-30T03:00:00.000Z-미용실A미용",
+        "occurredAt": "2026-10-30T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "미용실A",
+        "category": "미용",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": true,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      },
+      {
+        "id": "tx-2026-11-01T03:00:00.000Z-월 합계미용",
+        "occurredAt": "2026-11-01T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "월 합계",
+        "category": "미용",
+        "excluded": false,
+        "source": "월합계",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      },
+      {
+        "id": "tx-2026-10-01T03:00:00.000Z-미용",
+        "occurredAt": "2026-10-01T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "",
+        "category": "미용",
+        "excluded": false,
+        "source": "이관",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      },
+      {
+        "id": "tx-2026-10-20T03:00:00.000Z-환불미용",
+        "occurredAt": "2026-10-20T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "수입",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "환불",
+        "category": "미용",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      },
+      {
+        "id": "tx-2026-07-10T03:00:00.000Z-미용실B미용",
+        "occurredAt": "2026-07-10T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "미용실B",
+        "category": "미용",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-07-10",
+      "lastSource": "payment",
+      "nextDate": null,
+      "days": 117,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "결제한 사람 조건이 다르면 그 결제는 보지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "우사기",
+      "period": null,
+      "link": {
+        "category": "",
+        "keyword": "치과",
+        "person": "우사기"
+      },
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [],
+    "transactions": [
+      {
+        "id": "tx-2026-10-01T03:00:00.000Z-연세치과",
+        "occurredAt": "2026-10-01T03:00:00.000Z",
+        "person": "쿠리만쥬",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "연세치과",
+        "category": "",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      },
+      {
+        "id": "tx-2026-06-01T03:00:00.000Z-연세치과",
+        "occurredAt": "2026-06-01T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "연세치과",
+        "category": "",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-06-01",
+      "lastSource": "payment",
+      "nextDate": null,
+      "days": 156,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "가맹점 말은 공백·대소문자를 무시하고, 결제일은 한국 날짜로 본다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": null,
+      "link": {
+        "category": "",
+        "keyword": "gs 25",
+        "person": ""
+      },
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [],
+    "transactions": [
+      {
+        "id": "tx-2026-11-03T15:30:00.000Z-GS25역삼점",
+        "occurredAt": "2026-11-03T15:30:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "GS25역삼점",
+        "category": "",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-11-04",
+      "lastSource": "payment",
+      "nextDate": null,
+      "days": 0,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "같은 날 기록과 결제가 있으면 기록으로 본다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": null,
+      "link": {
+        "category": "",
+        "keyword": "치과",
+        "person": ""
+      },
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-10-01",
+        "cycleId": "c1",
+        "date": "2026-10-01",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [
+      {
+        "id": "tx-2026-10-01T03:00:00.000Z-연세치과",
+        "occurredAt": "2026-10-01T03:00:00.000Z",
+        "person": "우사기",
+        "kind": "지출",
+        "amount": 10000,
+        "shareCount": 1,
+        "merchant": "연세치과",
+        "category": "",
+        "excluded": false,
+        "source": "알림",
+        "memo": "",
+        "rawText": "",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "scope": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-10-01",
+      "lastSource": "log",
+      "nextDate": null,
+      "days": 34,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "지운 기록은 마지막 날 계산에서 빠진다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "link": null,
+      "notify": {
+        "enabled": false,
+        "offsets": [],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-10-01",
+        "cycleId": "c1",
+        "date": "2026-10-01",
+        "person": "쿠리만쥬",
+        "deleted": true,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      },
+      {
+        "id": "l2-2026-09-01",
+        "cycleId": "c1",
+        "date": "2026-09-01",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-09-01",
+      "lastSource": "log",
+      "nextDate": "2026-10-01",
+      "days": -34,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "기록도 결제도 없으면 계산하지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "year"
+      },
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [
+          0
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": null,
+      "lastSource": null,
+      "nextDate": null,
+      "days": null,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "주기 없는 항목은 정한 날수가 된 날 알림을 보낸다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": null,
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [],
+        "afterDays": 180
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-05-08",
+        "cycleId": "c1",
+        "date": "2026-05-08",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-05-08",
+      "lastSource": "log",
+      "nextDate": null,
+      "days": 180,
+      "dueOffset": 180
+    }
+  },
+  {
+    "name": "고른 시점(3일 전)이 되면 알림을 보낸다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "year"
+      },
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [
+          0,
+          3
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2025-11-07",
+        "cycleId": "c1",
+        "date": "2025-11-07",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2025-11-07",
+      "lastSource": "log",
+      "nextDate": "2026-11-07",
+      "days": 3,
+      "dueOffset": 3
+    }
+  },
+  {
+    "name": "당일 알림",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "week"
+      },
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [
+          0
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-10-28",
+        "cycleId": "c1",
+        "date": "2026-10-28",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-10-28",
+      "lastSource": "log",
+      "nextDate": "2026-11-04",
+      "days": 0,
+      "dueOffset": 0
+    }
+  },
+  {
+    "name": "고르지 않은 시점에는 알림이 없다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "year"
+      },
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [
+          0,
+          7
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2025-11-07",
+        "cycleId": "c1",
+        "date": "2025-11-07",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2025-11-07",
+      "lastSource": "log",
+      "nextDate": "2026-11-07",
+      "days": 3,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "알림을 끄면 시점이 맞아도 보내지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 1,
+        "unit": "year"
+      },
+      "link": null,
+      "notify": {
+        "enabled": false,
+        "offsets": [
+          3
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2025-11-07",
+        "cycleId": "c1",
+        "date": "2025-11-07",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2025-11-07",
+      "lastSource": "log",
+      "nextDate": "2026-11-07",
+      "days": 3,
+      "dueOffset": null
+    }
+  },
+  {
+    "name": "기한이 지나면 알림을 보내지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "항목",
+      "icon": "",
+      "target": "공동",
+      "period": {
+        "amount": 3,
+        "unit": "month"
+      },
+      "link": null,
+      "notify": {
+        "enabled": true,
+        "offsets": [
+          0
+        ],
+        "afterDays": null
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "logs": [
+      {
+        "id": "l1-2026-07-01",
+        "cycleId": "c1",
+        "date": "2026-07-01",
+        "person": "쿠리만쥬",
+        "deleted": false,
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    ],
+    "transactions": [],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-07-01",
+      "lastSource": "log",
+      "nextDate": "2026-10-01",
+      "days": -34,
+      "dueOffset": null
+    }
+  }
+]

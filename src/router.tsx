@@ -2,6 +2,8 @@ import { createHashRouter } from 'react-router'
 import TabLayout from './components/TabLayout'
 import CalendarEventPage from './pages/CalendarEventPage'
 import CalendarPage from './pages/CalendarPage'
+import CycleEditPage from './pages/CycleEditPage'
+import CyclesPage from './pages/CyclesPage'
 import EditPage from './pages/EditPage'
 import ScrollManager from './components/ScrollManager'
 import ImportCapturePage from './pages/ImportCapturePage'
@@ -21,6 +23,7 @@ export const router = createHashRouter([
         element: <TabLayout />,
         children: [
           { path: '/', element: <CalendarPage /> },
+          { path: '/cycles', element: <CyclesPage /> },
           { path: LIST_PATH, element: <ListPage /> },
           { path: '/stats', element: <StatsPage /> },
           { path: '/inbox', element: <InboxPage /> },
@@ -30,6 +33,8 @@ export const router = createHashRouter([
       { path: '/tx/new', element: <EditPage /> },
       { path: '/tx/:id', element: <EditPage /> },
       { path: '/monthly', element: <MonthlyPage /> },
+      { path: '/cycles/new', element: <CycleEditPage /> },
+      { path: '/cycles/:id', element: <CycleEditPage /> },
       { path: '/calendar/new', element: <CalendarEventPage /> },
       { path: '/calendar/event/:id', element: <CalendarEventPage /> },
       { path: '/import', element: <ImportCapturePage /> },

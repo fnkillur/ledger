@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useMemo } from 'react'
+import { cycleState, sortCycles } from '../domain/cycle'
 import { frequentEntries } from '../domain/insights'
 import { displayName } from '../domain/nickname'
 import { isAggregate, UNCATEGORIZED, type Kind, type Person } from '../domain/types'
@@ -110,4 +111,30 @@ export function useRecentInputs(kind: Kind) {
 export function usePersonName() {
   const nicknames = useSharedSettings()?.닉네임
   return useCallback((person: Person) => displayName(person, nicknames ?? {}), [nicknames])
+}
+
+// 결제 연결 항목은 거래내역에서 마지막 결제일을 찾아야 해서, 거래가 바뀌어도 다시 계산한다.
+export function useCycleRows(today: string) {
+  return useLiveQuery(async () => {
+    const [items, logs, transactions] = await Promise.all([db.cycles.toArray(), db.cycleLogs.toArray(), db.transactions.toArray()])
+    const liveLogs = logs.filter(log => !log.deleted)
+    const rows = items
+      .filter(item => !item.deleted)
+      .map(item => ({
+        item,
+        state: cycleState(item, liveLogs, transactions, today),
+        logs: liveLogs.filter(log => log.cycleId === item.id).sort((left, right) => right.date.localeCompare(left.date)),
+      }))
+    return sortCycles(rows)
+  }, [today])
+}
+
+export function useCycle(id: string | undefined) {
+  return useLiveQuery(async () => {
+    if (!id) return null
+    const item = await db.cycles.get(id)
+    if (!item || item.deleted) return null
+    const logs = (await db.cycleLogs.where('cycleId').equals(id).toArray()).filter(log => !log.deleted).sort((left, right) => right.date.localeCompare(left.date))
+    return { item, logs }
+  }, [id])
 }

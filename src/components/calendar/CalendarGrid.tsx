@@ -10,10 +10,11 @@ type CalendarGridProps = {
   monthKey: string
   events: CalendarEvent[]
   focusedDate: string | null
+  cycleDates?: ReadonlySet<string>
   onSelectDay: (dateKey: string) => void
 }
 
-function CalendarGrid({ monthKey, events, focusedDate, onSelectDay }: CalendarGridProps) {
+function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }: CalendarGridProps) {
   const gridRef = useRef<HTMLDivElement>(null)
 
   const [maxLanes, setMaxLanes] = useState(3)
@@ -34,7 +35,16 @@ function CalendarGrid({ monthKey, events, focusedDate, onSelectDay }: CalendarGr
   return (
     <div ref={gridRef} className="cal-grid" style={{ '--weeks': weeks.length } as CSSProperties}>
       {weeks.map(week => (
-        <CalendarWeek key={week[0]} week={week} monthKey={monthKey} events={events} maxLanes={maxLanes} focusedDate={focusedDate} onSelect={onSelectDay} />
+        <CalendarWeek
+          key={week[0]}
+          week={week}
+          monthKey={monthKey}
+          events={events}
+          maxLanes={maxLanes}
+          focusedDate={focusedDate}
+          cycleDates={cycleDates}
+          onSelect={onSelectDay}
+        />
       ))}
     </div>
   )
@@ -46,16 +56,25 @@ type CalendarWeekProps = {
   events: CalendarEvent[]
   maxLanes: number
   focusedDate: string | null
+  cycleDates?: ReadonlySet<string>
   onSelect: (dateKey: string) => void
 }
 
-function CalendarWeek({ week, monthKey, events, maxLanes, focusedDate, onSelect }: CalendarWeekProps) {
+function CalendarWeek({ week, monthKey, events, maxLanes, focusedDate, cycleDates, onSelect }: CalendarWeekProps) {
   const { bars, hidden, moreLane } = weekLayout(week, events, maxLanes)
 
   return (
     <div className="cal-week">
       {week.map((dateKey, column) => (
-        <CalendarDay key={dateKey} dateKey={dateKey} monthKey={monthKey} column={column} isFocused={dateKey === focusedDate} onSelect={onSelect} />
+        <CalendarDay
+          key={dateKey}
+          dateKey={dateKey}
+          monthKey={monthKey}
+          column={column}
+          isFocused={dateKey === focusedDate}
+          hasCycle={cycleDates?.has(dateKey) ?? false}
+          onSelect={onSelect}
+        />
       ))}
       {bars.map(bar => (
         <CalendarEventChip key={`${bar.event.id}-${week[0]}`} bar={bar} />
@@ -78,10 +97,11 @@ type CalendarDayProps = {
   monthKey: string
   column: number
   isFocused: boolean
+  hasCycle: boolean
   onSelect: (dateKey: string) => void
 }
 
-function CalendarDay({ dateKey, monthKey, column, isFocused, onSelect }: CalendarDayProps) {
+function CalendarDay({ dateKey, monthKey, column, isFocused, hasCycle, onSelect }: CalendarDayProps) {
   const tone = dayTone(dateKey, monthKey)
   const day = Number(dateKey.slice(8, 10))
 
@@ -103,9 +123,10 @@ function CalendarDay({ dateKey, monthKey, column, isFocused, onSelect }: Calenda
       style={{ gridColumn: column + 1 }}
       aria-pressed={isFocused}
       onClick={() => onSelect(dateKey)}
-      aria-label={`${Number(dateKey.slice(5, 7))}월 ${day}일`}
+      aria-label={`${Number(dateKey.slice(5, 7))}월 ${day}일${hasCycle ? ', 교체할 것 있음' : ''}`}
     >
       <span className="cal-day-number">{day}</span>
+      {hasCycle && <span className="cal-cycle-dot" aria-hidden="true" />}
     </button>
   )
 }

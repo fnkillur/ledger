@@ -12,7 +12,7 @@ import { router } from './router'
 
 bootstrap()
 hideBootSplash()
-listenNativePush(date => router.navigate(`/?date=${date}`), () => syncCalendar())
+listenNativePush(path => router.navigate(path), () => syncCalendar())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

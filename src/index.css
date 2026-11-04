@@ -4571,3 +4571,308 @@ button.pill-input {
 .season-legend-band:first-of-type {
   margin-left: auto;
 }
+
+/* 캘린더 탭: 일정 | 주기 전환 */
+.period-header-row:has(.calendar-mode-switch) {
+  justify-content: flex-start;
+  padding-left: var(--space-3);
+}
+
+.period-header-row:has(.calendar-mode-switch) > :not(.calendar-mode-switch) {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.calendar-mode-switch {
+  flex: none;
+}
+
+.calendar-mode-switch .segmented {
+  padding: 3px;
+}
+
+.calendar-mode-switch .segmented-option {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-sm);
+}
+
+.cycles-title {
+  margin: 0;
+  font-size: var(--font-lg);
+  font-weight: 700;
+}
+
+/* 주기 목록 */
+.cycle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cycle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.cycle-row.is-linked {
+  animation: cycle-linked 1600ms var(--ease-out);
+}
+
+@keyframes cycle-linked {
+  0%,
+  40% {
+    box-shadow: 0 0 0 2px var(--color-primary);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+.cycle-row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cycle-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-pressed);
+  font-size: 20px;
+}
+
+.cycle-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cycle-text strong {
+  overflow: hidden;
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cycle-text small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.cycle-progress {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-pressed);
+}
+
+.cycle-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+}
+
+.cycle-progress.tone-soon span {
+  background: var(--color-expense);
+}
+
+.cycle-progress.tone-overdue span {
+  background: var(--color-danger);
+}
+
+.cycle-badge {
+  flex: none;
+  font-size: var(--font-md);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cycle-badge.tone-soon {
+  color: var(--color-expense);
+}
+
+.cycle-badge.tone-overdue {
+  color: var(--color-danger);
+}
+
+.cycle-badge.tone-empty {
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.cycle-done {
+  flex: none;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.cycle-done:active {
+  transform: scale(0.95);
+}
+
+.cycle-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.cycle-undo {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--tab-bar-height) + 92px + env(safe-area-inset-bottom, 0px));
+  left: var(--space-4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 480px;
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+
+.cycle-undo .text-button {
+  color: var(--color-bg);
+  font-weight: 700;
+}
+
+/* 주기 항목 폼 */
+.cycle-icon-input {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-pressed);
+  font-size: 22px;
+  text-align: center;
+}
+
+.cycle-targets,
+.cycle-offsets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cycle-offsets .chip[aria-checked='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.cycle-period {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cycle-number {
+  width: 56px;
+  text-align: center;
+}
+
+.cycle-push-hint {
+  color: var(--color-primary);
+  font-size: var(--font-sm);
+  text-decoration: none;
+}
+
+.cycle-logs {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cycle-log-person {
+  flex: 1;
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.bottom-cta .field-hint {
+  margin-bottom: var(--space-2);
+}
+
+/* 캘린더: 주기 항목의 다음 교체일 */
+.cal-day:has(.cal-cycle-dot) {
+  position: relative;
+}
+
+.cal-cycle-dot {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 10px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-expense);
+}
+
+.day-sheet-cycles {
+  margin-bottom: var(--space-2);
+}
+
+.day-sheet-cycle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-expense) 10%, var(--color-surface));
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+}

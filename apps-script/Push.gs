@@ -48,9 +48,13 @@ function notifyCalendarAdded_(actor, event) {
 }
 
 function sendPushToOthers_(actorPerson, message) {
+  sendPushTo_(PUSH_PEOPLE.filter(person => person !== actorPerson), message)
+}
+
+function sendPushTo_(people, message) {
   if (typeof FIREBASE_SERVICE_ACCOUNT === 'undefined') return
   const tokens = readPushTokens_()
-  const targets = Object.keys(tokens).filter(token => tokens[token].person !== actorPerson)
+  const targets = Object.keys(tokens).filter(token => people.includes(tokens[token].person))
   if (targets.length === 0) return
 
   const accessToken = fcmAccessToken_()
@@ -78,7 +82,7 @@ function sendPushToOthers_(actorPerson, message) {
 }
 
 function toFcmMessage_(token, platform, message) {
-  const data = { date: message.date || '' }
+  const data = { date: message.date || '', link: message.link || '' }
   if (platform === 'android') {
     return { token, notification: { title: message.title, body: message.body }, data, android: { priority: 'high' } }
   }
