@@ -12,6 +12,8 @@ export type CycleItem = {
   target: CycleTarget
   // 캘린더 일정 제목에 들어간 말. 비면 이름으로 찾는다.
   keyword: string
+  // 주기 있는 항목의 첫 회차(처음 한 날). 회차는 여기서 주기만큼씩 달력에 고정된다. 비면 마지막 일정을 쓴다.
+  anchor: string | null
   period: CyclePeriod | null
   memo: string
   deleted: boolean
@@ -75,14 +77,40 @@ const isTargetMatched = (item: CycleItem, target: CalendarTarget) => {
 export const matchesCycleEvent = (item: CycleItem, event: CycleEvent) =>
   isTargetMatched(item, event.target) && searchWord(item) !== '' && normalize(event.title).includes(searchWord(item))
 
+// 회차보다 이만큼 일찍 해도 그 회차를 한 것으로 본다(짧은 주기는 주기의 절반까지).
+const EARLY_DAYS = 7
+
+const dueAt = (anchor: string, period: CyclePeriod, index: number) => addPeriod(anchor, { amount: period.amount * index, unit: period.unit })
+
+// 한 날들이 채운 마지막 회차 번호. 한 번 할 때마다 아직 안 한 가장 오래된 회차를 채우고,
+// 그날(조금 일찍 한 것까지) 이미 지나간 회차가 더 있으면 함께 정리한다.
+const coveredIndex = (anchor: string, period: CyclePeriod, doneDates: string[]) => {
+  const earlyDays = Math.min(EARLY_DAYS, Math.floor(daysBetween(anchor, dueAt(anchor, period, 1)) / 2))
+  return [...new Set(doneDates)]
+    .filter(date => date > anchor)
+    .sort()
+    .reduce((covered, date) => {
+      const reach = addPeriod(date, { amount: earlyDays, unit: 'day' })
+      let passed = covered
+      while (dueAt(anchor, period, passed + 1) <= reach) passed += 1
+      return Math.max(covered + 1, passed)
+    }, 0)
+}
+
 export const cycleState = (item: CycleItem, events: CycleEvent[], today: string): CycleState => {
   const dates = events.filter(event => matchesCycleEvent(item, event)).map(event => eventDateKey(event.start))
-  const lastDate = dates.filter(date => date <= today).reduce<string | null>((latest, date) => (!latest || date > latest ? date : latest), null)
+  const doneDates = dates.filter(date => date <= today)
+  const doneDate = doneDates.reduce<string | null>((latest, date) => (!latest || date > latest ? date : latest), null)
   const reservation = dates.filter(date => date > today).reduce<string | null>((earliest, date) => (!earliest || date < earliest ? date : earliest), null)
 
-  if (!item.period) return { lastDate, reservation, nextDate: null, isReservedNext: false, days: lastDate ? daysBetween(lastDate, today) : null }
-  const nextDate = reservation ?? (lastDate ? addPeriod(lastDate, item.period) : null)
-  return { lastDate, reservation, nextDate, isReservedNext: reservation !== null, days: nextDate ? daysBetween(today, nextDate) : null }
+  if (!item.period) return { lastDate: doneDate, reservation, nextDate: null, isReservedNext: false, days: doneDate ? daysBetween(doneDate, today) : null }
+
+  const anchor = item.anchor ?? doneDate
+  if (!anchor) return { lastDate: null, reservation, nextDate: reservation, isReservedNext: reservation !== null, days: reservation ? daysBetween(today, reservation) : null }
+
+  const isDoneCounted = !!doneDate && doneDate >= anchor
+  const nextDate = dueAt(anchor, item.period, coveredIndex(anchor, item.period, doneDates) + 1)
+  return { lastDate: isDoneCounted ? doneDate : anchor, reservation, nextDate, isReservedNext: false, days: daysBetween(today, nextDate) }
 }
 
 const byDaysNullLast = (compare: (left: number, right: number) => number) => (left: { state: CycleState }, right: { state: CycleState }) => {
@@ -90,23 +118,15 @@ const byDaysNullLast = (compare: (left: number, right: number) => number) => (le
   return compare(left.state.days, right.state.days)
 }
 
-// 주기 없는 항목도 예약이 잡혀 있으면 예약일을 다음 날로 보고 다가오는 쪽에 둔다.
-const asUpcoming = <Row extends { item: CycleItem; state: CycleState }>(row: Row, today: string): Row => {
-  if (row.item.period || !row.state.reservation) return row
-  return { ...row, state: { ...row.state, nextDate: row.state.reservation, isReservedNext: true, days: daysBetween(today, row.state.reservation) } }
-}
+// 개인 항목은 기본으로 내 것만 보이고, 공동은 늘 보인다.
+export const visibleCycles = <Row extends { item: CycleItem }>(rows: Row[], me: Person, showsOthers: boolean) =>
+  rows.filter(row => showsOthers || row.item.target === '공동' || row.item.target === me)
 
-// 다가오는 쪽은 기한이 가까운 순, 마지막으로 한 지는 오래된 순. 기록이 없으면 뒤로 보낸다.
-export const splitCycles = <Row extends { item: CycleItem; state: CycleState }>(rows: Row[], today: string) => {
-  const isUpcoming = (row: Row) => row.item.period !== null || row.state.reservation !== null
-  return {
-    periodic: rows
-      .filter(isUpcoming)
-      .map(row => asUpcoming(row, today))
-      .sort(byDaysNullLast((left, right) => left - right)),
-    elapsed: rows.filter(row => !isUpcoming(row)).sort(byDaysNullLast((left, right) => right - left)),
-  }
-}
+// 교체 주기는 기한이 가까운 순, 마지막으로 한 지는 오래된 순. 기록이 없으면 뒤로 보낸다.
+export const splitCycles = <Row extends { item: CycleItem; state: CycleState }>(rows: Row[]) => ({
+  periodic: rows.filter(row => row.item.period).sort(byDaysNullLast((left, right) => left - right)),
+  elapsed: rows.filter(row => !row.item.period).sort(byDaysNullLast((left, right) => right - left)),
+})
 
 // 일정 폼에서 이 일정이 어느 주기 항목에 기록되는지 알려 줄 때 쓴다.
 export const findCycleForEvent = (items: CycleItem[], event: CycleEvent) => items.find(item => !item.deleted && matchesCycleEvent(item, event)) ?? null
@@ -117,6 +137,7 @@ export const cycleFromEvent = (title: string, target: CalendarTarget): CycleInpu
   icon: '',
   target: target === '공동' || target === '쿠리만쥬' || target === '우사기' ? target : '공동',
   keyword: title.trim(),
+  anchor: null,
   period: null,
   memo: '',
 })

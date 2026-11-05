@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addPeriod, cycleDueByDate, cycleFromEvent, cycleState, findCycleForEvent, splitCycles, type CycleEvent, type CycleItem, type CycleState } from './cycle'
+import { addPeriod, cycleDueByDate, cycleFromEvent, cycleState, findCycleForEvent, splitCycles, visibleCycles, type CycleEvent, type CycleItem, type CycleState } from './cycle'
 import cases from './cycleCases.json'
 
 type Case = { name: string; item: CycleItem; events: CycleEvent[]; today: string; expected: Record<string, unknown> }
@@ -47,6 +47,17 @@ describe('cycleState (앱·서버 공통 사례)', () => {
   })
 })
 
+describe('visibleCycles', () => {
+  const row = (id: string, target: CycleItem['target']) => ({ item: { id, target } as CycleItem })
+  const rows = [row('shared', '공동'), row('mine', '쿠리만쥬'), row('yours', '우사기')]
+
+  it('공동과 내 항목만 보이고, 상대방 것도 보기를 켜면 모두 보인다', () => {
+    expect(visibleCycles(rows, '쿠리만쥬', false).map(item => item.item.id)).toEqual(['shared', 'mine'])
+    expect(visibleCycles(rows, '우사기', false).map(item => item.item.id)).toEqual(['shared', 'yours'])
+    expect(visibleCycles(rows, '쿠리만쥬', true)).toHaveLength(3)
+  })
+})
+
 describe('splitCycles', () => {
   const state = (days: number | null): CycleState => ({ lastDate: days === null ? null : 'x', reservation: null, nextDate: null, isReservedNext: false, days })
   const row = (id: string, period: boolean, days: number | null) => ({ item: { id, period: period ? { amount: 1, unit: 'month' } : null } as CycleItem, state: state(days) })
@@ -59,18 +70,17 @@ describe('splitCycles', () => {
       row('late', true, -2),
       row('free-old', false, 90),
       row('free-none', false, null),
-    ], '2026-11-04')
+    ])
     expect(periodic.map(item => item.item.id)).toEqual(['late', 'soon', 'none'])
     expect(elapsed.map(item => item.item.id)).toEqual(['free-old', 'free-new', 'free-none'])
   })
 
-  it('주기 없는 항목도 예약이 있으면 다가오는 쪽에 두고 예약일까지 남은 날을 센다', () => {
+  it('주기 없는 항목은 예약이 있어도 마지막으로 한 지에 둔다', () => {
     const reserved = { item: { id: 'dentist', period: null } as unknown as CycleItem, state: { ...state(119), lastDate: '2026-07-08', reservation: '2026-11-20' } }
-    const { periodic, elapsed } = splitCycles([reserved, row('soon', true, 5), row('free', false, 30)], '2026-11-04')
+    const { periodic, elapsed } = splitCycles([reserved, row('soon', true, 5)])
 
-    expect(periodic.map(item => item.item.id)).toEqual(['soon', 'dentist'])
-    expect(periodic[1].state).toEqual({ lastDate: '2026-07-08', reservation: '2026-11-20', nextDate: '2026-11-20', isReservedNext: true, days: 16 })
-    expect(elapsed.map(item => item.item.id)).toEqual(['free'])
+    expect(periodic.map(item => item.item.id)).toEqual(['soon'])
+    expect(elapsed.map(item => item.item.id)).toEqual(['dentist'])
   })
 })
 

@@ -17,6 +17,8 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
   const share = myShare(transaction)
   const category = transaction.category || '카테고리 없음'
   const title = transaction.merchant || category
+  // 공동 지출은 누가 결제했는지보다 둘의 지출이라는 게 중요해서 공동으로 보여 준다.
+  const isShared = transaction.kind === '지출' && transaction.scope === '공동'
 
   return (
     <li>
@@ -26,8 +28,8 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
           <strong className="tx-row-title">{title}</strong>
           <span className="tx-row-meta">
             <span className="tx-row-person">
-              <PersonAvatar person={transaction.person} size={16} />
-              {personName(transaction.person)}
+              <PersonAvatar person={isShared ? '공동' : transaction.person} size={16} />
+              {isShared ? '공동' : personName(transaction.person)}
             </span>
             <span className="tx-row-category">{category}</span>
             {transaction.kind === '지출' && transaction.scope === '개인' && <span className="tx-badge">개인</span>}

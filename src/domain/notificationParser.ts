@@ -17,14 +17,15 @@ export type ParsedPayment = {
   isCancel: boolean
 }
 
-const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원/g
+// 카드사는 "12,000원", 삼성월렛은 "₩12,000"처럼 쓴다.
+const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원|[₩￦]\s*(\d{1,3}(?:,\d{3})+|\d+)/g
 const NON_PAYMENT_AMOUNT_PREFIX = /(잔액|누적|한도|잔고|포인트|할인|적립|캐시백)[^\d]{0,6}$/
 
 export const findAmount = (text: string) => {
   for (const match of text.matchAll(AMOUNT_PATTERN)) {
     const prefix = text.slice(Math.max(0, match.index - 12), match.index)
     if (NON_PAYMENT_AMOUNT_PREFIX.test(prefix)) continue
-    const amount = Number(match[1].replace(/,/g, ''))
+    const amount = Number((match[1] ?? match[2]).replace(/,/g, ''))
     if (amount > 0) return amount
   }
   return null

@@ -5,6 +5,7 @@ import CategoryIcon from '../components/CategoryIcon'
 import EmptyState from '../components/EmptyState'
 import PeriodHeader from '../components/PeriodHeader'
 import PersonAvatar from '../components/PersonAvatar'
+import SalaryEstimateNote from '../components/SalaryEstimateNote'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
 import { useCategoriesQuery, useCategoryIcons, usePersonName, useTransactionsBetween } from '../db/hooks'
@@ -14,16 +15,19 @@ import {
   expenseByScope,
   expenseRatio,
   monthlyTotals,
+  pendingSalaries,
+  withExpectedSalary,
   ratioLevel,
   ratioMessage,
   sumByKind,
   toExcludedCategories,
   type CategoryAggregate,
   type KindTotals,
+  type PendingSalary,
 } from '../domain/stats'
 import { isAggregate, PEOPLE, type Transaction } from '../domain/types'
 import { isSyncConfigured, useSettings } from '../sync/settings'
-import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, toDateKey } from '../utils/format'
+import { currentMonthKey, formatDayLabel, formatShortMonth, formatWon, shiftMonth, toDateKey } from '../utils/format'
 import { updateViewState, useViewState } from '../utils/viewState'
 
 type DayGroup = { dateKey: string; transactions: Transaction[] }
@@ -45,15 +49,22 @@ function ListPage() {
 
   const range = toRange({ type: periodType, monthKey })
   const transactions = useTransactionsBetween(range.start, range.end)
+  const previousRange = toRange({ type: '월별', monthKey: shiftMonth(monthKey, -1) })
+  const previousTransactions = useTransactionsBetween(previousRange.start, previousRange.end)
   const loadedCategories = useCategoriesQuery()
 
   const categories = useMemo(() => loadedCategories ?? [], [loadedCategories])
   // 처음 불러오는 동안 0원·빈 목록을 그렸다가 바꾸면 깜빡이므로, 다 불러온 뒤에 한 번에 그린다.
-  const isReady = transactions !== undefined && loadedCategories !== undefined
+  const isReady = transactions !== undefined && previousTransactions !== undefined && loadedCategories !== undefined
   const excludedCategories = useMemo(() => toExcludedCategories(categories), [categories])
   const periodTransactions = useMemo(() => transactions ?? [], [transactions])
   const totals = useMemo(() => sumByKind(periodTransactions, excludedCategories), [periodTransactions, excludedCategories])
   const byScope = useMemo(() => expenseByScope(periodTransactions, excludedCategories), [periodTransactions, excludedCategories])
+  const isCurrentMonth = periodType === '월별' && monthKey === currentMonthKey()
+  const pending = useMemo(
+    () => (isCurrentMonth ? pendingSalaries(periodTransactions, previousTransactions ?? [], excludedCategories) : []),
+    [isCurrentMonth, periodTransactions, previousTransactions, excludedCategories],
+  )
 
   return (
     <div className="page">
@@ -69,7 +80,7 @@ function ListPage() {
         {isReady && (
           <>
             <section className="summary-card" aria-label="요약">
-              <ExpenseRatio totals={totals} />
+              <ExpenseRatio totals={totals} pending={pending} />
               <SummaryItem label="지출" amount={totals.지출} tone="지출" />
               <SummaryItem label="수입" amount={totals.수입} tone="수입" />
               <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출} tone="남은" />
@@ -244,15 +255,21 @@ function DayTotal({ totals }: { totals: KindTotals }) {
 
 const formatRatio = (ratio: number | null) => (ratio === null ? '–' : `${ratio}%`)
 
-function ExpenseRatio({ totals }: { totals: KindTotals }) {
-  const ratio = expenseRatio(totals)
+// 월급 전에는 번 돈이 적어 비율이 늘 높게 나오므로, 아직 안 들어온 월급은 지난달 금액으로 채워 본다.
+function ExpenseRatio({ totals, pending }: { totals: KindTotals; pending: PendingSalary[] }) {
+  const personName = usePersonName()
+
+  const estimate = withExpectedSalary(totals, pending)
+  const isEstimate = estimate.isEstimate
+  const ratio = expenseRatio(estimate.totals)
+  const pendingText = pending.map(salary => `${personName(salary.person)} ${salary.day}일`).join(' · ')
 
   if (ratio === null) {
     return (
       <div className="ratio-hero">
         <span className="summary-label">수입 대비 지출</span>
         <strong className="ratio-value">–</strong>
-        <span className="ratio-message">수입이 들어오면 지출 비율을 보여드려요</span>
+        <span className="ratio-message">{pending.length > 0 ? `월급 예정 ${pendingText}` : '수입이 들어오면 지출 비율을 보여드려요'}</span>
       </div>
     )
   }
@@ -261,7 +278,10 @@ function ExpenseRatio({ totals }: { totals: KindTotals }) {
   return (
     <div className="ratio-hero" data-level={level}>
       <div className="ratio-head">
-        <span className="summary-label">수입 대비 지출</span>
+        <span className="ratio-title">
+          <span className="summary-label">수입 대비 지출</span>
+          {isEstimate && <SalaryEstimateNote pending={pending} />}
+        </span>
         <span className="ratio-chip">{level}</span>
       </div>
       <strong className="ratio-value">{ratio}%</strong>

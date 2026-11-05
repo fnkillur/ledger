@@ -24,6 +24,7 @@ describe('Cycle.gs 시트 행', () => {
       icon: '💧',
       target: '공동',
       keyword: '정수기',
+      anchor: '2026-03-26',
       period: { amount: 6, unit: 'month' },
       memo: '',
       deleted: false,
@@ -41,6 +42,7 @@ describe('Cycle.gs 시트 행', () => {
       icon: '',
       target: '우사기',
       keyword: '',
+      anchor: null,
       period: null,
       memo: '메모',
       deleted: true,
@@ -59,10 +61,10 @@ describe('Cycle.gs 시트 행', () => {
     expect(['연결카테고리', '연결가맹점', '연결사람'].map(column => row[server.CYCLE_COLUMNS.indexOf(column)])).toEqual(['', '', ''])
   })
 
-  it('일정키워드 열이 없던 옛 행은 빈 키워드로 읽는다', () => {
-    const columns = server.CYCLE_COLUMNS.filter(column => column !== '일정키워드')
+  it('일정키워드·기준일 열이 없던 옛 행은 빈 키워드, 기준일 없음으로 읽는다', () => {
+    const columns = server.CYCLE_COLUMNS.filter(column => column !== '일정키워드' && column !== '기준일')
     const row = (server.toCycleRow_({ id: 'c3', name: '치과', icon: '', target: '공동', keyword: '', period: null, memo: '', deleted: false, updatedAt: 'u' }, 'now') as unknown[]).slice(0, columns.length)
-    expect((server.fromCycleRow_(toObject(columns, row)) as CycleItem).keyword).toBe('')
+    expect(server.fromCycleRow_(toObject(columns, row))).toMatchObject({ keyword: '', anchor: null })
   })
 })
 

@@ -2,11 +2,12 @@ import { ArrowsClockwiseIcon, CoffeeIcon, MopedIcon, MoonStarsIcon, ScalesIcon, 
 import { useState, type CSSProperties } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Sticker, { type StickerName } from '../../components/Sticker'
+import SalaryEstimateNote from '../../components/SalaryEstimateNote'
 import ScopeSplit from '../../components/ScopeSplit'
 import { budgetPace } from '../../domain/insights'
 import type { Period } from '../../domain/period'
 import type { SavingTip, SavingTipId } from '../../domain/savingTips'
-import { expenseRatio, ratioLevel, type expenseByScope, type KindTotals, type RatioLevel, type ScopeFilter } from '../../domain/stats'
+import { expenseRatio, ratioLevel, withExpectedSalary, type expenseByScope, type KindTotals, type PendingSalary, type RatioLevel, type ScopeFilter } from '../../domain/stats'
 import type { Kind } from '../../domain/types'
 import { formatMonthLabel, formatWon } from '../../utils/format'
 import { formatAxisWon, niceTicks, TOOLTIP_STYLE } from './shared'
@@ -27,15 +28,17 @@ type OverviewSectionProps = {
   householdExpense: number
   byScope: ReturnType<typeof expenseByScope>
   tips: SavingTip[] | null
+  pendingSalaries: PendingSalary[]
 }
 
 // 이번 기간 한눈에: 지출·수입 대비, 월말 예상, 줄여볼 만한 지출. 공동·개인을 고르면 지출만 그 범위로 보고, 전체에서의 비중을 함께 보여 준다.
-function OverviewSection({ period, previousLabel, scopeFilter, totals, previousTotals, householdExpense, byScope, tips }: OverviewSectionProps) {
+function OverviewSection({ period, previousLabel, scopeFilter, totals, previousTotals, householdExpense, byScope, tips, pendingSalaries }: OverviewSectionProps) {
   const [today] = useState(() => new Date())
 
   const isAll = scopeFilter === '전체'
   const pace = period.type === '월별' ? budgetPace(totals.지출, period.monthKey, today) : null
-  const ratio = expenseRatio(totals)
+  const estimate = withExpectedSalary(totals, pendingSalaries)
+  const ratio = expenseRatio(estimate.totals)
   const previousRatio = previousTotals && expenseRatio(previousTotals)
 
   return (
@@ -58,6 +61,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
                 : `수입 ${formatWon(totals.수입)}`}
             </span>
             <span className="stat-delta">남은 돈 {formatWon(totals.수입 - totals.지출)}</span>
+            {estimate.isEstimate && <SalaryEstimateNote pending={pendingSalaries} />}
             <RatioMood ratio={ratio} previousRatio={previousRatio} />
           </div>
         ) : (

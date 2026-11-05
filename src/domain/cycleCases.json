@@ -14,7 +14,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -38,7 +39,7 @@
     "today": "2026-11-04"
   },
   {
-    "name": "앞으로 잡힌 일정이 있으면 그날을 다음 날짜로 쓴다",
+    "name": "주기 있는 항목은 예약이 있어도 고정된 다음 회차를 쓴다",
     "item": {
       "id": "c1",
       "name": "항목",
@@ -52,7 +53,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -74,9 +76,9 @@
     "expected": {
       "lastDate": "2026-08-01",
       "reservation": "2026-12-01",
-      "nextDate": "2026-12-01",
-      "isReservedNext": true,
-      "days": 27
+      "nextDate": "2027-02-01",
+      "isReservedNext": false,
+      "days": 89
     },
     "today": "2026-11-04"
   },
@@ -92,7 +94,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -127,7 +130,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -157,7 +161,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -187,7 +192,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -235,7 +241,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -265,7 +272,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -298,7 +306,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -331,7 +340,8 @@
       "link": null,
       "memo": "",
       "deleted": false,
-      "updatedAt": "2026-11-01T00:00:00.000Z"
+      "updatedAt": "2026-11-01T00:00:00.000Z",
+      "anchor": null
     },
     "events": [
       {
@@ -348,5 +358,345 @@
       "days": 6
     },
     "today": "2026-11-04"
+  },
+  {
+    "name": "기준일만 있으면 기준일부터 주기만큼 뒤가 다음 회차다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-10-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [],
+    "expected": {
+      "lastDate": "2026-10-05",
+      "reservation": null,
+      "nextDate": "2026-11-05",
+      "isReservedNext": false,
+      "days": 1
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "회차를 늦게 해도 다음 회차는 달력에 고정된다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-09-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-10-12",
+        "target": "공동"
+      }
+    ],
+    "expected": {
+      "lastDate": "2026-10-12",
+      "reservation": null,
+      "nextDate": "2026-11-05",
+      "isReservedNext": false,
+      "days": 1
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "회차 7일 전부터 한 것은 그 회차를 한 것으로 본다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-09-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-11-02",
+        "target": "공동"
+      }
+    ],
+    "expected": {
+      "lastDate": "2026-11-02",
+      "reservation": null,
+      "nextDate": "2026-12-05",
+      "isReservedNext": false,
+      "days": 31
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "안 한 회차가 쌓이면 처음 놓친 회차부터 지난 날을 센다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-08-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [],
+    "expected": {
+      "lastDate": "2026-08-05",
+      "reservation": null,
+      "nextDate": "2026-09-05",
+      "isReservedNext": false,
+      "days": -60
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "기준일보다 앞선 일정은 회차로 치지 않는다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-10-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-09-30",
+        "target": "공동"
+      }
+    ],
+    "expected": {
+      "lastDate": "2026-10-05",
+      "reservation": null,
+      "nextDate": "2026-11-05",
+      "isReservedNext": false,
+      "days": 1
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "말일 기준일은 달마다 말일로 고정된다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-01-31",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-02-28",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-03-31",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-04-30",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-05-31",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-06-30",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-07-31",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-08-31",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-09-30",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-10-31",
+        "target": "공동"
+      }
+    ],
+    "expected": {
+      "lastDate": "2026-10-31",
+      "reservation": null,
+      "nextDate": "2026-11-30",
+      "isReservedNext": false,
+      "days": 26
+    },
+    "today": "2026-11-04"
+  },
+  {
+    "name": "직전 회차를 이미 했으면 7일 넘게 일찍 한 것도 다음 회차를 한 것이다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-09-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-10-05",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-11-04",
+        "target": "공동"
+      },
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-11-16",
+        "target": "공동"
+      }
+    ],
+    "today": "2026-11-20",
+    "expected": {
+      "lastDate": "2026-11-16",
+      "reservation": null,
+      "nextDate": "2027-01-05",
+      "isReservedNext": false,
+      "days": 46
+    }
+  },
+  {
+    "name": "같은 날 일정 두 개는 한 번으로 센다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-09-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-10-05",
+        "target": "공동"
+      },
+      {
+        "title": "열교환기 청소 예약",
+        "start": "2026-10-05T10:00:00+09:00",
+        "target": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-10-05",
+      "reservation": null,
+      "nextDate": "2026-11-05",
+      "isReservedNext": false,
+      "days": 1
+    }
+  },
+  {
+    "name": "밀린 회차는 한 번 하면 모두 정리된다",
+    "item": {
+      "id": "c1",
+      "name": "건조기 열교환기 청소",
+      "icon": "",
+      "target": "공동",
+      "keyword": "열교환기",
+      "anchor": "2026-08-05",
+      "period": {
+        "amount": 1,
+        "unit": "month"
+      },
+      "memo": "",
+      "deleted": false,
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    "events": [
+      {
+        "title": "건조기 열교환기 청소",
+        "start": "2026-11-03",
+        "target": "공동"
+      }
+    ],
+    "today": "2026-11-04",
+    "expected": {
+      "lastDate": "2026-11-03",
+      "reservation": null,
+      "nextDate": "2026-12-05",
+      "isReservedNext": false,
+      "days": 31
+    }
   }
 ]

@@ -13,5 +13,6 @@ describe('저장소 업그레이드', () => {
     vi.resetModules()
     const { db } = await import('./database')
     expect((await db.cycles.get('c1'))?.keyword).toBe('')
+    expect((await db.cycles.get('c1'))?.anchor).toBeNull()
   })
 })

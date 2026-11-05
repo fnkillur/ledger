@@ -18,6 +18,7 @@ import {
   expenseByScope,
   matchesScope,
   monthlyTotals,
+  pendingSalaries,
   recentMonthKeys,
   sumByCategory,
   sumByKind,
@@ -25,7 +26,7 @@ import {
   topExpenses,
   type ScopeFilter,
 } from '../domain/stats'
-import { currentMonthKey } from '../utils/format'
+import { currentMonthKey, shiftMonth } from '../utils/format'
 import { useViewState } from '../utils/viewState'
 import CategorySection, { FixedVariableCard, PersonComparisonCard } from './stats/CategorySection'
 import { MealCard, SeasonalCard } from './stats/LifestyleCards'
@@ -103,6 +104,11 @@ function StatsPage() {
       previousTotals: previous && sumByKind(scopedPrevious, excluded),
       householdExpense: sumByKind(current, excluded).지출,
       byScope: expenseByScope(current, excluded),
+      // 이번 달을 보는 중이면 아직 안 들어온 월급을 지난달 금액으로 채워 수입 대비 지출을 본다.
+      pendingSalaries:
+        periodType === '월별' && monthKey === latest
+          ? pendingSalaries(current, loaded.filter(transaction => inRange(transaction, toRange({ type: '월별', monthKey: shiftMonth(monthKey, -1) }))), excluded)
+          : [],
       tips: periodType === '월별' ? savingTips({ monthKey, transactions: loaded, categories, today }) : null,
       // 아직 오지 않은 달, 기록이 하나도 없는 이번 달은 선을 0으로 떨어뜨리지 않고 비워 둔다.
       trend: monthlyTotals(scopedLoaded, ranges.monthKeys, excluded).map(row =>
@@ -168,6 +174,7 @@ function StatsPage() {
               householdExpense={summary.householdExpense}
               byScope={summary.byScope}
               tips={summary.tips}
+              pendingSalaries={summary.pendingSalaries}
             />
 
             <h2 className="stats-section-title">어디에 썼나</h2>

@@ -11,6 +11,7 @@ const input = (overrides: Partial<CycleItem> = {}) => ({
   icon: '💧',
   target: '공동' as const,
   keyword: '정수기',
+  anchor: '2026-03-26',
   period: { amount: 6, unit: 'month' as const },
   memo: '',
   ...overrides,

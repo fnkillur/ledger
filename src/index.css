@@ -2419,6 +2419,65 @@ a {
   background: var(--ratio-bar);
 }
 
+/* 내역 탭의 큰 카드에서는 제목을 조금 키운다. */
+.ratio-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+}
+
+.ratio-title .summary-label {
+  font-size: calc(var(--font-sm) + 1px);
+}
+
+/* 월급 전 예상치라는 표시는 제목보다 한 단계 덜 강조한다. */
+.estimate-note {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: color-mix(in srgb, var(--color-text-sub) 75%, transparent);
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.estimate-help {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.estimate-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(240px, 70vw);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+/* 통계의 수입 대비 지출 칸은 오른쪽 열이라, 툴팁을 왼쪽으로 펼친다. */
+.stat-tile .estimate-tooltip {
+  right: 0;
+  left: auto;
+}
+
 .ratio-message {
   color: var(--color-text-sub);
   word-break: keep-all;
@@ -4624,40 +4683,11 @@ button.pill-input {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-2);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: inset 4px 0 0 var(--tone-solid);
 }
 
-/* 누구 일정인지: 사람 색 원 안의 아바타와 이름 */
-.cycle-who {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 52px;
-}
-
-.cycle-who-avatar {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--tone-bg);
-}
-
-.cycle-who-name {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--tone-fg);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .cycle-row.is-linked,
 .cycle-tile.is-linked {
@@ -4763,6 +4793,53 @@ button.pill-input {
   color: var(--color-text-sub);
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+/* 마지막으로 한 지 제목 줄 끝의 작은 스위치. 보조 기능이라 작게 둔다. */
+.shows-others {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-right: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-sub);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shows-others-switch {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  transition: background 200ms var(--ease-out);
+}
+
+.shows-others-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: transform 200ms var(--ease-out);
+}
+
+.shows-others[aria-checked='true'] .shows-others-switch {
+  background: var(--color-primary);
+}
+
+.shows-others[aria-checked='true'] .shows-others-switch::after {
+  transform: translateX(12px);
 }
 
 /* 마지막으로 한 지: 두 칸 격자 */

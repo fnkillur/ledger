@@ -114,7 +114,6 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   const categories = useCategories()
   const rules = useRules()
   const recent = useRecentInputs(initial.kind)
-  const personName = usePersonName()
 
   const [draft, setDraft] = useState(initial)
   const [amountText, setAmountText] = useState(initial.amount ? String(initial.amount) : '')
@@ -145,6 +144,8 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && receipt === null
   const canUseReceipt = !transaction && draft.kind === '지출'
   // 수입은 나눠 받거나 통계에서 뺄 일이 없다(돌려받은 돈은 '정산' 카테고리가 빠진다). 예전에 넣어 둔 값만 되돌릴 수 있게 보여 준다.
+  // 공동 지출은 둘의 지출이라 누가 썼는지 고르지 않는다(결제한 사람은 그대로 저장된다).
+  const isSharedExpense = draft.kind === '지출' && draft.scope === '공동'
   const showsSplitOptions = draft.kind === '지출' || (initial.kind === '수입' && (initial.shareCount > 1 || initial.excluded))
   const merchantQuery = draft.merchant.trim()
   const merchantSuggestions = merchantQuery
@@ -373,19 +374,21 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
         </section>
 
         <section className="form-group">
-          <div className="form-row">
-            <span>누가</span>
-            <PersonSegmented value={draft.person} onChange={person => update({ person })} />
-          </div>
           {draft.kind === '지출' && (
             <div className="form-row">
               <span className="form-row-text">
                 공동·개인
-                <small>{draft.scope === '공동' ? '둘이 함께 쓴 지출' : `${personName(draft.person)}의 개인 지출`}</small>
+                <small>{draft.scope === '공동' ? '둘이 함께 쓴 지출' : '한 사람만 쓴 지출'}</small>
               </span>
               <div className="tx-compact">
                 <Segmented label="공동·개인" options={SCOPES} value={draft.scope} onChange={scope => update({ scope })} />
               </div>
+            </div>
+          )}
+          {!isSharedExpense && (
+            <div className="form-row">
+              <span>누가</span>
+              <PersonSegmented value={draft.person} onChange={person => update({ person })} />
             </div>
           )}
           <DateTimeRow

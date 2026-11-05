@@ -7,20 +7,34 @@ import PersonAvatar from '../components/PersonAvatar'
 import { saveCycle } from '../db/cycles'
 import { useCycleRows, usePersonName } from '../db/hooks'
 import { TARGET_TONE } from '../domain/calendar'
-import { daysBetween, splitCycles, type CycleInput, type CycleItem, type CycleState, type CycleTarget } from '../domain/cycle'
+import { daysBetween, splitCycles, visibleCycles, type CycleInput, type CycleItem, type CycleState } from '../domain/cycle'
 import { elapsedLabel, formatPeriod, periodicLabel } from '../domain/cycleText'
-import { PEOPLE } from '../domain/types'
+import { DEVICE_PERSON } from '../platform'
 import { toDateKey } from '../utils/format'
 
-type TargetFilter = '전체' | CycleTarget
+const SHOWS_OTHERS_KEY = 'cycles.showsOthers'
 
-const FILTERS: TargetFilter[] = ['전체', '공동', ...PEOPLE]
+const loadShowsOthers = () => {
+  try {
+    return localStorage.getItem(SHOWS_OTHERS_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+const saveShowsOthers = (value: boolean) => {
+  try {
+    localStorage.setItem(SHOWS_OTHERS_KEY, String(value))
+  } catch {
+    // 저장하지 못해도 이번에 보는 동안은 켜 둔 대로 보인다.
+  }
+}
 
 const PRESETS: CycleInput[] = [
-  { name: '수건 교체', icon: '🧺', target: '공동', keyword: '수건', period: { amount: 1, unit: 'year' }, memo: '' },
-  { name: '정수기 필터 교체', icon: '💧', target: '공동', keyword: '정수기', period: { amount: 6, unit: 'month' }, memo: '' },
-  { name: '칫솔 교체', icon: '🪥', target: '공동', keyword: '칫솔', period: { amount: 3, unit: 'month' }, memo: '' },
-  { name: '치과', icon: '🦷', target: '공동', keyword: '치과', period: null, memo: '' },
+  { name: '수건 교체', icon: '🧺', target: '공동', keyword: '수건', anchor: null, period: { amount: 1, unit: 'year' }, memo: '' },
+  { name: '정수기 필터 교체', icon: '💧', target: '공동', keyword: '정수기', anchor: null, period: { amount: 6, unit: 'month' }, memo: '' },
+  { name: '칫솔 교체', icon: '🪥', target: '공동', keyword: '칫솔', anchor: null, period: { amount: 3, unit: 'month' }, memo: '' },
+  { name: '치과', icon: '🦷', target: '공동', keyword: '치과', anchor: null, period: null, memo: '' },
 ]
 
 const todayKey = () => toDateKey(new Date().toISOString())
@@ -39,13 +53,6 @@ const progressOf = (state: CycleState, today: string) => {
 
 const searchWordOf = (item: CycleItem) => item.keyword.trim() || item.name
 
-// 주기 없는 항목이 예약 덕분에 다가오는 쪽에 오면, 주기 대신 마지막 날을 보여 준다.
-const cycleBasis = (item: CycleItem, state: CycleState) => {
-  if (item.period) return formatPeriod(item.period)
-  if (state.lastDate) return `${formatShortDate(state.lastDate)} 마지막`
-  return '첫 예약'
-}
-
 // 캘린더 일정으로 센 교체 주기와 마지막으로 한 지를 한눈에 본다. 기록은 캘린더에 일정을 넣어서 한다.
 function CyclesPage() {
   const [searchParams] = useSearchParams()
@@ -55,14 +62,21 @@ function CyclesPage() {
   const today = todayKey()
   const rows = useCycleRows(today)
 
-  const [filter, setFilter] = useState<TargetFilter>('전체')
+  const [showsOthers, setShowsOthers] = useState(loadShowsOthers)
 
-  const { periodic, elapsed } = splitCycles(
-    (rows ?? []).filter(row => filter === '전체' || row.item.target === filter),
-    today,
-  )
+  // 교체 주기는 집안일이라 모두 보이고, 마지막으로 한 지는 기본으로 내 것(과 공동)만 보인다.
+  const { periodic, elapsed: allElapsed } = splitCycles(rows ?? [])
+  const elapsed = visibleCycles(allElapsed, DEVICE_PERSON, showsOthers)
 
   const open = (item: CycleItem) => navigate(`/cycles/${item.id}`)
+
+  const toggleShowsOthers = () => {
+    saveShowsOthers(!showsOthers)
+    setShowsOthers(!showsOthers)
+  }
+
+  // 정해진 주기는 고르는 날부터 회차를 센다.
+  const addPreset = (preset: CycleInput) => saveCycle({ ...preset, anchor: preset.period ? today : null })
 
   return (
     <div className="page cycles-page">
@@ -74,13 +88,11 @@ function CyclesPage() {
       </header>
 
       <main className="page-content cycles-content">
-        {rows && rows.length === 0 && <CyclePresets onPick={preset => saveCycle(preset)} />}
-
-        {rows && rows.length > 0 && <TargetFilterChips value={filter} onChange={setFilter} />}
+        {rows && rows.length === 0 && <CyclePresets onPick={addPreset} />}
 
         {periodic.length > 0 && (
-          <section className="tx-section" aria-label="다가오는 일정">
-            <h2 className="tx-section-title">다가오는 일정</h2>
+          <section className="tx-section" aria-label="다가오는 교체 주기">
+            <h2 className="tx-section-title">다가오는 교체 주기</h2>
             <ul className="cycle-list">
               {periodic.map(row => (
                 <PeriodicCard key={row.item.id} item={row.item} state={row.state} today={today} isLinked={row.item.id === linkedId} onOpen={() => open(row.item)} />
@@ -89,9 +101,12 @@ function CyclesPage() {
           </section>
         )}
 
-        {elapsed.length > 0 && (
+        {allElapsed.length > 0 && (
           <section className="tx-section" aria-label="마지막으로 한 지">
-            <h2 className="tx-section-title">마지막으로 한 지</h2>
+            <div className="tx-section-header">
+              <h2 className="tx-section-title">마지막으로 한 지</h2>
+              <ShowsOthersSwitch checked={showsOthers} onToggle={toggleShowsOthers} />
+            </div>
             <ul className="cycle-grid">
               {elapsed.map(row => (
                 <ElapsedCard key={row.item.id} item={row.item} state={row.state} today={today} isLinked={row.item.id === linkedId} onOpen={() => open(row.item)} />
@@ -108,18 +123,16 @@ function CyclesPage() {
   )
 }
 
-function TargetFilterChips({ value, onChange }: { value: TargetFilter; onChange: (filter: TargetFilter) => void }) {
+function ShowsOthersSwitch({ checked, onToggle }: { checked: boolean; onToggle: () => void }) {
   const personName = usePersonName()
 
+  const other = DEVICE_PERSON === '쿠리만쥬' ? '우사기' : '쿠리만쥬'
+
   return (
-    <div className="scope-chips" role="radiogroup" aria-label="대상">
-      {FILTERS.map(filter => (
-        <button key={filter} type="button" role="radio" aria-checked={filter === value} className="chip scope-chip" onClick={() => onChange(filter)}>
-          {filter !== '전체' && <PersonAvatar person={filter} size={16} />}
-          {filter === '전체' || filter === '공동' ? filter : personName(filter)}
-        </button>
-      ))}
-    </div>
+    <button type="button" role="switch" aria-checked={checked} className="shows-others" onClick={onToggle}>
+      {personName(other)} 것도 보기
+      <span className="shows-others-switch" aria-hidden="true" />
+    </button>
   )
 }
 
@@ -149,13 +162,13 @@ function PeriodicCard({ item, state, today, isLinked, onOpen }: CycleCardProps) 
   const progress = progressOf(state, today)
 
   return (
-    <li ref={ref} className={`cycle-row ${TARGET_TONE[item.target]}${isLinked ? ' is-linked' : ''}`}>
+    <li ref={ref} className={`cycle-row${isLinked ? ' is-linked' : ''}`}>
       <button type="button" className="cycle-row-main" onClick={onOpen}>
-        <CycleWho item={item} />
         <span className="cycle-text">
           <span className="cycle-title">
             <span aria-hidden="true">{item.icon || '🔁'}</span>
             <strong>{item.name}</strong>
+            {item.target !== '공동' && <PersonAvatar person={item.target} size={18} />}
           </span>
           {progress !== null && (
             <span className={`cycle-progress tone-${label.tone}`} aria-hidden="true">
@@ -163,7 +176,7 @@ function PeriodicCard({ item, state, today, isLinked, onOpen }: CycleCardProps) 
             </span>
           )}
           <small>
-            {cycleBasis(item, state)}
+            {formatPeriod(item.period)}
             {state.nextDate ? ` · ${state.isReservedNext ? '예약' : '다음'} ${formatShortDate(state.nextDate)}` : ` · '${searchWordOf(item)}' 일정 없음`}
           </small>
         </span>
@@ -196,19 +209,6 @@ function ElapsedCard({ item, state, today, isLinked, onOpen }: CycleCardProps) {
         {state.reservation && <small className="cycle-tile-reservation">예약 {formatShortDate(state.reservation)}</small>}
       </button>
     </li>
-  )
-}
-
-function CycleWho({ item }: { item: CycleItem }) {
-  const personName = usePersonName()
-
-  return (
-    <span className="cycle-who">
-      <span className="cycle-who-avatar" aria-hidden="true">
-        <PersonAvatar person={item.target} size={30} />
-      </span>
-      <span className="cycle-who-name">{item.target === '공동' ? '공동' : personName(item.target)}</span>
-    </span>
   )
 }
 

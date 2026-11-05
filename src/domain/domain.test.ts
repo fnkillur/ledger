@@ -44,6 +44,11 @@ describe('parsePaymentNotification', () => {
     expect(parsed?.amount).toBe(12000)
   })
 
+  it('삼성월렛처럼 ₩ 기호로 쓴 금액도 읽는다', () => {
+    expect(parsePaymentNotification(notification('₩12,000 결제 완료', ''))).toMatchObject({ kind: '지출', amount: 12000 })
+    expect(parsePaymentNotification(notification('결제 완료', '누적 ₩300,000 · ₩8,500 결제'))?.amount).toBe(8500)
+  })
+
   it('입금은 수입으로 본다', () => {
     expect(parsePaymentNotification(notification('은행', '홍길동님이 50,000원 입금'))?.kind).toBe('수입')
   })
@@ -260,6 +265,50 @@ describe('공동·개인', () => {
       { filter: '쿠리만쥬', amount: 20000 },
       { filter: '우사기', amount: 30000 },
     ])
+  })
+})
+
+describe('pendingSalaries', () => {
+  const salary = (person: '쿠리만쥬' | '우사기', amount: number, occurredAt: string) =>
+    transaction({ kind: '수입', category: '월급', person, amount, occurredAt, scope: '공동' })
+
+  it('이번 달 월급이 아직 없는 사람은 월급날과 지난달 월급을 예상 수입으로 돌려준다', async () => {
+    const { pendingSalaries } = await import('./stats')
+    const thisMonth = [salary('우사기', 3000000, '2026-11-21T01:00:00.000Z')]
+    const lastMonth = [salary('우사기', 2900000, '2026-10-21T01:00:00.000Z'), salary('쿠리만쥬', 4000000, '2026-10-24T01:00:00.000Z')]
+
+    expect(pendingSalaries(thisMonth, lastMonth, new Set())).toEqual([{ person: '쿠리만쥬', day: 25, expected: 4000000 }])
+  })
+
+  it('둘 다 받았으면 비고, 지난달 월급이 없으면 예상은 0이다', async () => {
+    const { pendingSalaries } = await import('./stats')
+    const both = [salary('우사기', 1, '2026-11-21T01:00:00.000Z'), salary('쿠리만쥬', 1, '2026-11-25T01:00:00.000Z')]
+
+    expect(pendingSalaries(both, [], new Set())).toEqual([])
+    expect(pendingSalaries([], [], new Set())).toEqual([
+      { person: '우사기', day: 21, expected: 0 },
+      { person: '쿠리만쥬', day: 25, expected: 0 },
+    ])
+  })
+
+  it('지운 월급·월급 아닌 수입은 받은 것으로 치지 않는다', async () => {
+    const { pendingSalaries } = await import('./stats')
+    const thisMonth = [
+      { ...salary('우사기', 1, '2026-11-21T01:00:00.000Z'), deleted: true },
+      transaction({ kind: '수입', category: '은행이자지원', person: '쿠리만쥬', amount: 100, occurredAt: '2026-11-03T01:00:00.000Z' }),
+    ]
+
+    expect(pendingSalaries(thisMonth, [], new Set()).map(item => item.person)).toEqual(['우사기', '쿠리만쥬'])
+  })
+})
+
+describe('withExpectedSalary', () => {
+  it('아직 안 들어온 월급의 예상 금액을 수입에 더하고, 더했는지 알려 준다', async () => {
+    const { withExpectedSalary } = await import('./stats')
+    const pending = [{ person: '쿠리만쥬' as const, day: 25, expected: 4000000 }]
+
+    expect(withExpectedSalary({ 지출: 2000000, 수입: 3000000, 저축: 0 }, pending)).toEqual({ totals: { 지출: 2000000, 수입: 7000000, 저축: 0 }, isEstimate: true })
+    expect(withExpectedSalary({ 지출: 1, 수입: 0, 저축: 0 }, [{ ...pending[0], expected: 0 }]).isEstimate).toBe(false)
   })
 })
 

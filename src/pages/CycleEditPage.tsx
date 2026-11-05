@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
+import { DateTimeRow } from '../components/calendar/DateTimePicker'
 import ConfirmSheet from '../components/ConfirmSheet'
 import FieldHint from '../components/FieldHint'
 import PersonAvatar from '../components/PersonAvatar'
@@ -12,23 +13,26 @@ import { type CycleInput, type CycleItem, type CycleTarget, type CycleUnit } fro
 import { cycleFormError } from '../domain/cycleForm'
 import { UNIT_LABEL } from '../domain/cycleText'
 import { PEOPLE } from '../domain/types'
+import { toDateKey } from '../utils/format'
 import { scrollToTopOnReturn } from '../utils/scroll'
 
 const TARGETS: CycleTarget[] = ['공동', ...PEOPLE]
 const UNITS: CycleUnit[] = ['day', 'week', 'month', 'year']
 const UNIT_OPTIONS = UNITS.map(unit => UNIT_LABEL[unit])
 
+const todayKey = () => toDateKey(new Date().toISOString())
+
 const emptyDraft = (): CycleInput => ({
   name: '',
   icon: '',
   target: '공동',
   keyword: '',
+  anchor: todayKey(),
   period: { amount: 6, unit: 'month' },
   memo: '',
 })
 
 const toInput = ({ id: _id, deleted: _deleted, updatedAt: _updatedAt, ...input }: CycleItem): CycleInput => input
-
 
 function CycleEditPage() {
   const { id } = useParams()
@@ -54,6 +58,7 @@ function CycleForm({ initial, item }: CycleFormProps) {
 
   const [draft, setDraft] = useState(initial)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [openedPicker, setOpenedPicker] = useState<string | null>(null)
 
   const error = cycleFormError(draft)
 
@@ -61,7 +66,7 @@ function CycleForm({ initial, item }: CycleFormProps) {
 
   const goBack = () => (location.key === 'default' ? navigate('/cycles', { replace: true }) : navigate(-1))
 
-  const togglePeriod = () => update({ period: draft.period ? null : { amount: 6, unit: 'month' } })
+  const togglePeriod = () => update(draft.period ? { period: null, anchor: null } : { period: { amount: 6, unit: 'month' }, anchor: todayKey() })
 
   const handleSave = async () => {
     if (error) return
@@ -112,7 +117,7 @@ function CycleForm({ initial, item }: CycleFormProps) {
               onChange={target => update({ target })}
             />
           </div>
-          <SwitchRow label="주기" hint={draft.period ? '마지막으로 한 날부터 다음까지 세요' : '다녀온 지 며칠 됐는지만 세요'} checked={draft.period !== null} onToggle={togglePeriod} />
+          <SwitchRow label="주기" hint={draft.period ? '기준일부터 주기마다 날짜가 고정돼요' : '다녀온 지 며칠 됐는지만 세요'} checked={draft.period !== null} onToggle={togglePeriod} />
           {draft.period && (
             <div className="form-row">
               <span>간격</span>
@@ -133,6 +138,30 @@ function CycleForm({ initial, item }: CycleFormProps) {
                   />
                 </div>
               </div>
+            </div>
+          )}
+          {draft.period && draft.anchor !== null && (
+            <DateTimeRow
+              label="기준일"
+              pickerId="anchor"
+              date={draft.anchor}
+              time="12:00"
+              showTime={false}
+              opened={openedPicker}
+              onToggle={picker => setOpenedPicker(previous => (previous === picker ? null : picker))}
+              onDate={anchor => update({ anchor })}
+              onTime={() => {}}
+            />
+          )}
+          {draft.period && draft.anchor === null && (
+            <div className="form-row">
+              <span className="form-row-text">
+                기준일
+                <small>지금은 마지막 일정부터 세요</small>
+              </span>
+              <button type="button" className="text-button text-primary" onClick={() => update({ anchor: todayKey() })}>
+                정하기
+              </button>
             </div>
           )}
         </section>

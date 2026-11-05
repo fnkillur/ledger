@@ -7,13 +7,11 @@ import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
-import java.util.regex.Pattern;
 import org.json.JSONObject;
 
 public class PaymentNotificationService extends NotificationListenerService {
 
     private static final String TAG = "PaymentNotification";
-    private static final Pattern AMOUNT = Pattern.compile("\\d[\\d,]*\\s*원");
 
     @Override
     public void onNotificationPosted(StatusBarNotification notification) {
@@ -27,7 +25,7 @@ public class PaymentNotificationService extends NotificationListenerService {
         Bundle extras = content.extras;
         String title = text(extras.getCharSequence(Notification.EXTRA_TITLE));
         String body = readBody(extras);
-        if (!AMOUNT.matcher(title + " " + body).find()) return;
+        if (!PaymentText.hasAmount(title + " " + body)) return;
 
         try {
             JSONObject capture = new JSONObject();

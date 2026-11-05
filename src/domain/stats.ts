@@ -20,6 +20,27 @@ export type KindTotals = Record<Kind, number>
 export const expenseRatio = (totals: Pick<KindTotals, '지출' | '수입'>) =>
   totals.수입 > 0 ? Math.round((totals.지출 / totals.수입) * 100) : null
 
+// 월급날은 사람마다 다르다. 이번 달 월급이 들어오기 전에는 지난달 월급을 예상 수입으로 쓴다.
+export const PAYDAYS: Record<Person, number> = { 우사기: 21, 쿠리만쥬: 25 }
+const SALARY_CATEGORY = '월급'
+
+export type PendingSalary = { person: Person; day: number; expected: number }
+
+const salaryOf = (transactions: Transaction[], person: Person, excludedCategories: Set<string>) =>
+  transactions
+    .filter(transaction => transaction.kind === '수입' && transaction.category === SALARY_CATEGORY && transaction.person === person && isCounted(transaction, excludedCategories))
+    .reduce((sum, transaction) => sum + myShare(transaction), 0)
+
+export const pendingSalaries = (monthTransactions: Transaction[], previousMonthTransactions: Transaction[], excludedCategories: Set<string>): PendingSalary[] =>
+  PEOPLE.filter(person => salaryOf(monthTransactions, person, excludedCategories) === 0)
+    .map(person => ({ person, day: PAYDAYS[person], expected: salaryOf(previousMonthTransactions, person, excludedCategories) }))
+    .sort((left, right) => left.day - right.day)
+
+export const withExpectedSalary = <Totals extends Pick<KindTotals, '수입'>>(totals: Totals, pending: PendingSalary[]) => {
+  const expected = pending.reduce((sum, salary) => sum + salary.expected, 0)
+  return { totals: { ...totals, 수입: totals.수입 + expected }, isEstimate: expected > 0 }
+}
+
 export type RatioLevel = '여유' | '빠듯' | '초과'
 
 // 번 돈의 70%까지는 여유, 100%까지는 빠듯, 그 이상은 번 것보다 더 쓴 달로 본다.

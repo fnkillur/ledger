@@ -110,3 +110,15 @@ db.version(8)
         item.keyword ??= ''
       }),
   )
+
+// 주기 항목에 기준일이 생겼다. 예전 항목은 비워 두면 마지막 일정을 기준으로 센다.
+db.version(9)
+  .stores({})
+  .upgrade(transaction =>
+    transaction
+      .table('cycles')
+      .toCollection()
+      .modify(item => {
+        item.anchor ??= null
+      }),
+  )
