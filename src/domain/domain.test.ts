@@ -57,6 +57,31 @@ describe('parsePaymentNotification', () => {
     expect(parsePaymentNotification(notification('카드', '승인취소 8,000원'))?.isCancel).toBe(true)
   })
 
+  it('현대카드 승인 알림은 날짜·시각 다음 줄의 가맹점을 읽는다', () => {
+    expect(parsePaymentNotification(notification('현대카드', '하치와레 님, 현대 대한항공060 승인 3,700원 일시불, 11/9 18:57 \n세븐일레븐롯데몰수지1호점'))).toMatchObject({ amount: 3700, merchant: '세븐일레븐롯데몰수지1호점' })
+    expect(parsePaymentNotification(notification('현대카드', '하치와레 님, 현대 대한항공060 승인 19,950원 일시불, 11/9 14:28 \n쿠팡'))?.merchant).toBe('쿠팡')
+  })
+
+  it('현대카드 자동납부는 이름 다음에 오는 가맹점을 읽는다', () => {
+    expect(parsePaymentNotification(notification('현대카드', '자동납부 승인 하*레님 LGU+통신요금 23,100원'))).toMatchObject({ kind: '지출', amount: 23100, merchant: 'LGU+통신요금' })
+  })
+
+  it('해외 원화결제는 KRW 금액과 가맹점을 읽고 결제 방식 표시는 뺀다', () => {
+    expect(parsePaymentNotification(notification('현대카드', '하치와레 님, 현대 대한항공060 해외승인 KRW 20,991.00 11/5 14:59 \nAliExpress.com  *원화결제'))).toMatchObject({
+      kind: '지출',
+      amount: 20991,
+      merchant: 'AliExpress.com',
+    })
+  })
+
+  it('토스 알림은 카드 이름 옆의 가맹점을 읽고 잔액은 금액으로 보지 않는다', () => {
+    expect(parsePaymentNotification(notification('토스', '3,500원 결제\n토스뱅크 체크카드 | 인터넷상거래_TOSS\n잔액 580,561원'))).toMatchObject({ amount: 3500, merchant: '인터넷상거래_TOSS' })
+  })
+
+  it('결제 완료 다음 줄에 가맹점이 오는 문자도 읽는다', () => {
+    expect(parsePaymentNotification(notification('문자', '₩3,700 결제 완료\n세븐일레븐롯데몰수지1호점'))).toMatchObject({ amount: 3700, merchant: '세븐일레븐롯데몰수지1호점' })
+  })
+
   it('결제와 무관한 알림은 무시한다', () => {
     expect(parsePaymentNotification(notification('쇼핑몰', '지금 가입하면 5,000원 쿠폰'))).toBeNull()
   })

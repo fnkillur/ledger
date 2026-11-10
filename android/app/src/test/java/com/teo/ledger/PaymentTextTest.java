@@ -18,6 +18,11 @@ public class PaymentTextTest {
     }
 
     @Test
+    public void 해외_원화결제의_KRW_금액도_찾는다() {
+        assertTrue(PaymentText.hasAmount("해외승인 KRW 20,991.00 11/5 14:59"));
+    }
+
+    @Test
     public void 금액이_없으면_결제_알림이_아니다() {
         assertFalse(PaymentText.hasAmount("새 메시지가 도착했어요"));
     }

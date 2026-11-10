@@ -41,6 +41,14 @@ describe('parsePastedPayment', () => {
   })
 })
 
+describe('현대카드 문자', () => {
+  it('줄마다 나뉜 문자에서 날짜·금액·가맹점을 읽는다', () => {
+    const parsed = parsePastedPayment('현대카드\n[Web발신]\n현대 대한항공060 승인\n하*레\n8,900원 일시불\n11/05 14:41\n카카오페이손해보험', new Date(2026, 10, 10))
+    expect(parsed).toMatchObject({ kind: '지출', amount: 8900, merchant: '카카오페이손해보험' })
+    expect(new Date(parsed!.occurredAt).getDate()).toBe(5)
+  })
+})
+
 describe('connect code', async () => {
   const { decodeConnectCode, encodeConnectCode } = await import('../sync/connectCode')
   const endpoint = 'https://script.google.com/macros/s/AKfyTEST_abc-123/exec'

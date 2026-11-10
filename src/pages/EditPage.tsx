@@ -217,7 +217,10 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
     try {
       const settings = getSettings()
       if (!settings.endpoint) throw new Error('구글 시트와 연결돼야 영수증을 읽을 수 있어요.')
-      const names = kindCategories.filter(category => !category.excluded && category.name !== UNCATEGORIZED).map(category => category.name)
+      // + 메뉴에서 사진을 고르고 들어오면 화면이 카테고리를 불러오기 전에 읽기 시작해서 저장소에서 바로 읽는다.
+      const names = (await db.categories.orderBy('order').toArray())
+        .filter(category => category.kind === draft.kind && !category.excluded && category.name !== UNCATEGORIZED)
+        .map(category => category.name)
       const result = await analyzeReceipt(settings, { image: await toJpegBase64(file), mimeType: 'image/jpeg', categories: names })
       const itemSum = result.items.reduce((sum, item) => sum + item.amount, 0)
       if (amount === null || amount === 0) setAmountText(String(result.total || itemSum))

@@ -17,15 +17,15 @@ export type ParsedPayment = {
   isCancel: boolean
 }
 
-// 카드사는 "12,000원", 삼성월렛은 "₩12,000"처럼 쓴다.
-const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원|[₩￦]\s*(\d{1,3}(?:,\d{3})+|\d+)/g
+// 카드사는 "12,000원", 삼성월렛은 "₩12,000", 해외 원화결제는 "KRW 20,991.00"처럼 쓴다.
+const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원|[₩￦]\s*(\d{1,3}(?:,\d{3})+|\d+)|KRW\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g
 const NON_PAYMENT_AMOUNT_PREFIX = /(잔액|누적|한도|잔고|포인트|할인|적립|캐시백)[^\d]{0,6}$/
 
 export const findAmount = (text: string) => {
   for (const match of text.matchAll(AMOUNT_PATTERN)) {
     const prefix = text.slice(Math.max(0, match.index - 12), match.index)
     if (NON_PAYMENT_AMOUNT_PREFIX.test(prefix)) continue
-    const amount = Number((match[1] ?? match[2]).replace(/,/g, ''))
+    const amount = Number((match[1] ?? match[2] ?? match[3]).replace(/,/g, ''))
     if (amount > 0) return amount
   }
   return null
@@ -40,13 +40,29 @@ export const detectKind = (text: string): Kind | null => {
   return null
 }
 
-// 카드사마다 "올리브영에서" 또는 "10/20 18:23 올리브영"처럼 가맹점을 쓰는 자리가 다르다.
-const APPROVAL_LINE = /\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}\s+(.+)$/m
+// 카드사·앱마다 가맹점을 쓰는 자리가 달라서 앞에서부터 맞는 형식을 찾는다.
+const MERCHANT_PATTERNS = [
+  // 토스 "올리브영에서 5,300원 결제했어요"
+  /([^\s,|\]]{2,20})\s*에서/,
+  // 카드 승인 "10/20 18:23 올리브영"(현대카드는 다음 줄)
+  /\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}\s+(.+)$/m,
+  // 현대카드 자동납부 "자동납부 승인 홍*동님 LGU+통신요금 23,100원"
+  /자동납부.*?님\s+(.+?)\s+\d[\d,]*\s*원/,
+  // 토스 "토스뱅크 체크카드 | 인터넷상거래_TOSS"
+  /카드\s*\|\s*(.+)$/m,
+  // 문자 "₩3,700 결제 완료" 다음 줄
+  /결제\s*완료\s*\n\s*(.+)$/m,
+]
+
+// 해외 원화결제의 "AliExpress.com  *원화결제"처럼 가맹점 뒤에 붙는 결제 방식 표시는 뺀다.
+const cleanMerchant = (merchant: string) => merchant.replace(/\s+\*.*$/, '').trim()
 
 const findMerchant = (text: string) => {
-  const match = text.match(/([^\s,|\]]{2,20})\s*에서/)
-  if (match) return match[1]
-  return text.match(APPROVAL_LINE)?.[1].trim() ?? ''
+  for (const pattern of MERCHANT_PATTERNS) {
+    const merchant = text.match(pattern)?.[1]
+    if (merchant) return cleanMerchant(merchant)
+  }
+  return ''
 }
 
 export const parsePaymentText = (text: string, occurredAt: string): ParsedPayment | null => {
