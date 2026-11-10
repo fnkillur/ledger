@@ -51,10 +51,10 @@ function sendPushToOthers_(actorPerson, message) {
   sendPushTo_(PUSH_PEOPLE.filter(person => person !== actorPerson), message)
 }
 
-function sendPushTo_(people, message) {
+function sendPushTo_(people, message, platforms = PUSH_PLATFORMS) {
   if (typeof FIREBASE_SERVICE_ACCOUNT === 'undefined') return
   const tokens = readPushTokens_()
-  const targets = Object.keys(tokens).filter(token => people.includes(tokens[token].person))
+  const targets = Object.keys(tokens).filter(token => people.includes(tokens[token].person) && platforms.includes(tokens[token].platform))
   if (targets.length === 0) return
 
   const accessToken = fcmAccessToken_()
