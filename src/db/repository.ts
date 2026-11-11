@@ -47,6 +47,15 @@ export const saveSharedSettings = async (settings: SharedSettings) => {
   })
 }
 
+// 닉네임·기념일처럼 화면마다 따로 고치는 값은 나머지 공유 설정을 그대로 두고 그 칸만 바꾼다.
+export const updateSharedSettings = async (patch: Partial<SharedSettings>) => {
+  await db.transaction('rw', db.shared, db.outbox, async () => {
+    const current = await db.shared.get('shared')
+    await db.shared.put({ 월예산: 0, 월저축목표: 0, ...current, ...patch, key: 'shared', updatedAt: now() })
+    await db.outbox.put({ id: 'shared', type: 'settings' })
+  })
+}
+
 export type MonthlyAmount = { category: string; amount: number }
 
 const monthlyId = (monthKey: string, person: Person, category: string) => `monthly-${monthKey}-${person}-${category}`

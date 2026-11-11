@@ -13,8 +13,13 @@ const HOURS = Array.from({ length: 12 }, (_, index) => String(index === 0 ? 12 :
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
 
 const THIS_YEAR = new Date().getFullYear()
+const FIRST_YEAR = 1980
+const YEARS = Array.from({ length: THIS_YEAR - FIRST_YEAR + 1 }, (_, index) => `${FIRST_YEAR + index}년`)
+const MONTHS = Array.from({ length: 12 }, (_, index) => `${index + 1}월`)
 
 const pad = (value: number) => String(value).padStart(2, '0')
+
+const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate()
 
 type DateTimeRowProps = {
   label: string
@@ -171,6 +176,29 @@ export function TimeWheel({ value, onChange }: TimeWheelProps) {
       <WheelColumn label="오전 오후" items={PERIODS} index={period} onSelect={index => change(index, hourIndex, minute)} />
       <WheelColumn label="시" items={HOURS} index={hourIndex} onSelect={index => change(period, index, minute)} />
       <WheelColumn label="분" items={MINUTES} index={minute} onSelect={index => change(period, hourIndex, index)} />
+    </div>
+  )
+}
+
+type DateWheelProps = {
+  value: string
+  onChange: (dateKey: string) => void
+}
+
+// 몇 년 전 날짜도 몇 번 굴려서 고르도록 년·월·일 세 줄로 굴린다. 달을 바꿔 없는 날이 되면 그 달 마지막 날로 맞춘다.
+export function DateWheel({ value, onChange }: DateWheelProps) {
+  const [year, month, day] = value.split('-').map(Number)
+  const days = Array.from({ length: daysInMonth(year, month) }, (_, index) => `${index + 1}일`)
+
+  const change = (nextYear: number, nextMonth: number, nextDay: number) =>
+    onChange(`${nextYear}-${pad(nextMonth)}-${pad(Math.min(nextDay, daysInMonth(nextYear, nextMonth)))}`)
+
+  return (
+    <div className="time-wheel" data-sheet-nodrag>
+      <span className="time-wheel-band" aria-hidden="true" />
+      <WheelColumn label="년" items={YEARS} index={year - FIRST_YEAR} onSelect={index => change(FIRST_YEAR + index, month, day)} />
+      <WheelColumn label="월" items={MONTHS} index={month - 1} onSelect={index => change(year, index + 1, day)} />
+      <WheelColumn label="일" items={days} index={day - 1} onSelect={index => change(year, month, index + 1)} />
     </div>
   )
 }

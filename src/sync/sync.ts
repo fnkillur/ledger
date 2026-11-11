@@ -1,5 +1,6 @@
 import { ingestSheetCaptures } from '../db/captures'
 import { db, type CaptureItem, type OutboxItem } from '../db/database'
+import { anniversariesFromSettings, anniversariesToSettings } from '../domain/anniversary'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import { nicknamesFromSettings, nicknamesToSettings } from '../domain/nickname'
 import type { CycleItem } from '../domain/cycle'
@@ -44,7 +45,12 @@ const pushOutbox = async () => {
   const response = await push(getSettings(), {
     transactions,
     rules,
-    settings: shared && { 월예산: shared.월예산, 월저축목표: shared.월저축목표, ...nicknamesToSettings(shared.닉네임 ?? {}) },
+    settings: shared && {
+      월예산: shared.월예산,
+      월저축목표: shared.월저축목표,
+      ...nicknamesToSettings(shared.닉네임 ?? {}),
+      ...(shared.기념일 ? anniversariesToSettings(shared.기념일) : {}),
+    },
     captures: [...captures.map(capture => ({ key: capture.key, status: capture.status })), ...[...skippedKeys].map(key => ({ key, status: '무시' }))],
     cycles,
   })
@@ -87,6 +93,7 @@ const pullChanges = async () => {
         월예산: Number(response.settings.월예산) || 0,
         월저축목표: Number(response.settings.월저축목표) || 0,
         닉네임: nicknamesFromSettings(response.settings),
+        기념일: anniversariesFromSettings(response.settings),
         updatedAt: response.serverTime,
       })
     }

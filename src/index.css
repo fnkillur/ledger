@@ -3781,6 +3781,11 @@ button.pill-input {
   mask-image: linear-gradient(transparent, #000 35%, #000 65%, transparent);
 }
 
+/* 날짜 휠의 년(2026년)은 시·분보다 길어서 한 줄에 들어가게 넓힌다. */
+.wheel-column[aria-label='년'] {
+  width: 92px;
+}
+
 .wheel-column::-webkit-scrollbar {
   display: none;
 }
@@ -4998,4 +5003,124 @@ button.pill-input {
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
+}
+
+/* 기념일: 캘린더 머리 오른쪽에 작고 연하게 두고, 누르면 날짜와 다음 기념일을 펼친다. */
+.period-header-row {
+  position: relative;
+}
+
+.anniversary {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+}
+
+.anniversary-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-sub);
+  font: inherit;
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.anniversary-badge:active {
+  background: var(--color-pressed);
+}
+
+.anniversary-badge span,
+.anniversary-detail p {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.anniversary .is-together svg,
+.cal-anniversary,
+.day-sheet-anniversaries svg {
+  color: var(--color-accent);
+}
+
+.anniversary .is-married svg {
+  color: var(--color-primary);
+}
+
+.anniversary-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: none;
+}
+
+.anniversary-detail {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 220px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-fab);
+  font-size: var(--font-xs);
+}
+
+.anniversary-detail p {
+  gap: var(--space-1);
+  margin: 0;
+  font-weight: 600;
+}
+
+.anniversary-detail small {
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--color-text-sub);
+  font-weight: 400;
+}
+
+.anniversary-detail .anniversary-next {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-sub);
+  white-space: nowrap;
+}
+
+.cal-day:has(.cal-anniversary) {
+  position: relative;
+}
+
+.cal-anniversary {
+  position: absolute;
+  top: 3px;
+  right: calc(50% + 11px);
+}
+
+.day-sheet-anniversaries li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  font-weight: 600;
+}
+
+.day-sheet-anniversaries {
+  margin-bottom: var(--space-2);
 }

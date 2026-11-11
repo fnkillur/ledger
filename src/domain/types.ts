@@ -1,3 +1,5 @@
+import type { Anniversaries } from './anniversary'
+
 export type Person = '쿠리만쥬' | '우사기'
 // 저축은 더 이상 입력·통계에 쓰지 않지만, 과거 기록에 남아 있어서 타입은 유지한다.
 export type Kind = '지출' | '수입' | '저축'
@@ -44,6 +46,7 @@ export type SharedSettings = {
   월예산: number
   월저축목표: number
   닉네임?: Partial<Record<Person, string>>
+  기념일?: Anniversaries
 }
 
 export type Rule = {

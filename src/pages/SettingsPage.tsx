@@ -1,12 +1,14 @@
 import { App } from '@capacitor/app'
 import { CopyIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
+import { DateWheel } from '../components/calendar/DateTimePicker'
 import FieldHint from '../components/FieldHint'
 import PersonAvatar from '../components/PersonAvatar'
 import PersonToggle from '../components/PersonToggle'
 import TopBar from '../components/TopBar'
-import { useSharedSettings, useSyncStatus } from '../db/hooks'
-import { saveSharedSettings } from '../db/repository'
+import { useAnniversaries, useSharedSettings, useSyncStatus } from '../db/hooks'
+import { updateSharedSettings } from '../db/repository'
+import type { Anniversaries } from '../domain/anniversary'
 import { cleanNickname, NICKNAME_MAX_LENGTH } from '../domain/nickname'
 import { PEOPLE, type Person } from '../domain/types'
 import LockSettingSection from '../lock/LockSettingSection'
@@ -16,6 +18,7 @@ import { IS_WEB_BUILD } from '../platform'
 import { disablePush, enablePush, getPushSupport, isPushEnabled } from '../push/push'
 import { isSyncConfigured, saveSettings, useSettings } from '../sync/settings'
 import { resetSync, syncNow } from '../sync/sync'
+import { toDateKey } from '../utils/format'
 
 const toErrorMessage = (error: unknown) => (error instanceof Error ? error.message : '알 수 없는 오류가 발생했어요.')
 
@@ -43,6 +46,7 @@ function SettingsPage() {
 
         <h2 className="settings-group">가계부</h2>
         <NicknameSection />
+        <AnniversarySection />
         {!IS_WEB_BUILD && (
           <section className="form-group">
             <div className="form-row">
@@ -138,7 +142,7 @@ function NicknameSection() {
   const handleSave = async (person: Person, nickname: string | undefined) => {
     const 닉네임 = { ...shared.닉네임, [person]: nickname }
     if (!nickname) delete 닉네임[person]
-    await saveSharedSettings({ 월예산: shared.월예산, 월저축목표: shared.월저축목표, 닉네임 })
+    await updateSharedSettings({ 닉네임 })
     setSavedPerson(person)
     syncNow().catch(() => {})
   }
@@ -158,6 +162,81 @@ function NicknameSection() {
         ))}
       </section>
       <p className="settings-note">닉네임은 두 사람 화면에 모두 보여요. 비우면 원래 이름으로 돌아가요.</p>
+    </>
+  )
+}
+
+const ANNIVERSARY_FIELDS: { key: keyof Anniversaries; label: string }[] = [
+  { key: '사귄날', label: '사귄 날' },
+  { key: '결혼한날', label: '결혼한 날' },
+]
+
+function AnniversarySection() {
+  const anniversaries = useAnniversaries()
+
+  const [openedKey, setOpenedKey] = useState<keyof Anniversaries | null>(null)
+
+  const handleChange = async (key: keyof Anniversaries, dateKey: string) => {
+    if (!dateKey || dateKey === anniversaries[key]) return
+    await updateSharedSettings({ 기념일: { ...anniversaries, [key]: dateKey } })
+    syncNow().catch(() => {})
+  }
+
+  return (
+    <>
+      <section className="form-group" aria-label="기념일">
+        {ANNIVERSARY_FIELDS.map(field => (
+          <AnniversaryField
+            key={field.key}
+            label={field.label}
+            value={anniversaries[field.key]}
+            isOpen={openedKey === field.key}
+            onToggle={() => setOpenedKey(openedKey === field.key ? null : field.key)}
+            onChange={dateKey => handleChange(field.key, dateKey)}
+          />
+        ))}
+      </section>
+      <p className="settings-note">캘린더 위에 함께한 날수와 기념일로 두 사람 화면에 모두 보여요.</p>
+    </>
+  )
+}
+
+const formatAnniversary = (dateKey: string) => `${Number(dateKey.slice(0, 4))}년 ${Number(dateKey.slice(5, 7))}월 ${Number(dateKey.slice(8, 10))}일`
+
+type AnniversaryFieldProps = {
+  label: string
+  value: string | undefined
+  isOpen: boolean
+  onToggle: () => void
+  onChange: (dateKey: string) => void
+}
+
+// 아이폰 웹은 기본 날짜 창이 쓸 만해서 그대로 두고, 안드로이드 앱은 몇 년 전 날짜도 금방 고르도록 행 아래에 년·월·일 휠을 펼친다.
+function AnniversaryField({ label, value, isOpen, onToggle, onChange }: AnniversaryFieldProps) {
+  const [todayKey] = useState(() => toDateKey(new Date().toISOString()))
+
+  if (IS_WEB_BUILD) {
+    return (
+      <label className="form-row">
+        <span className="form-row-label">{label}</span>
+        <input className="pill-input" type="date" value={value ?? ''} onChange={event => onChange(event.target.value)} />
+      </label>
+    )
+  }
+
+  return (
+    <>
+      <div className="form-row">
+        <span className="form-row-label">{label}</span>
+        <button type="button" className={`pill-input${isOpen ? ' is-open' : ''}`} aria-expanded={isOpen} onClick={onToggle}>
+          {value ? formatAnniversary(value) : '날짜 넣기'}
+        </button>
+      </div>
+      {isOpen && (
+        <div className="form-row form-row-picker">
+          <DateWheel value={value ?? todayKey} onChange={onChange} />
+        </div>
+      )}
     </>
   )
 }

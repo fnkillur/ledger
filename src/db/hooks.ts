@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useMemo } from 'react'
+import type { Anniversaries } from '../domain/anniversary'
 import { cycleState } from '../domain/cycle'
 import { frequentEntries } from '../domain/insights'
 import { displayName } from '../domain/nickname'
@@ -80,6 +81,10 @@ export function useSyncStatus() {
 
 export function useSharedSettings() {
   return useLiveQuery(async () => (await db.shared.get('shared')) ?? { key: 'shared' as const, 월예산: 0, 월저축목표: 0, updatedAt: '' })
+}
+
+export function useAnniversaries(): Anniversaries {
+  return useSharedSettings()?.기념일 ?? {}
 }
 
 export function useCategoryIcons() {

@@ -2,11 +2,13 @@ import { ArrowClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router'
+import AnniversaryBadge from '../components/calendar/AnniversaryBadge'
 import CalendarCarousel from '../components/calendar/CalendarCarousel'
 import CalendarModeSwitch from '../components/calendar/CalendarModeSwitch'
 import DaySheet, { type DaySheetView } from '../components/calendar/DaySheet'
 import PeriodSwitcher from '../components/PeriodSwitcher'
-import { useCycleRows } from '../db/hooks'
+import { useAnniversaries, useCycleRows } from '../db/hooks'
+import { anniversaryLabels } from '../domain/anniversary'
 import { cycleDueByDate } from '../domain/cycle'
 import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
 import { eventsOnDay, gridRange } from '../domain/calendar'
@@ -33,6 +35,7 @@ function CalendarPage() {
   const events = useCalendarEvents()
   const { error, pendingCount } = useCalendarStatus()
   const cycleRows = useCycleRows(todayKey())
+  const anniversaries = useAnniversaries()
 
   const [pickedDay, setPickedDay] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
   // 날짜를 한 번 누르면 고른 표시만 하고, 고른 날짜를 한 번 더 누르면 그날 일정을 연다.
@@ -77,6 +80,7 @@ function CalendarPage() {
             monthOnly
             unbounded
           />
+          <AnniversaryBadge todayKey={todayKey()} />
         </div>
         <CalendarModeSwitch mode="일정" />
       </header>
@@ -121,6 +125,7 @@ function CalendarPage() {
             dateKey={opened.dateKey}
             events={eventsOnDay(events ?? [], opened.dateKey)}
             cycles={cyclesByDate.get(opened.dateKey)}
+            anniversaries={anniversaryLabels(opened.dateKey, anniversaries)}
             initialView={opened.view}
             onClose={closeSheet}
           />,
