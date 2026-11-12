@@ -12,22 +12,26 @@ import {
 import { displayName } from '../domain/nickname'
 import { DEVICE_PERSON } from '../platform'
 import { ServerResponseError } from '../sync/api'
-import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
+import { deleteCalendarEvent, fetchCalendar, RequestTimeoutError, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
 import { getSettings, isSyncConfigured } from '../sync/settings'
 import { currentMonthKey } from '../utils/format'
 import { db, type CalendarOp } from './database'
 
 const LOCAL_ID_PREFIX = 'local-'
 
-const isRetryable = (error: unknown) => error instanceof TypeError || error instanceof ServerResponseError
+const isRetryable = (error: unknown) => error instanceof TypeError || error instanceof ServerResponseError || error instanceof RequestTimeoutError
 
 export const toCalendarError = (error: unknown) => {
   if (error instanceof TypeError) return '인터넷 연결을 확인해 주세요.'
   if (error instanceof ServerResponseError) return `시트 서버가 잠시 응답하지 못했어요. (${error.status})`
+  if (error instanceof RequestTimeoutError) return '시트 서버가 응답하지 않아요. 잠시 뒤 다시 시도해 주세요.'
   return error instanceof Error ? error.message : '알 수 없는 오류가 났어요.'
 }
 
 const isLocalId = (id: string) => id.startsWith(LOCAL_ID_PREFIX)
+
+// 구글 캘린더 일정 번호는 소문자 a~v와 숫자만 쓸 수 있어서, 하이픈을 뺀 UUID(0~9, a~f)를 쓴다.
+const newCreateId = () => crypto.randomUUID().replace(/-/g, '')
 
 const ensureConfigured = () => {
   if (!isSyncConfigured(getSettings())) throw new Error('구글 시트와 아직 연결되지 않았어요. 설정에서 연결 코드를 붙여넣어 주세요.')
@@ -58,7 +62,7 @@ const currentActor = async (): Promise<CalendarActor> => ({
 })
 
 const sendOp = async (op: CalendarOp) => {
-  if (op.type === 'save') return saveCalendarEvent(getSettings(), op.input, op.scope, await currentActor())
+  if (op.type === 'save') return saveCalendarEvent(getSettings(), op.input, op.scope, await currentActor(), op.createId)
   return deleteCalendarEvent(getSettings(), op.ref, op.scope)
 }
 
@@ -176,7 +180,7 @@ export const saveEvent = async (input: CalendarEventInput, scope?: RepeatScope) 
       return
     }
     const localId = input.ref ? undefined : `${LOCAL_ID_PREFIX}${crypto.randomUUID()}`
-    await db.calendarOutbox.add({ type: 'save', input, scope, localId } as CalendarOp)
+    await db.calendarOutbox.add({ type: 'save', input, scope, localId, createId: newCreateId() } as CalendarOp)
     await applyLocalSave(input, scope, localId)
   })
   syncCalendar()

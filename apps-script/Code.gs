@@ -287,8 +287,9 @@ function doPost(e) {
     if (body.action === 'receipt') return analyzeReceipt_(body)
     if (body.action === 'calendarSave') {
       const result = saveCalendarEvent_(body)
-      if (!body.event.ref) notifyCalendarAdded_(body.actor, body.event)
-      return result
+      // 다시 보낸 요청으로 이미 만든 일정이면 추가 알림도 다시 보내지 않는다.
+      if (!body.event.ref && result.isNew) notifyCalendarAdded_(body.actor, body.event)
+      return { id: result.id }
     }
     if (body.action === 'calendarDelete') return deleteCalendarEvent_(body)
     if (body.action === 'pushRegister') return registerPushToken_(body)

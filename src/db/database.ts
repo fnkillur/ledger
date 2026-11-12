@@ -29,8 +29,9 @@ export type SyncMeta = {
 }
 
 // 구글 캘린더로 보낼 작업. 보내기 전에는 앱 저장소에 먼저 반영해 둔다.
+// createId는 서버가 새 일정을 만들 때 쓸 번호라, 같은 작업을 다시 보내도 일정이 두 번 생기지 않는다.
 export type CalendarOp =
-  | { seq?: number; type: 'save'; input: CalendarEventInput; scope?: RepeatScope; localId?: string }
+  | { seq?: number; type: 'save'; input: CalendarEventInput; scope?: RepeatScope; localId?: string; createId?: string }
   | { seq?: number; type: 'delete'; ref: CalendarEventRef; scope: RepeatScope }
 
 export type CalendarMeta = { key: 'window'; start: string; end: string; fetchedAt: string; error?: string }

@@ -25,6 +25,7 @@ let reads: URL[]
 let writes: Record<string, unknown>[]
 let isOnline: boolean
 let serverStatus: number
+let isStalled: boolean
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -36,17 +37,21 @@ beforeEach(async () => {
   writes = []
   isOnline = true
   serverStatus = 200
+  isStalled = false
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: URL | string, init?: RequestInit) => {
       if (!isOnline) throw new TypeError('Failed to fetch')
-      if (serverStatus !== 200) return new Response('error', { status: serverStatus })
+      // 앱이 뒤로 갔다 오며 끊긴 연결처럼, 응답도 실패도 없이 멈춰 있다가 요청을 그만둘 때만 끝난다.
+      if (isStalled) return new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))
       if (init?.method === 'POST') {
         const body = JSON.parse(String(init.body))
         writes.push(body)
+        if (serverStatus !== 200) return new Response('error', { status: serverStatus })
         if (body.event?.title === '거절') return Response.json({ ok: false, error: '대상이 올바르지 않아요.' })
         return Response.json({ ok: true, id: 'saved' })
       }
+      if (serverStatus !== 200) return new Response('error', { status: serverStatus })
       reads.push(new URL(url))
       return Response.json({ ok: true, events: serverEvents })
     }),
@@ -111,6 +116,68 @@ describe('syncCalendar', () => {
 
     expect(await db.calendarOutbox.count()).toBe(0)
     expect(writes.at(-1)?.actor).toEqual({ person: '쿠리만쥬', name: '쿠리만쥬' })
+  })
+
+  it('응답 없이 멈춘 요청은 제한 시간이 지나면 끝나서, 다시 시도하면 새로 받는다', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(new Date(2026, 9, 26, 12))
+    isStalled = true
+
+    const stalled = syncCalendar()
+    await vi.advanceTimersByTimeAsync(20_000)
+    await stalled
+
+    expect((await db.calendarMeta.get('window'))?.error).toBe('시트 서버가 응답하지 않아요. 잠시 뒤 다시 시도해 주세요.')
+
+    isStalled = false
+    await syncCalendar()
+
+    expect((await db.calendarEvents.toArray()).map(item => item.id)).toEqual(['server-1'])
+    expect((await db.calendarMeta.get('window'))?.error).toBeUndefined()
+  })
+
+  it('저장 요청이 멈췄다 끝나면 보낼 작업을 버리지 않고 남겨 둔다', async () => {
+    isOnline = false
+    await saveEvent(input('병원'))
+    await syncCalendar()
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(new Date(2026, 9, 26, 12))
+    isOnline = true
+    isStalled = true
+
+    const stalled = syncCalendar()
+    await vi.advanceTimersByTimeAsync(20_000)
+    await stalled
+
+    expect(await db.calendarOutbox.count()).toBe(1)
+    isStalled = false
+  })
+
+  it('새로 만드는 일정은 미리 정한 번호를 함께 보내, 다시 보내도 같은 번호라 두 번 생기지 않는다', async () => {
+    serverStatus = 500
+    await saveEvent(input('병원'))
+    await syncCalendar()
+    serverStatus = 200
+    await syncCalendar()
+
+    const [first, second] = writes.map(body => body.createId)
+    expect(writes).toHaveLength(2)
+    // 구글 캘린더 일정 번호는 소문자 a~v와 숫자로 5자 이상이어야 한다.
+    expect(first).toMatch(/^[0-9a-v]{5,1024}$/)
+    expect(second).toBe(first)
+  })
+
+  it('대기 중인 새 일정을 고쳐도 미리 정한 번호는 그대로다', async () => {
+    isOnline = false
+    await saveEvent(input('병원'))
+    const [queued] = await db.calendarOutbox.toArray()
+    const [local] = await db.calendarEvents.toArray()
+    await saveEvent({ ...input('치과'), ref: { id: local.id, seriesId: null, originalStart: null } })
+    isOnline = true
+    await syncCalendar()
+
+    expect(queued.type === 'save' && queued.createId).toBeTruthy()
+    expect(writes.map(body => body.createId)).toEqual([queued.type === 'save' && queued.createId])
   })
 
   it('서버가 거절한 작업은 버리고 이유를 남긴다', async () => {

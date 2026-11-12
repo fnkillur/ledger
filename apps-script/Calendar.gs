@@ -52,7 +52,7 @@ function saveCalendarEvent_(body) {
   const id = calendarId_()
   const ref = input.ref
 
-  if (!ref) return { id: Calendar.Events.insert(toEventResource_(input, true), id).id }
+  if (!ref) return insertOnce_(toEventResource_(input, true), id, body.createId)
   if (!ref.seriesId) return { id: updateWhole_(id, ref.id, input, true).id }
 
   const scope = body.scope || 'all'
@@ -63,7 +63,7 @@ function saveCalendarEvent_(body) {
     Calendar.Events.patch({ recurrence: endRecurrenceBefore_(master.recurrence, ref.originalStart) }, id, master.id)
     const resource = toEventResource_(input, true)
     if (keepsRepeat_(input, master)) resource.recurrence = continueRecurrence_(master.recurrence)
-    return { id: Calendar.Events.insert(resource, id).id }
+    return insertOnce_(resource, id, body.createId)
   }
   // 반복을 끄고 전체에 적용하면, 보던 회차 날짜에 일정 하나만 남긴다.
   const isEndingRepeat = input.repeat === 'none' && !input.rrule
@@ -76,12 +76,8 @@ function deleteCalendarEvent_(body) {
   const id = calendarId_()
   const scope = body.scope || 'all'
 
-  if (!ref.seriesId) {
-    Calendar.Events.remove(id, ref.id)
-    return {}
-  }
-  if (scope === 'one') {
-    Calendar.Events.remove(id, ref.id)
+  if (!ref.seriesId || scope === 'one') {
+    removeOnce_(id, ref.id)
     return {}
   }
   const master = Calendar.Events.get(id, ref.seriesId)
@@ -89,8 +85,34 @@ function deleteCalendarEvent_(body) {
     Calendar.Events.patch({ recurrence: endRecurrenceBefore_(master.recurrence, ref.originalStart) }, id, master.id)
     return {}
   }
-  Calendar.Events.remove(id, master.id)
+  removeOnce_(id, master.id)
   return {}
+}
+
+// 앱은 응답을 못 받은 작업을 다시 보낸다. 앱이 정한 번호로 만들어서, 다시 온 요청이면 이미 만든 일정을 돌려준다.
+// 번호 없이 보내는 옛 앱은 예전처럼 새로 만든다.
+function insertOnce_(resource, calendar, createId) {
+  if (!isEventId_(createId)) return { id: Calendar.Events.insert(resource, calendar).id, isNew: true }
+  try {
+    return { id: Calendar.Events.insert(Object.assign({}, resource, { id: createId }), calendar).id, isNew: true }
+  } catch (error) {
+    if (!/already exists|duplicate/i.test(String(error && error.message))) throw error
+    return { id: createId, isNew: false }
+  }
+}
+
+// 다시 온 삭제 요청이면 이미 지워진 일정이라, 없다는 오류는 성공으로 본다.
+function removeOnce_(calendar, eventId) {
+  try {
+    Calendar.Events.remove(calendar, eventId)
+  } catch (error) {
+    if (!/deleted|not found/i.test(String(error && error.message))) throw error
+  }
+}
+
+// 구글 캘린더 일정 번호: 소문자 a~v와 숫자, 5~1024자.
+function isEventId_(value) {
+  return typeof value === 'string' && /^[0-9a-v]{5,1024}$/.test(value)
 }
 
 function importCalendarEvents_(body) {
