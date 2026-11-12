@@ -19,12 +19,16 @@ export type ParsedPayment = {
 
 // 카드사는 "12,000원", 삼성월렛은 "₩12,000", 해외 원화결제는 "KRW 20,991.00"처럼 쓴다.
 const AMOUNT_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)\s*원|[₩￦]\s*(\d{1,3}(?:,\d{3})+|\d+)|KRW\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g
-const NON_PAYMENT_AMOUNT_PREFIX = /(잔액|누적|한도|잔고|포인트|할인|적립|캐시백)[^\d]{0,6}$/
+// 줄을 넘으면 앞줄 문구라, 같은 줄 안에서만 본다.
+const NON_PAYMENT_AMOUNT_PREFIX = /(잔액|누적|한도|잔고|포인트|할인|적립|캐시백)[^\d\n]{0,6}$/
+// 토스는 결제 알림 제목에 "500원 캐시백"처럼 받은 혜택을 먼저 쓴다.
+const NON_PAYMENT_AMOUNT_SUFFIX = /^\s*(캐시백|적립|포인트|할인)/
 
 export const findAmount = (text: string) => {
   for (const match of text.matchAll(AMOUNT_PATTERN)) {
     const prefix = text.slice(Math.max(0, match.index - 12), match.index)
     if (NON_PAYMENT_AMOUNT_PREFIX.test(prefix)) continue
+    if (NON_PAYMENT_AMOUNT_SUFFIX.test(text.slice(match.index + match[0].length))) continue
     const amount = Number((match[1] ?? match[2] ?? match[3]).replace(/,/g, ''))
     if (amount > 0) return amount
   }
@@ -50,6 +54,8 @@ const MERCHANT_PATTERNS = [
   /자동납부.*?님\s+(.+?)\s+\d[\d,]*\s*원/,
   // 토스 "토스뱅크 체크카드 | 인터넷상거래_TOSS"
   /카드\s*\|\s*(.+)$/m,
+  // 토스 캐시백 "31,750원 결제 | 토스페이_29cm_TOSS"
+  /결제\s*\|\s*(.+)$/m,
   // 문자 "₩3,700 결제 완료" 다음 줄
   /결제\s*완료\s*\n\s*(.+)$/m,
 ]
