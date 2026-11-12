@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CalendarEvent } from './calendar'
-import { canSaveForm, changeTarget, formatDatePill, formatTimePill, formFromEvent, moveStart, newForm, toEventInput } from './calendarForm'
+import { applySuggestion, canSaveForm, changeTarget, formatDatePill, formatTimePill, formFromEvent, moveStart, newForm, titleSuggestions, toEventInput } from './calendarForm'
 
 describe('newForm', () => {
   it('고른 날짜에 다음 정시부터 1시간, 대상은 이 폰의 사람', () => {
@@ -113,5 +113,75 @@ describe('formatTimePill', () => {
     expect(formatTimePill('00:05')).toBe('오전 12:05')
     expect(formatTimePill('12:00')).toBe('오후 12:00')
     expect(formatTimePill('23:30')).toBe('오후 11:30')
+  })
+})
+
+const pastEvent = (id: string, overrides: Partial<CalendarEvent>): CalendarEvent => ({
+  id,
+  seriesId: null,
+  originalStart: null,
+  title: id,
+  allDay: false,
+  start: '2026-10-01T11:00:00+09:00',
+  end: '2026-10-01T12:00:00+09:00',
+  target: '우사기',
+  repeat: 'none',
+  ...overrides,
+})
+
+describe('titleSuggestions', () => {
+  const events = [
+    pastEvent('a', { title: '필라테스', start: '2026-10-01T11:00:00+09:00', end: '2026-10-01T12:00:00+09:00' }),
+    pastEvent('b', { title: '필라테스', start: '2026-10-08T19:00:00+09:00', end: '2026-10-08T20:00:00+09:00' }),
+    pastEvent('c', { title: '필름 현상', start: '2026-10-20T10:00:00+09:00', end: '2026-10-20T10:30:00+09:00' }),
+    // 반복 일정은 회차가 많아도 한 번으로 센다.
+    ...['2026-10-02', '2026-10-09', '2026-10-16'].map(day =>
+      pastEvent(`w-${day}`, { title: '필드 하키', seriesId: 'w', start: `${day}T09:00:00+09:00`, end: `${day}T10:00:00+09:00`, repeat: 'weekly' }),
+    ),
+    pastEvent('d', { title: '필리핀 여행 기념일', target: '기념일', allDay: true, start: '2026-10-05', end: '2026-10-05' }),
+    pastEvent('e', { title: '병원', target: '공동' }),
+  ]
+
+  it('글자를 치기 전에는 추천하지 않는다', () => {
+    expect(titleSuggestions(events, '  ')).toEqual([])
+  })
+
+  it('친 글자가 들어간 제목을 자주 쓴 순으로, 같으면 최근 순으로 하나씩 고르고 가장 최근 일정을 대표로 둔다', () => {
+    expect(titleSuggestions(events, '필').map(event => event.id)).toEqual(['b', 'c', 'w-2026-10-16'])
+  })
+
+  it('기념일은 추천하지 않고, 대소문자는 가리지 않는다', () => {
+    expect(titleSuggestions([...events, pastEvent('y', { title: 'Yoga' })], 'yo').map(event => event.title)).toEqual(['Yoga'])
+    expect(titleSuggestions(events, '기념일')).toEqual([])
+  })
+
+  it('최대 다섯 개까지만 추천한다', () => {
+    const many = Array.from({ length: 7 }, (_, index) => pastEvent(`m${index}`, { title: `운동 ${index}` }))
+    expect(titleSuggestions(many, '운동')).toHaveLength(5)
+  })
+})
+
+describe('applySuggestion', () => {
+  it('제목·대상·시간은 고른 일정에서 가져오고 날짜는 지금 고른 날로 둔다', () => {
+    const form = newForm('2026-11-20', '쿠리만쥬', new Date(2026, 10, 12, 14))
+    const picked = pastEvent('b', { title: '필라테스', start: '2026-10-08T19:00:00+09:00', end: '2026-10-08T20:30:00+09:00', target: '우사기' })
+
+    expect(applySuggestion(form, picked)).toMatchObject({
+      title: '필라테스',
+      target: '우사기',
+      allDay: false,
+      startDate: '2026-11-20',
+      startTime: '19:00',
+      endDate: '2026-11-20',
+      endTime: '20:30',
+      repeat: 'none',
+    })
+  })
+
+  it('여러 날 종일 일정은 같은 길이로 고른 날부터 잡는다', () => {
+    const form = newForm('2026-11-20', '쿠리만쥬', new Date(2026, 10, 12, 14))
+    const picked = pastEvent('t', { title: '제주 여행', allDay: true, start: '2026-10-03', end: '2026-10-05', target: '공동' })
+
+    expect(applySuggestion(form, picked)).toMatchObject({ allDay: true, startDate: '2026-11-20', endDate: '2026-11-22', target: '공동' })
   })
 })

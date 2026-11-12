@@ -84,6 +84,42 @@ export const changeTarget = (form: CalendarForm, target: CalendarTarget): Calend
   }
 }
 
+const SUGGESTION_LIMIT = 5
+
+const daySpan = (start: string, end: string) => Math.round((toLocalDate(end, '00:00').getTime() - toLocalDate(start, '00:00').getTime()) / 86400000)
+
+// 친 글자가 들어간 예전 일정 제목을 자주 쓴 순으로 추천한다. 반복 일정은 회차가 많아도 한 번으로 세고, 기념일은 빼며, 제목마다 가장 최근 일정을 대표로 둔다.
+export const titleSuggestions = (events: CalendarEvent[], query: string) => {
+  const keyword = query.trim().toLowerCase()
+  if (!keyword) return []
+  const groups = new Map<string, { latest: CalendarEvent; series: Set<string> }>()
+  events
+    .filter(event => event.target !== '기념일' && event.title.toLowerCase().includes(keyword))
+    .forEach(event => {
+      const title = event.title.trim()
+      const group = groups.get(title) ?? { latest: event, series: new Set<string>() }
+      group.series.add(event.seriesId ?? event.id)
+      if (event.start > group.latest.start) group.latest = event
+      groups.set(title, group)
+    })
+  return [...groups.values()]
+    .sort((left, right) => right.series.size - left.series.size || right.latest.start.localeCompare(left.latest.start))
+    .slice(0, SUGGESTION_LIMIT)
+    .map(group => group.latest)
+}
+
+// 추천을 고르면 제목·대상·시간은 그 일정에서 가져오고, 날짜는 지금 고른 날에 같은 길이로 둔다.
+export const applySuggestion = (form: CalendarForm, event: CalendarEvent): CalendarForm => {
+  const picked = formFromEvent(event)
+  return {
+    ...picked,
+    title: event.title.trim(),
+    startDate: form.startDate,
+    endDate: addDays(form.startDate, Math.max(0, daySpan(picked.startDate, picked.endDate))),
+    repeat: form.repeat,
+  }
+}
+
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 export const formatDatePill = (dateKey: string, thisYear: number) => {

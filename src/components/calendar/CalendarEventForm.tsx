@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { deleteEvent, saveEvent, toCalendarError } from '../../db/calendar'
+import { deleteEvent, saveEvent, toCalendarError, useCalendarEvents } from '../../db/calendar'
 import { saveCycle } from '../../db/cycles'
 import { useCycleItems, usePersonName } from '../../db/hooks'
 import {
@@ -15,7 +15,18 @@ import {
   type RepeatScope,
 } from '../../domain/calendar'
 import { cycleFromEvent, findCycleForEvent } from '../../domain/cycle'
-import { canSaveForm, changeTarget, formFromEvent, moveStart, newForm, toEventInput, type CalendarForm } from '../../domain/calendarForm'
+import {
+  applySuggestion,
+  canSaveForm,
+  changeTarget,
+  formatTimePill,
+  formFromEvent,
+  moveStart,
+  newForm,
+  titleSuggestions,
+  toEventInput,
+  type CalendarForm,
+} from '../../domain/calendarForm'
 import { getSettings } from '../../sync/settings'
 import { toDateKey } from '../../utils/format'
 import ConfirmSheet from '../ConfirmSheet'
@@ -29,6 +40,8 @@ const REPEAT_OPTIONS = ['daily', 'weekly', 'monthly', 'yearly'] as const satisfi
 const PEOPLE_TARGETS = CALENDAR_TARGETS.filter(target => !isDayInfo(target))
 const DAY_INFO_TARGETS = CALENDAR_TARGETS.filter(isDayInfo)
 
+const suggestionTime = (event: CalendarEvent) => (event.allDay ? '하루 종일' : formatTimePill(formFromEvent(event).startTime))
+
 type CalendarEventFormProps = {
   event?: CalendarEvent
   date: string
@@ -41,6 +54,7 @@ type CalendarEventFormProps = {
 function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEventFormProps) {
   const cycleItems = useCycleItems()
   const personName = usePersonName()
+  const pastEvents = useCalendarEvents()
 
   const [form, setForm] = useState<CalendarForm>(() => (event ? formFromEvent(event) : newForm(date, getSettings().defaultPerson, new Date())))
   const [sheet, setSheet] = useState<'saveScope' | 'deleteScope' | 'delete' | null>(null)
@@ -50,6 +64,8 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
   const [lastRepeat, setLastRepeat] = useState<Repeat>(form.repeat === 'none' ? 'weekly' : form.repeat)
   const [shouldAddCycle, setShouldAddCycle] = useState(false)
   const [today] = useState(() => toDateKey(new Date().toISOString()))
+  // 추천을 고른 뒤에는 같은 제목을 다시 추천하지 않는다.
+  const [pickedTitle, setPickedTitle] = useState<string | null>(null)
 
   const title = event ? '일정 수정' : '새 일정'
   const isRepeatOn = form.repeat !== 'none'
@@ -62,9 +78,16 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
   const matchedCycle = findCycleForEvent(cycleItems ?? [], { title: form.title, start: form.startDate, target: form.target })
   const canAddCycle = !matchedCycle && form.title.trim() !== '' && form.target !== '기념일'
   const isReservation = form.startDate > today
+  // 새 일정을 쓸 때만, 글자를 친 뒤에 예전 일정을 추천한다.
+  const suggestions = event || form.title === pickedTitle ? [] : titleSuggestions(pastEvents ?? [], form.title)
   const ref = event && { id: event.id, seriesId: event.seriesId, originalStart: event.originalStart, start: event.start }
 
   const update = (patch: Partial<CalendarForm>) => setForm(previous => ({ ...previous, ...patch }))
+
+  const pickSuggestion = (picked: CalendarEvent) => {
+    setForm(applySuggestion(form, picked))
+    setPickedTitle(picked.title.trim())
+  }
 
   const togglePicker = (picker: string) => setOpened(previous => (previous === picker ? null : picker))
 
@@ -138,6 +161,16 @@ function CalendarEventForm({ event, date, layout, onDone, onCancel }: CalendarEv
           onChange={changeEvent => update({ title: changeEvent.target.value })}
           autoFocus={!event && layout === 'page'}
         />
+        {suggestions.length > 0 && (
+          <div className="event-title-suggestions" aria-label="예전 일정 추천">
+            {suggestions.map(suggestion => (
+              <button key={suggestion.id} type="button" className="chip event-title-suggestion" onClick={() => pickSuggestion(suggestion)}>
+                {suggestion.title}
+                <small>{suggestionTime(suggestion)}</small>
+              </button>
+            ))}
+          </div>
+        )}
 
         <TargetPicker value={form.target} onChange={target => setForm(changeTarget(form, target))} />
 
