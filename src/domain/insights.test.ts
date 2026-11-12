@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   budgetPace,
   categoryChanges,
-  compareByPerson,
   elapsedMonthsOfYear,
   fixedVsVariable,
   noSpendCalendar,
@@ -62,27 +61,6 @@ describe('fixedVsVariable', () => {
     )
 
     expect(result).toEqual({ fixed: 400000, variable: 30000 })
-  })
-})
-
-describe('compareByPerson', () => {
-  it('개인 지출만 카테고리별로 두 사람의 내 몫을 합치고 총액 순으로 자른다', () => {
-    const result = compareByPerson(
-      [
-        transaction({ category: '식비', amount: 30000, scope: '개인' }),
-        transaction({ category: '식비', person: '우사기', amount: 60000, shareCount: 2, scope: '개인' }),
-        transaction({ category: '쇼핑', person: '우사기', amount: 100000, scope: '개인' }),
-        transaction({ category: '카페·간식', amount: 5000, scope: '개인' }),
-        transaction({ category: '주거·통신', amount: 900000 }),
-      ],
-      none,
-      2,
-    )
-
-    expect(result).toEqual([
-      { category: '쇼핑', 쿠리만쥬: 0, 우사기: 100000 },
-      { category: '식비', 쿠리만쥬: 30000, 우사기: 30000 },
-    ])
   })
 })
 

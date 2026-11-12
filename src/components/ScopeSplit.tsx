@@ -1,5 +1,6 @@
 import { usePersonName } from '../db/hooks'
 import type { ScopeFilter } from '../domain/stats'
+import { scopeLabel } from '../domain/types'
 import PersonAvatar from './PersonAvatar'
 
 type ScopeSplitProps = {
@@ -17,10 +18,10 @@ function ScopeSplit({ items, showLabels = false }: ScopeSplitProps) {
         .map(item => (
           <span
             key={item.filter}
-            aria-label={`${item.filter === '공동' ? '공동' : `${personName(item.filter)} 개인`} ${item.amount.toLocaleString('ko-KR')}원`}
+            aria-label={`${item.filter === '공동' ? scopeLabel('공동') : `${personName(item.filter)} ${scopeLabel('개인')}`} ${item.amount.toLocaleString('ko-KR')}원`}
           >
             <PersonAvatar person={item.filter} size={14} />
-            {showLabels && <span className="person-split-label">{item.filter === '공동' ? '공동' : personName(item.filter)}</span>}
+            {showLabels && <span className="person-split-label">{item.filter === '공동' ? scopeLabel('공동') : personName(item.filter)}</span>}
             {item.amount.toLocaleString('ko-KR')}원
           </span>
         ))}

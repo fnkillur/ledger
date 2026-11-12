@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { getCelebration, subscribeCelebration } from '../celebration/store'
 import { useCategoryIcons, usePersonName } from '../db/hooks'
 import { myShare } from '../domain/stats'
-import type { Transaction } from '../domain/types'
+import { scopeLabel, type Transaction } from '../domain/types'
 import { formatSignedWon, formatTime } from '../utils/format'
 import CategoryIcon from './CategoryIcon'
 import PersonAvatar from './PersonAvatar'
@@ -17,7 +17,7 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
   const share = myShare(transaction)
   const category = transaction.category || '카테고리 없음'
   const title = transaction.merchant || category
-  // 공동 지출은 누가 결제했는지보다 둘의 지출이라는 게 중요해서 공동으로 보여 준다.
+  // 공금 지출은 누가 결제했는지보다 공금에서 나갔다는 게 중요해서 공금으로 보여 준다.
   const isShared = transaction.kind === '지출' && transaction.scope === '공동'
 
   return (
@@ -29,10 +29,10 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
           <span className="tx-row-meta">
             <span className="tx-row-person">
               <PersonAvatar person={isShared ? '공동' : transaction.person} size={16} />
-              {isShared ? '공동' : personName(transaction.person)}
+              {isShared ? scopeLabel('공동') : personName(transaction.person)}
             </span>
             <span className="tx-row-category">{category}</span>
-            {transaction.kind === '지출' && transaction.scope === '개인' && <span className="tx-badge">개인</span>}
+            {transaction.kind === '지출' && transaction.scope === '개인' && <span className="tx-badge">{scopeLabel('개인')}</span>}
             {transaction.shareCount > 1 && <span className="tx-badge">{transaction.shareCount}명 나눔</span>}
             {transaction.excluded && <span className="tx-badge">통계 제외</span>}
           </span>

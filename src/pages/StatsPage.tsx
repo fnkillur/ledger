@@ -4,7 +4,6 @@ import ScopeChips from '../components/ScopeChips'
 import { useCategoriesQuery, useTransactionsBetween } from '../db/hooks'
 import {
   categoryChanges,
-  compareByPerson,
   fixedVsVariable,
   hasDetailedData,
   noSpendCalendar,
@@ -14,7 +13,9 @@ import {
 import { mealSplit, monthlyMealSplits, seasonalByMonth, SEASONAL_CATEGORIES, type SeasonalCategory, type SeasonalSeries } from '../domain/lifestyle'
 import { EARLIEST_MONTH_KEY, monthKeysOfYear, previousComparison, shiftPeriod, toRange, type Period } from '../domain/period'
 import { savingTips } from '../domain/savingTips'
+import type { Transaction } from '../domain/types'
 import {
+  categoryScopeOf,
   expenseByScope,
   matchesScope,
   monthlyTotals,
@@ -28,14 +29,13 @@ import {
 } from '../domain/stats'
 import { currentMonthKey, shiftMonth } from '../utils/format'
 import { useViewState } from '../utils/viewState'
-import CategorySection, { FixedVariableCard, PersonComparisonCard } from './stats/CategorySection'
+import CategorySection, { FixedVariableCard } from './stats/CategorySection'
 import { MealCard, SeasonalCard } from './stats/LifestyleCards'
 import OverviewSection, { TrendCard } from './stats/OverviewSection'
 import PatternSection from './stats/PatternSection'
 import { inRange } from './stats/shared'
 
 const TREND_MONTHS = 12
-const PERSON_COMPARE_LIMIT = 8
 const TOP_COUNT = 10
 const MERCHANT_COUNT = 5
 
@@ -90,12 +90,8 @@ function StatsPage() {
 
   const scopedCurrent = useMemo(() => current.filter(transaction => matchesScope(transaction, scopeFilter)), [current, scopeFilter])
   const scopedPrevious = useMemo(() => (previous ?? []).filter(transaction => matchesScope(transaction, scopeFilter)), [previous, scopeFilter])
-  const scopedLastYear = useMemo(
-    () => sameMonthLastYear.filter(transaction => matchesScope(transaction, scopeFilter)),
-    [sameMonthLastYear, scopeFilter],
-  )
 
-  // 한눈에 보는 숫자와 12개월 추이도 고른 범위(전체·공동·개인)를 따른다. 절약 팁은 집 전체 기준이다.
+  // 한눈에 보는 숫자와 12개월 추이도 고른 범위(전체·공금·용돈)를 따른다. 절약 팁은 집 전체 기준이다.
   const summary = useMemo(() => {
     const latest = currentMonthKey()
     const scopedLoaded = loaded.filter(transaction => matchesScope(transaction, scopeFilter))
@@ -120,17 +116,20 @@ function StatsPage() {
   }, [loaded, current, previous, scopedCurrent, scopedPrevious, ranges, excluded, scopeFilter, periodType, monthKey, categories, today])
 
   const categoryData = useMemo(() => {
-    const ranking = sumByCategory(scopedCurrent, '지출', excluded)
+    const categoryScope = categoryScopeOf(scopeFilter)
+    const inCategoryScope = (transaction: Transaction) => matchesScope(transaction, categoryScope)
+    const categoryCurrent = current.filter(inCategoryScope)
     return {
-      ranking,
+      title: scopeFilter === '전체' ? '공금 카테고리별 지출' : '카테고리별 지출',
+      total: sumByKind(categoryCurrent, excluded).지출,
+      ranking: sumByCategory(categoryCurrent, '지출', excluded),
       changes: {
-        '이전 기간': categoryChanges(scopedCurrent, scopedPrevious, excluded),
-        '작년 같은 달': categoryChanges(scopedCurrent, scopedLastYear, excluded),
+        '이전 기간': categoryChanges(categoryCurrent, (previous ?? []).filter(inCategoryScope), excluded),
+        '작년 같은 달': categoryChanges(categoryCurrent, sameMonthLastYear.filter(inCategoryScope), excluded),
       },
       fixedVariable: fixedVsVariable(scopedCurrent, categories, excluded),
-      personComparison: scopeFilter === '전체' ? compareByPerson(current, excluded, PERSON_COMPARE_LIMIT) : [],
     }
-  }, [scopedCurrent, scopedPrevious, scopedLastYear, current, categories, excluded, scopeFilter])
+  }, [current, previous, sameMonthLastYear, scopedCurrent, categories, excluded, scopeFilter])
 
   const lifestyle = useMemo(() => {
     const scopedLoaded = loaded.filter(transaction => matchesScope(transaction, scopeFilter))
@@ -181,7 +180,8 @@ function StatsPage() {
             <CategorySection
               isMonthly={periodType === '월별'}
               previousLabel={ranges.previousLabel}
-              total={summary.totals.지출}
+              title={categoryData.title}
+              total={categoryData.total}
               ranking={categoryData.ranking}
               changes={categoryData.changes}
             />
@@ -194,7 +194,6 @@ function StatsPage() {
             <TrendCard period={ranges.period} scopeFilter={scopeFilter} data={summary.trend} />
             <SeasonalCard seriesByCategory={lifestyle.seasonal} />
             {categoryData.ranking.length > 0 && <FixedVariableCard {...categoryData.fixedVariable} />}
-            <PersonComparisonCard rows={categoryData.personComparison} />
           </>
         )}
       </main>

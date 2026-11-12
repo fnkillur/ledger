@@ -86,7 +86,7 @@ function ListPage() {
               <SummaryItem label="남은 돈" amount={totals.수입 - totals.지출} tone="남은" />
               {byScope.filter(item => item.amount !== 0).length > 1 && (
                 <div className="summary-split">
-                  <span className="summary-label">지출 나눠보기</span>
+                  <span className="summary-label">공금·용돈</span>
                   <ScopeSplit items={byScope} showLabels />
                 </div>
               )}

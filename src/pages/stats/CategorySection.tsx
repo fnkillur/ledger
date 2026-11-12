@@ -3,17 +3,14 @@ import { useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import CategoryIcon from '../../components/CategoryIcon'
 import EmptyState from '../../components/EmptyState'
-import PersonAvatar from '../../components/PersonAvatar'
 import Segmented from '../../components/Segmented'
-import { useCategoryIcons, usePersonName } from '../../db/hooks'
-import type { CategoryChange, PersonComparison } from '../../domain/insights'
-import { PEOPLE } from '../../domain/types'
+import { useCategoryIcons } from '../../db/hooks'
+import type { CategoryChange } from '../../domain/insights'
 import { formatWon } from '../../utils/format'
 import MoreToggle from './MoreToggle'
 import { formatCompactWon, percent, TOOLTIP_STYLE } from './shared'
 
 const SLICE_COLORS = ['var(--slice-1)', 'var(--slice-2)', 'var(--slice-3)', 'var(--slice-4)', 'var(--slice-5)']
-const PERSON_COLORS = { 쿠리만쥬: 'var(--person-1)', 우사기: 'var(--person-2)' }
 const CHANGE_LIMIT = 3
 const COLLAPSED_COUNT = 5
 
@@ -28,13 +25,14 @@ export type CompareTarget = '이전 기간' | '작년 같은 달'
 type CategorySectionProps = {
   isMonthly: boolean
   previousLabel: string | null
+  title: string
   total: number
   ranking: { category: string; amount: number }[]
   changes: Record<CompareTarget, { increased: CategoryChange[]; decreased: CategoryChange[] }>
 }
 
 // 어디에 썼나: 카테고리 비중(도넛 + 순위), 많이 달라진 카테고리.
-function CategorySection({ isMonthly, previousLabel, total, ranking, changes }: CategorySectionProps) {
+function CategorySection({ isMonthly, previousLabel, title, total, ranking, changes }: CategorySectionProps) {
   const [compareTarget, setCompareTarget] = useState<CompareTarget>('이전 기간')
 
   if (ranking.length === 0) {
@@ -48,7 +46,7 @@ function CategorySection({ isMonthly, previousLabel, total, ranking, changes }: 
   return (
     <>
       <section className="card">
-        <h2 className="card-title">카테고리별 지출</h2>
+        <h2 className="card-title">{title}</h2>
         <CategoryDonut items={ranking} total={total} />
         <CategoryRanking items={ranking} />
       </section>
@@ -66,16 +64,6 @@ function CategorySection({ isMonthly, previousLabel, total, ranking, changes }: 
         </section>
       )}
     </>
-  )
-}
-
-export function PersonComparisonCard({ rows }: { rows: PersonComparison[] }) {
-  if (rows.length === 0) return null
-  return (
-    <section className="card">
-      <h2 className="card-title">개인 지출 비교</h2>
-      <PersonComparisonBars rows={rows} />
-    </section>
   )
 }
 
@@ -193,43 +181,6 @@ export function FixedVariableCard({ fixed, variable }: { fixed: number; variable
       </div>
       <p className="card-description">고정비 카테고리는 구글 시트 "카테고리" 탭의 고정비 칸에서 바꿀 수 있어요.</p>
     </section>
-  )
-}
-
-function PersonComparisonBars({ rows }: { rows: PersonComparison[] }) {
-  const icons = useCategoryIcons()
-  const personName = usePersonName()
-  const max = Math.max(...rows.flatMap(row => [row.쿠리만쥬, row.우사기]))
-
-  return (
-    <>
-      <div className="person-legend">
-        {PEOPLE.map(person => (
-          <span key={person}>
-            <span className="legend-swatch" style={{ background: PERSON_COLORS[person] }} />
-            <PersonAvatar person={person} size={16} /> {personName(person)}
-          </span>
-        ))}
-      </div>
-      <ul className="person-bars">
-        {rows.map(row => (
-          <li key={row.category}>
-            <span className="person-bars-label">
-              <CategoryIcon name={row.category} emoji={icons.get(row.category)} size={12} />
-              <span className="label-text">{row.category}</span>
-            </span>
-            {PEOPLE.map(person => (
-              <div key={person} className="person-bar-row">
-                <div className="bar-track">
-                  <div className="bar-fill" style={{ width: `${(row[person] / max) * 100}%`, background: PERSON_COLORS[person] }} />
-                </div>
-                <span className="bar-value">{row[person].toLocaleString('ko-KR')}</span>
-              </div>
-            ))}
-          </li>
-        ))}
-      </ul>
-    </>
   )
 }
 

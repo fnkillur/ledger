@@ -23,7 +23,7 @@ import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
 import { groupReceipt, moveReceiptItem, receiptMemo, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
 import { myShare } from '../domain/stats'
-import { KINDS, PEOPLE, SCOPES, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
+import { KINDS, PEOPLE, SCOPES, scopeLabel, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
 import { useBackHandler } from '../navigation/back'
 import { LIST_PATH } from '../paths'
 import { analyzeReceipt } from '../sync/api'
@@ -144,7 +144,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && receipt === null
   const canUseReceipt = !transaction && draft.kind === '지출'
   // 수입은 나눠 받거나 통계에서 뺄 일이 없다(돌려받은 돈은 '정산' 카테고리가 빠진다). 예전에 넣어 둔 값만 되돌릴 수 있게 보여 준다.
-  // 공동 지출은 둘의 지출이라 누가 썼는지 고르지 않는다(결제한 사람은 그대로 저장된다).
+  // 공금 지출은 누구 용돈도 아니라 누가 썼는지 고르지 않는다(결제한 사람은 그대로 저장된다).
   const isSharedExpense = draft.kind === '지출' && draft.scope === '공동'
   const showsSplitOptions = draft.kind === '지출' || (initial.kind === '수입' && (initial.shareCount > 1 || initial.excluded))
   const merchantQuery = draft.merchant.trim()
@@ -380,11 +380,11 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
           {draft.kind === '지출' && (
             <div className="form-row">
               <span className="form-row-text">
-                공동·개인
-                <small>{draft.scope === '공동' ? '둘이 함께 쓴 지출' : '한 사람만 쓴 지출'}</small>
+                공금·용돈
+                <small>{draft.scope === '공동' ? '공금에서 나간 지출' : '결제한 사람 용돈에서 나간 지출'}</small>
               </span>
               <div className="tx-compact">
-                <Segmented label="공동·개인" options={SCOPES} value={draft.scope} onChange={scope => update({ scope })} />
+                <Segmented label="공금·용돈" options={SCOPES} labelOf={scopeLabel} value={draft.scope} onChange={scope => update({ scope })} />
               </div>
             </div>
           )}

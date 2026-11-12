@@ -31,7 +31,7 @@ type OverviewSectionProps = {
   pendingSalaries: PendingSalary[]
 }
 
-// 이번 기간 한눈에: 지출·수입 대비, 월말 예상, 줄여볼 만한 지출. 공동·개인을 고르면 지출만 그 범위로 보고, 전체에서의 비중을 함께 보여 준다.
+// 이번 기간 한눈에: 지출·수입 대비, 월말 예상, 줄여볼 만한 지출. 공금·용돈을 고르면 지출만 그 범위로 보고, 전체에서의 비중을 함께 보여 준다.
 function OverviewSection({ period, previousLabel, scopeFilter, totals, previousTotals, householdExpense, byScope, tips, pendingSalaries }: OverviewSectionProps) {
   const [today] = useState(() => new Date())
 
@@ -79,7 +79,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
 }
 
 export function TrendCard({ period, scopeFilter, data }: { period: Period; scopeFilter: ScopeFilter; data: TrendRow[] }) {
-  // 공동·개인으로 좁히면 수입은 나뉘지 않아서 지출 선만 그린다.
+  // 공금·용돈으로 좁히면 수입은 나뉘지 않아서 지출 선만 그린다.
   const series = scopeFilter === '전체' ? SERIES : SERIES.filter(item => item.kind === '지출')
 
   return (

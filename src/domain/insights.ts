@@ -1,5 +1,5 @@
 import { isCounted, myShare, sumByCategory, toMonthKey } from './stats'
-import { isAggregate, UNCATEGORIZED, type Category, type Kind, type Person, type Transaction } from './types'
+import { isAggregate, UNCATEGORIZED, type Category, type Kind, type Transaction } from './types'
 
 const isDetailedExpense = (transaction: Transaction, excludedCategories: Set<string>) =>
   transaction.kind === '지출' && !isAggregate(transaction.source) && isCounted(transaction, excludedCategories)
@@ -32,22 +32,6 @@ export const fixedVsVariable = (transactions: Transaction[], categories: Categor
     (totals, item) => (fixedNames.has(item.category) ? { ...totals, fixed: totals.fixed + item.amount } : { ...totals, variable: totals.variable + item.amount }),
     { fixed: 0, variable: 0 },
   )
-}
-
-export type PersonComparison = { category: string } & Record<Person, number>
-
-export const compareByPerson = (transactions: Transaction[], excludedCategories: Set<string>, limit: number) => {
-  const totals = new Map<string, PersonComparison>()
-  transactions.forEach(transaction => {
-    if (transaction.kind !== '지출' || transaction.scope !== '개인' || !isCounted(transaction, excludedCategories)) return
-    const row = totals.get(transaction.category) ?? { category: transaction.category, 쿠리만쥬: 0, 우사기: 0 }
-    row[transaction.person] += myShare(transaction)
-    totals.set(transaction.category, row)
-  })
-  return [...totals.values()]
-    .filter(row => row.쿠리만쥬 + row.우사기 > 0)
-    .sort((left, right) => right.쿠리만쥬 + right.우사기 - (left.쿠리만쥬 + left.우사기))
-    .slice(0, limit)
 }
 
 const daysInMonth = (monthKey: string) => {

@@ -1482,48 +1482,6 @@ a {
   vertical-align: -1px;
 }
 
-.person-legend {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-3);
-  font-size: var(--font-sm);
-}
-
-.person-legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.person-bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.person-bars-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: var(--font-sm);
-}
-
-.person-bar-row {
-  display: grid;
-  grid-template-columns: 1fr 76px;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-}
-
-.person-bar-row .bar-track {
-  height: 10px;
-}
-
 .top-row.merchant-row {
   grid-template-columns: 18px 1fr auto;
   padding: var(--space-3) 0;
@@ -4381,7 +4339,6 @@ button.pill-input {
 .stats-content .donut-legend .legend-label,
 .stats-content .top-row-main strong,
 .stats-content .change-label,
-.stats-content .person-bars-label,
 .stats-content .tip-text strong,
 .stats-content .split-legend {
   font-size: var(--font-md);
@@ -4390,8 +4347,7 @@ button.pill-input {
 
 .stats-content .bar-value,
 .stats-content .top-row-amount,
-.stats-content .change-delta,
-.stats-content .person-bar-row .bar-value {
+.stats-content .change-delta {
   font-size: var(--font-md);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -4454,7 +4410,6 @@ button.pill-input {
 .stats-content .tx-row-meta,
 .stats-content .tx-row-time,
 .stats-content .change-sub,
-.stats-content .person-legend,
 .stats-content .donut-center span {
   font-size: var(--font-sm);
   font-weight: 400;

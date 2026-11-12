@@ -55,3 +55,21 @@ describe('영수증으로 나누기', () => {
     expect(container.textContent).not.toContain('카테고리 목록이 없어요')
   })
 })
+
+describe('공금·용돈', () => {
+  it('지출을 새로 쓸 때 공금과 용돈 중에 고른다', async () => {
+    await act(async () =>
+      root.render(
+        <MemoryRouter initialEntries={['/tx/new']}>
+          <Routes>
+            <Route path="/tx/new" element={<EditPage />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    )
+    await wait()
+
+    const options = [...container.querySelectorAll('[aria-label="공금·용돈"] button')].map(option => option.textContent)
+    expect(options).toEqual(['공금', '용돈'])
+  })
+})

@@ -118,6 +118,9 @@ export const matchesScope = (transaction: Transaction, filter: ScopeFilter) => {
   return transaction.scope === '개인' && transaction.person === filter
 }
 
+// 카테고리 분포는 생활비가 어디로 가는지 보려는 것이라, 전체를 고르면 각자 용돈은 빼고 공금만 본다.
+export const categoryScopeOf = (filter: ScopeFilter): Exclude<ScopeFilter, '전체'> => (filter === '전체' ? '공동' : filter)
+
 export const expenseByScope = (transactions: Transaction[], excludedCategories: Set<string>) =>
   (['공동', ...PEOPLE] as const).map(filter => ({
     filter,

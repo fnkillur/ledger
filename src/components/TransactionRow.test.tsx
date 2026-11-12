@@ -38,17 +38,18 @@ const personLabel = async (item: Transaction) => {
     ),
   )
   const label = container.querySelector('.tx-row-person')?.textContent
+  const badges = [...container.querySelectorAll('.tx-badge')].map(badge => badge.textContent)
   root.unmount()
-  return label
+  return { label, badges }
 }
 
 describe('TransactionRow', () => {
-  it('공동 지출은 결제한 사람 대신 공동으로 보여 준다', async () => {
-    expect(await personLabel(transaction({}))).toBe('공동')
+  it('공금 지출은 결제한 사람 대신 공금으로 보여 준다', async () => {
+    expect((await personLabel(transaction({}))).label).toBe('공금')
   })
 
-  it('개인 지출과 수입은 그 사람을 보여 준다', async () => {
-    expect(await personLabel(transaction({ scope: '개인' }))).toBe('쿠리만쥬')
-    expect(await personLabel(transaction({ kind: '수입', scope: '공동' }))).toBe('쿠리만쥬')
+  it('용돈 지출은 그 사람과 용돈 배지를, 수입은 그 사람을 보여 준다', async () => {
+    expect(await personLabel(transaction({ scope: '개인' }))).toEqual({ label: '쿠리만쥬', badges: ['용돈'] })
+    expect((await personLabel(transaction({ kind: '수입', scope: '공동' }))).label).toBe('쿠리만쥬')
   })
 })

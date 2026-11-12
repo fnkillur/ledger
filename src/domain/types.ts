@@ -7,12 +7,15 @@ export type Source = '수동' | '알림' | '붙여넣기' | '이관' | '월합�
 
 // 이관·월합계는 한 달 치를 카테고리별로 묶은 행이라 건별 분석에서 뺀다.
 export const isAggregate = (source: Source) => source === '이관' || source === '월합계'
-// 개인 지출은 결제한 사람(person)의 몫이다.
+// 어느 돈에서 나갔나: 공동은 공금, 개인은 결제한 사람(person)의 용돈이다.
 export type Scope = '공동' | '개인'
 
 export const PEOPLE: Person[] = ['쿠리만쥬', '우사기']
 export const KINDS: Kind[] = ['지출', '수입']
 export const SCOPES: Scope[] = ['공동', '개인']
+
+// 시트에 저장된 값 '공동'·'개인'은 그대로 두고, 화면에는 '공금'·'용돈'으로 보여 준다.
+export const scopeLabel = (scope: Scope) => (scope === '공동' ? '공금' : '용돈')
 
 export type Transaction = {
   id: string

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { evaluateAmount, formatAmountText } from './amountExpression'
 import { classifyMerchant } from './classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification } from './notificationParser'
-import { expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
-import type { Transaction } from './types'
+import { categoryScopeOf, expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
+import { scopeLabel, type Transaction } from './types'
 
 describe('evaluateAmount', () => {
   it.each([
@@ -270,7 +270,7 @@ describe('topExpenses · toSlices', () => {
   })
 })
 
-describe('공동·개인', () => {
+describe('공금·용돈', () => {
   const items = [
     transaction({ amount: 50000, scope: '공동' }),
     transaction({ amount: 20000, scope: '개인', person: '쿠리만쥬' }),
@@ -284,7 +284,18 @@ describe('공동·개인', () => {
     expect(items.filter(item => matchesScope(item, '전체'))).toHaveLength(4)
   })
 
-  it('지출을 공동·각자 개인으로 나눈다', () => {
+  it('저장 값은 공동·개인 그대로 두고 화면에는 공금·용돈으로 보여 준다', () => {
+    expect(scopeLabel('공동')).toBe('공금')
+    expect(scopeLabel('개인')).toBe('용돈')
+  })
+
+  it('카테고리 분포는 전체를 고르면 공금만, 사람을 고르면 그 사람 용돈만 본다', () => {
+    expect(categoryScopeOf('전체')).toBe('공동')
+    expect(categoryScopeOf('공동')).toBe('공동')
+    expect(categoryScopeOf('우사기')).toBe('우사기')
+  })
+
+  it('지출을 공금·각자 용돈으로 나눈다', () => {
     expect(expenseByScope(items, new Set())).toEqual([
       { filter: '공동', amount: 60000 },
       { filter: '쿠리만쥬', amount: 20000 },

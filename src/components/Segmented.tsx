@@ -3,9 +3,10 @@ type SegmentedProps<T extends string> = {
   value: T
   onChange: (value: T) => void
   label: string
+  labelOf?: (value: T) => string
 }
 
-function Segmented<T extends string>({ options, value, onChange, label }: SegmentedProps<T>) {
+function Segmented<T extends string>({ options, value, onChange, label, labelOf = option => option }: SegmentedProps<T>) {
   return (
     <div className="segmented" role="radiogroup" aria-label={label}>
       {options.map(option => (
@@ -17,7 +18,7 @@ function Segmented<T extends string>({ options, value, onChange, label }: Segmen
           className="segmented-option"
           onClick={() => onChange(option)}
         >
-          {option}
+          {labelOf(option)}
         </button>
       ))}
     </div>
