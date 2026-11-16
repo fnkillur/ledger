@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupReceipt, moveReceiptItem, receiptMemo } from './receipt'
+import { groupReceipt, moveReceiptItem, receiptMemo, receiptPaidAt } from './receipt'
 
 const items = [
   { name: '양파', amount: 3980, category: '식재료' },
@@ -41,5 +41,27 @@ describe('moveReceiptItem', () => {
   it('고른 품목만 다른 카테고리로 옮긴다', () => {
     expect(moveReceiptItem(items, 1, '편의점·마트·잡화')[1].category).toBe('편의점·마트·잡화')
     expect(moveReceiptItem(items, 1, '편의점·마트·잡화')[0].category).toBe('식재료')
+  })
+})
+
+describe('receiptPaidAt', () => {
+  const fallback = new Date(2026, 10, 16, 9, 30).toISOString()
+  const parts = (iso: string | null) => {
+    const date = new Date(iso!)
+    return [date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes()]
+  }
+
+  it('영수증의 결제 날짜·시각을 그대로 쓴다', () => {
+    expect(parts(receiptPaidAt('2026-11-10T18:42', fallback))).toEqual([2026, 11, 10, 18, 42])
+  })
+
+  it('날짜만 있으면 날짜만 바꾸고 시각은 그대로 둔다', () => {
+    expect(parts(receiptPaidAt('2026-11-10', fallback))).toEqual([2026, 11, 10, 9, 30])
+  })
+
+  it('날짜를 못 읽었으면 쓰지 않는다', () => {
+    expect(receiptPaidAt('', fallback)).toBeNull()
+    expect(receiptPaidAt(undefined, fallback)).toBeNull()
+    expect(receiptPaidAt('2026-13-40T25:99', fallback)).toBeNull()
   })
 })

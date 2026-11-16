@@ -36,7 +36,7 @@ function analyzeReceipt_(body) {
     .filter(item => item.name && item.amount !== 0)
     .map(item => (categories.includes(item.category) ? item : { ...item, category: categories[0] }))
   if (items.length === 0) throw new Error('영수증에서 품목을 찾지 못했어요.')
-  return { receipt: { merchant: String(receipt.merchant || '').trim(), total: Math.round(Number(receipt.total) || 0), items } }
+  return { receipt: { merchant: String(receipt.merchant || '').trim(), total: Math.round(Number(receipt.total) || 0), paidAt: String(receipt.paidAt || '').trim(), items } }
 }
 
 // 실행 기록에서는 웹 앱 로그를 볼 수 없어서, 앱 화면에 이유를 짧게 보여준다. 키는 응답에 들어 있지 않다.
@@ -60,6 +60,7 @@ function receiptPrompt_(categories) {
     '- 위 셋에 안 맞으면 목록의 다른 카테고리, 그래도 애매하면 편의점·마트·잡화',
     '할인 줄은 따로 품목으로 만들지 말고 해당 품목 금액에서 빼 주세요. 어느 품목 할인인지 모르면 가장 비싼 품목에서 빼요.',
     'merchant는 가게 이름, total은 카드로 실제 결제한 합계예요. 품목 이름은 영수증에 적힌 그대로 짧게 써 주세요.',
+    'paidAt은 영수증에 찍힌 결제 일시를 YYYY-MM-DDTHH:mm(24시간)으로, 시각이 없으면 YYYY-MM-DD로 써 주세요. 날짜가 안 보이면 빈 문자열로 둬요.',
   ].join('\n')
 }
 
@@ -69,6 +70,7 @@ function receiptSchema_(categories) {
     properties: {
       merchant: { type: 'STRING' },
       total: { type: 'INTEGER' },
+      paidAt: { type: 'STRING' },
       items: {
         type: 'ARRAY',
         items: {

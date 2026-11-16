@@ -54,6 +54,23 @@ describe('영수증으로 나누기', () => {
     expect(categories).not.toContain(UNCATEGORIZED)
     expect(container.textContent).not.toContain('카테고리 목록이 없어요')
   })
+  it('영수증에 결제 날짜·시각이 있으면 새로 쓰는 내역의 날짜에 채운다', async () => {
+    vi.mocked(analyzeReceipt).mockResolvedValue({ merchant: '롯데마트', total: 20470, paidAt: '2026-11-10T18:42', items: [{ name: '호박고구마', amount: 20470, category: '식재료' }] })
+    const receiptFile = new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' })
+    await act(async () =>
+      root.render(
+        <MemoryRouter initialEntries={[{ pathname: '/tx/new', state: { receiptFile } }]}>
+          <Routes>
+            <Route path="/tx/new" element={<EditPage />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    )
+    await wait()
+
+    expect(container.textContent).toContain('11월 10일')
+    expect(container.textContent).toContain('오후 6:42')
+  })
 })
 
 describe('공금·용돈', () => {

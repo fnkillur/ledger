@@ -33,3 +33,17 @@ export const receiptMemo = (items: ReceiptItem[]) => {
 
 export const moveReceiptItem = (items: ReceiptItem[], index: number, category: string) =>
   items.map((item, itemIndex) => (itemIndex === index ? { ...item, category } : item))
+
+const PAID_AT = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/
+
+// 영수증에서 읽은 결제 일시(YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm). 시각이 없으면 지금 적힌 시각을 그대로 둔다.
+export const receiptPaidAt = (paidAt: string | undefined, fallback: string) => {
+  const match = paidAt?.match(PAID_AT)
+  if (!match) return null
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const base = new Date(fallback)
+  const [hour, minute] = match[4] === undefined ? [base.getHours(), base.getMinutes()] : [Number(match[4]), Number(match[5])]
+  const date = new Date(year, month - 1, day, hour, minute)
+  if (date.getMonth() !== month - 1 || date.getDate() !== day || hour > 23 || minute > 59) return null
+  return date.toISOString()
+}

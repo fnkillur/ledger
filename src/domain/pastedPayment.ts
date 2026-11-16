@@ -16,16 +16,27 @@ const withInferredYear = (now: Date, month: number, day: number, hour?: string, 
 
 const isValidMonthDay = (month: number, day: number) => month >= 1 && month <= 12 && day >= 1 && day <= 31
 
-export const findOccurredAt = (text: string, now: Date) => {
+const isSameDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate()
+
+const findDate = (text: string, now: Date) => {
   const full = text.match(FULL_DATE)
-  if (full) return toDate(Number(full[1]), Number(full[2]), Number(full[3]), full[4], full[5])
+  if (full) return { date: toDate(Number(full[1]), Number(full[2]), Number(full[3]), full[4], full[5]), hasTime: full[4] !== undefined }
 
   for (const pattern of [MONTH_DAY_KOREAN, MONTH_DAY_SLASH]) {
     const match = text.match(pattern)
     if (!match || !isValidMonthDay(Number(match[1]), Number(match[2]))) continue
-    return withInferredYear(now, Number(match[1]), Number(match[2]), match[3], match[4])
+    return { date: withInferredYear(now, Number(match[1]), Number(match[2]), match[3], match[4]), hasTime: match[3] !== undefined }
   }
-  return now
+  return null
+}
+
+// now는 알림을 받은 시각이다. 문자에 시각 없이 날짜만 있고 그날 받은 알림이면 받은 시각이 실제 결제 시각에 가장 가깝다.
+export const findOccurredAt = (text: string, now: Date) => {
+  const found = findDate(text, now)
+  if (!found) return now
+  if (!found.hasTime && isSameDay(found.date, now)) return now
+  return found.date
 }
 
 export const parsePastedPayment = (text: string, now = new Date()): ParsedPayment | null =>

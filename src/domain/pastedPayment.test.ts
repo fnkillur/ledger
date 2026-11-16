@@ -16,6 +16,11 @@ describe('findOccurredAt', () => {
     expect(local(findOccurredAt(text, now))).toBe(expected)
   })
 
+  it('시각 없이 날짜만 있고 그날이 알림 받은 날이면 알림 받은 시각을 쓴다', () => {
+    expect(local(findOccurredAt('10/21 일시불', now))).toBe('2026-10-21 15:00')
+    expect(local(findOccurredAt('2026.10.21 결제', now))).toBe('2026-10-21 15:00')
+  })
+
   it('날짜가 없으면 지금 시각을 쓴다', () => {
     expect(findOccurredAt('5,000원 결제', now)).toBe(now)
   })

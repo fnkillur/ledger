@@ -21,7 +21,7 @@ import { cheerSubline } from '../domain/celebration'
 import { classifyMerchant, findSameMerchant, suggestCategory } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
-import { groupReceipt, moveReceiptItem, receiptMemo, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
+import { groupReceipt, moveReceiptItem, receiptMemo, receiptPaidAt, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
 import { myShare } from '../domain/stats'
 import { KINDS, PEOPLE, SCOPES, scopeLabel, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
 import { useBackHandler } from '../navigation/back'
@@ -225,6 +225,9 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
       const itemSum = result.items.reduce((sum, item) => sum + item.amount, 0)
       if (amount === null || amount === 0) setAmountText(String(result.total || itemSum))
       if (!draft.merchant.trim() && result.merchant) update({ merchant: result.merchant })
+      // 알림으로 들어온 내역은 이미 결제 시각이 맞아서, 손으로 새로 쓰는 내역에만 영수증 일시를 채운다.
+      const paidAt = receiptPaidAt(result.paidAt, draft.occurredAt)
+      if (!transaction && draft.source === '수동' && paidAt) update({ occurredAt: paidAt })
       setReceipt({ status: 'done', total: result.total || itemSum, items: result.items })
     } catch (caught) {
       setReceipt({ status: 'error', message: toReceiptErrorMessage(caught) })
