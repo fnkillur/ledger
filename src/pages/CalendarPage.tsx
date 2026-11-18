@@ -10,7 +10,7 @@ import PeriodSwitcher from '../components/PeriodSwitcher'
 import { useAnniversaries, useCycleRows } from '../db/hooks'
 import { anniversaryLabels } from '../domain/anniversary'
 import { cycleDueByDate } from '../domain/cycle'
-import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync } from '../db/calendar'
+import { dismissCalendarError, syncCalendar, useCalendarEvents, useCalendarStatus, useCalendarSync, useHolidays } from '../db/calendar'
 import { eventsOnDay, gridRange } from '../domain/calendar'
 import { isSyncConfigured, useSettings } from '../sync/settings'
 import { currentMonthKey, shiftMonth, toDateKey } from '../utils/format'
@@ -36,6 +36,7 @@ function CalendarPage() {
   const { error, pendingCount } = useCalendarStatus()
   const cycleRows = useCycleRows(todayKey())
   const anniversaries = useAnniversaries()
+  const holidays = useHolidays()
 
   const [pickedDay, setPickedDay] = useState<{ dateKey: string; view: DaySheetView } | null>(null)
   // 날짜를 한 번 누르면 고른 표시만 하고, 고른 날짜를 한 번 더 누르면 그날 일정을 연다.
@@ -125,6 +126,7 @@ function CalendarPage() {
             dateKey={opened.dateKey}
             events={eventsOnDay(events ?? [], opened.dateKey)}
             cycles={cyclesByDate.get(opened.dateKey)}
+            holiday={holidays.get(opened.dateKey)}
             anniversaries={anniversaryLabels(opened.dateKey, anniversaries)}
             initialView={opened.view}
             onClose={closeSheet}

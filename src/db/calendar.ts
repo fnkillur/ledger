@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   calendarWindow,
   gridRange,
@@ -7,6 +7,7 @@ import {
   type CalendarEvent,
   type CalendarEventInput,
   type CalendarEventRef,
+  type Holiday,
   type RepeatScope,
 } from '../domain/calendar'
 import { displayName } from '../domain/nickname'
@@ -53,6 +54,20 @@ const replaceRange = async (start: string, end: string, events: CalendarEvent[])
     const stale = (await db.calendarEvents.toArray()).filter(event => overlapsRange(event, start, end) && !isPending(event, pending))
     await db.calendarEvents.bulkDelete(stale.map(event => event.id))
     await db.calendarEvents.bulkPut(events.filter(event => !isPending(event, pending)))
+  })
+}
+
+const mergeByDate = (holidays: Holiday[]) => {
+  const names = new Map<string, string[]>()
+  holidays.forEach(holiday => names.set(holiday.date, [...(names.get(holiday.date) ?? []), holiday.name]))
+  return [...names].map(([date, dayNames]) => ({ date, name: dayNames.join(' · ') }))
+}
+
+const replaceHolidays = async (start: string, end: string, holidays: Holiday[] | undefined) => {
+  if (!holidays) return
+  await db.transaction('rw', db.holidays, async () => {
+    await db.holidays.where('date').between(start, end, true, true).delete()
+    await db.holidays.bulkPut(mergeByDate(holidays))
   })
 }
 
@@ -105,7 +120,8 @@ export const syncCalendar = () => {
       for (let round = 0; round < MAX_SYNC_ROUNDS; round += 1) {
         await pushOutbox()
         const { start, end } = calendarWindow(currentMonthKey())
-        const events = await fetchCalendar(getSettings(), start, end)
+        const { events, holidays } = await fetchCalendar(getSettings(), start, end)
+        await replaceHolidays(start, end, holidays)
         if ((await db.calendarOutbox.count()) > 0) continue
         await replaceRange(start, end, events)
         await db.calendarMeta.put({ key: 'window', start, end, fetchedAt: new Date().toISOString() })
@@ -126,7 +142,8 @@ export const ensureMonth = async (monthKey: string) => {
   const range = gridRange(monthKey)
   if (meta?.start && range.start >= meta.start && range.end <= meta.end) return
   if (!isSyncConfigured(getSettings())) return
-  const events = await fetchCalendar(getSettings(), range.start, range.end)
+  const { events, holidays } = await fetchCalendar(getSettings(), range.start, range.end)
+  await replaceHolidays(range.start, range.end, holidays)
   await replaceRange(range.start, range.end, events)
 }
 
@@ -203,6 +220,11 @@ export const deleteEvent = async (ref: CalendarEventRef, scope: RepeatScope) => 
 
 export function useCalendarEvents() {
   return useLiveQuery(() => db.calendarEvents.toArray(), [])
+}
+
+export function useHolidays() {
+  const holidays = useLiveQuery(() => db.holidays.toArray(), [])
+  return useMemo(() => new Map((holidays ?? []).map(holiday => [holiday.date, holiday.name])), [holidays])
 }
 
 export function useCalendarStatus() {

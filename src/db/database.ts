@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { CalendarEvent, CalendarEventInput, CalendarEventRef, RepeatScope } from '../domain/calendar'
+import type { CalendarEvent, CalendarEventInput, CalendarEventRef, Holiday, RepeatScope } from '../domain/calendar'
 import type { CycleItem } from '../domain/cycle'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import type { Category, Person, Rule, SharedSettings, Transaction } from '../domain/types'
@@ -47,6 +47,7 @@ export const db = new Dexie('ledger') as Dexie & {
   calendarEvents: EntityTable<CalendarEvent, 'id'>
   calendarOutbox: EntityTable<CalendarOp, 'seq'>
   calendarMeta: EntityTable<CalendarMeta, 'key'>
+  holidays: EntityTable<Holiday, 'date'>
   cycles: EntityTable<CycleItem, 'id'>
 }
 
@@ -123,3 +124,5 @@ db.version(9)
         item.anchor ??= null
       }),
   )
+
+db.version(10).stores({ holidays: 'date' })

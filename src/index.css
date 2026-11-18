@@ -3044,6 +3044,11 @@ a {
   color: var(--color-saturday);
 }
 
+/* 토요일과 겹친 공휴일도 빨간 날로 보이게 토요일보다 뒤에 둔다. */
+.cal-day.is-holiday .cal-day-number {
+  color: var(--color-sunday);
+}
+
 .cal-viewport {
   flex: 1;
   min-height: 0;
@@ -3355,6 +3360,13 @@ a {
 
 .day-sheet-item:active {
   transform: scale(0.98);
+}
+
+.day-sheet-holiday {
+  margin: 0 0 var(--space-3);
+  color: var(--color-sunday);
+  font-size: var(--font-md);
+  font-weight: 600;
 }
 
 .day-sheet-empty {

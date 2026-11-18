@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CalendarEvent, CalendarEventInput } from '../domain/calendar'
+import type { CalendarEvent, CalendarEventInput, Holiday } from '../domain/calendar'
 import { saveSettings } from '../sync/settings'
 import { deleteEvent, ensureMonth, saveEvent, syncCalendar } from './calendar'
 import { db } from './database'
@@ -21,6 +21,7 @@ const event = (id: string, overrides: Partial<CalendarEvent> = {}): CalendarEven
 const input = (title: string): CalendarEventInput => ({ title, allDay: true, start: '2026-10-07', end: '2026-10-07', target: '우사기', repeat: 'none' })
 
 let serverEvents: CalendarEvent[]
+let serverHolidays: Holiday[] | undefined
 let reads: URL[]
 let writes: Record<string, unknown>[]
 let isOnline: boolean
@@ -33,6 +34,7 @@ beforeEach(async () => {
   await Promise.all(db.tables.map(table => table.clear()))
   saveSettings({ endpoint: 'https://script.example/exec', token: 't', defaultPerson: '쿠리만쥬' })
   serverEvents = [event('server-1')]
+  serverHolidays = []
   reads = []
   writes = []
   isOnline = true
@@ -53,7 +55,7 @@ beforeEach(async () => {
       }
       if (serverStatus !== 200) return new Response('error', { status: serverStatus })
       reads.push(new URL(url))
-      return Response.json({ ok: true, events: serverEvents })
+      return Response.json({ ok: true, events: serverEvents, holidays: serverHolidays })
     }),
   )
 })
@@ -230,6 +232,43 @@ describe('ensureMonth', () => {
     await ensureMonth('2020-06')
 
     expect(reads.map(url => url.searchParams.get('start'))).toEqual(['2020-05-31'])
+  })
+})
+
+describe('공휴일', () => {
+  it('일정과 함께 받은 공휴일을 날짜별로 저장하고, 같은 날 둘이면 이름을 이어 붙인다', async () => {
+    serverHolidays = [
+      { date: '2026-10-03', name: '개천절' },
+      { date: '2026-10-09', name: '한글날' },
+      { date: '2026-10-09', name: '임시공휴일' },
+    ]
+
+    await syncCalendar()
+
+    expect(await db.holidays.toArray()).toEqual([
+      { date: '2026-10-03', name: '개천절' },
+      { date: '2026-10-09', name: '한글날 · 임시공휴일' },
+    ])
+  })
+
+  it('다시 받으면 받은 범위의 공휴일을 새 목록으로 바꾼다', async () => {
+    serverHolidays = [{ date: '2026-10-03', name: '개천절' }]
+    await syncCalendar()
+
+    serverHolidays = [{ date: '2026-10-09', name: '한글날' }]
+    await syncCalendar()
+
+    expect((await db.holidays.toArray()).map(item => item.date)).toEqual(['2026-10-09'])
+  })
+
+  it('공휴일을 보내지 않는 예전 서버면 받아 둔 공휴일을 그대로 둔다', async () => {
+    serverHolidays = [{ date: '2026-10-03', name: '개천절' }]
+    await syncCalendar()
+
+    serverHolidays = undefined
+    await syncCalendar()
+
+    expect((await db.holidays.toArray()).map(item => item.date)).toEqual(['2026-10-03'])
   })
 })
 

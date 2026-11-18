@@ -7,6 +7,9 @@ export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type RepeatScope = 'one' | 'following' | 'all'
 
 // 종일 일정의 start/end는 'YYYY-MM-DD'이고 end는 마지막 날(포함)이다. 시간 일정은 ISO 문자열.
+// 구글 '대한민국의 휴일' 캘린더에서 쉬는 날만 받아 온다. 같은 날이 겹치면 이름을 이어 붙여 하루 한 줄로 둔다.
+export type Holiday = { date: string; name: string }
+
 export type CalendarEvent = {
   id: string
   seriesId: string | null

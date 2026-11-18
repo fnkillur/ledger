@@ -6,6 +6,7 @@ const TARGET_COLOR_IDS = { 공동: '8', 쿠리만쥬: '2', 우사기: '5', 기�
 const RECOLOR_TIME_BUDGET_MS = 4 * 60 * 1000
 const REPEAT_FREQS = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' }
 const CALENDAR_IMPORT_LIMIT = 100
+const HOLIDAY_CALENDAR_ID = 'ko.south_korea#holiday@group.v.calendar.google.com'
 
 // 편집기에서 한 번 실행해 캘린더 권한을 허용한다.
 function authorizeCalendar() {
@@ -43,7 +44,26 @@ function calendarEvents_(start, end) {
       repeatBySeries[item.recurringEventId] = repeatOf_(Calendar.Events.get(id, item.recurringEventId).recurrence)
     })
 
-  return { events: items.filter(item => item.status !== 'cancelled').map(item => toCalendarEvent_(item, repeatBySeries)) }
+  return { events: items.filter(item => item.status !== 'cancelled').map(item => toCalendarEvent_(item, repeatBySeries)), holidays: holidays_(start, end) }
+}
+
+// 구글 공휴일 캘린더는 어버이날 같은 기념일도 섞여 있어서, 설명이 '공휴일'인 쉬는 날만 고른다.
+// 공휴일을 못 받아도 일정은 보여야 하니 실패하면 비워 두고, 앱은 받아 둔 공휴일을 그대로 쓴다.
+function holidays_(start, end) {
+  try {
+    const page = Calendar.Events.list(HOLIDAY_CALENDAR_ID, {
+      timeMin: `${start}T00:00:00+09:00`,
+      timeMax: `${addDays_(end, 1)}T00:00:00+09:00`,
+      singleEvents: true,
+      maxResults: 2500,
+    })
+    return (page.items || [])
+      .filter(item => item.start.date && String(item.description || '').trim() === '공휴일')
+      .map(item => ({ date: item.start.date, name: item.summary || '공휴일' }))
+  } catch (error) {
+    console.warn(`공휴일을 받지 못했어요: ${error}`)
+    return undefined
+  }
 }
 
 function saveCalendarEvent_(body) {

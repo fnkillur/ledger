@@ -1,5 +1,6 @@
 import { HeartIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useHolidays } from '../../db/calendar'
 import { useAnniversaries } from '../../db/hooks'
 import { anniversaryLabels, type Anniversaries } from '../../domain/anniversary'
 import { dayTone, monthGrid, weekLayout, type CalendarEvent } from '../../domain/calendar'
@@ -19,6 +20,7 @@ type CalendarGridProps = {
 
 function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }: CalendarGridProps) {
   const anniversaries = useAnniversaries()
+  const holidays = useHolidays()
 
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -49,6 +51,7 @@ function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }
           focusedDate={focusedDate}
           cycleDates={cycleDates}
           anniversaries={anniversaries}
+          holidays={holidays}
           onSelect={onSelectDay}
         />
       ))}
@@ -64,10 +67,11 @@ type CalendarWeekProps = {
   focusedDate: string | null
   cycleDates?: ReadonlySet<string>
   anniversaries: Anniversaries
+  holidays: ReadonlyMap<string, string>
   onSelect: (dateKey: string) => void
 }
 
-function CalendarWeek({ week, monthKey, events, maxLanes, focusedDate, cycleDates, anniversaries, onSelect }: CalendarWeekProps) {
+function CalendarWeek({ week, monthKey, events, maxLanes, focusedDate, cycleDates, anniversaries, holidays, onSelect }: CalendarWeekProps) {
   const { bars, hidden, moreLane } = weekLayout(week, events, maxLanes)
 
   return (
@@ -80,6 +84,7 @@ function CalendarWeek({ week, monthKey, events, maxLanes, focusedDate, cycleDate
           column={column}
           isFocused={dateKey === focusedDate}
           hasCycle={cycleDates?.has(dateKey) ?? false}
+          holiday={holidays.get(dateKey)}
           anniversaryLabels={anniversaryLabels(dateKey, anniversaries)}
           onSelect={onSelect}
         />
@@ -106,11 +111,12 @@ type CalendarDayProps = {
   column: number
   isFocused: boolean
   hasCycle: boolean
+  holiday?: string
   anniversaryLabels: string[]
   onSelect: (dateKey: string) => void
 }
 
-function CalendarDay({ dateKey, monthKey, column, isFocused, hasCycle, anniversaryLabels, onSelect }: CalendarDayProps) {
+function CalendarDay({ dateKey, monthKey, column, isFocused, hasCycle, holiday, anniversaryLabels, onSelect }: CalendarDayProps) {
   const tone = dayTone(dateKey, monthKey)
   const day = Number(dateKey.slice(8, 10))
 
@@ -118,6 +124,7 @@ function CalendarDay({ dateKey, monthKey, column, isFocused, hasCycle, anniversa
     'cal-day',
     tone.weekday === 'sun' ? 'is-sunday' : '',
     tone.weekday === 'sat' ? 'is-saturday' : '',
+    holiday ? 'is-holiday' : '',
     tone.isOutside ? 'is-outside' : '',
     tone.isToday ? 'is-today' : '',
     isFocused ? 'is-focused' : '',
@@ -132,7 +139,7 @@ function CalendarDay({ dateKey, monthKey, column, isFocused, hasCycle, anniversa
       style={{ gridColumn: column + 1 }}
       aria-pressed={isFocused}
       onClick={() => onSelect(dateKey)}
-      aria-label={[`${Number(dateKey.slice(5, 7))}월 ${day}일`, ...anniversaryLabels, ...(hasCycle ? ['교체할 것 있음'] : [])].join(', ')}
+      aria-label={[`${Number(dateKey.slice(5, 7))}월 ${day}일`, ...(holiday ? [holiday] : []), ...anniversaryLabels, ...(hasCycle ? ['교체할 것 있음'] : [])].join(', ')}
     >
       <span className="cal-day-number">{day}</span>
       {anniversaryLabels.length > 0 && <HeartIcon className="cal-anniversary" size={9} weight="fill" aria-hidden="true" />}

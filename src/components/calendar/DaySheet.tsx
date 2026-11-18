@@ -23,6 +23,7 @@ type DaySheetProps = {
   dateKey: string
   events: CalendarEvent[]
   cycles?: CycleItem[]
+  holiday?: string
   anniversaries?: string[]
   initialView?: DaySheetView
   onClose: () => void
@@ -49,7 +50,7 @@ const timeColumn = (event: CalendarEvent, dateKey: string) => {
   }
 }
 
-function DaySheet({ dateKey, events, cycles = [], anniversaries = [], initialView = { type: 'list' }, onClose }: DaySheetProps) {
+function DaySheet({ dateKey, events, cycles = [], holiday, anniversaries = [], initialView = { type: 'list' }, onClose }: DaySheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const { close, isClosing, handleProps } = useSheetDrag({ sheetRef, scrollRef, onClose })
@@ -75,7 +76,8 @@ function DaySheet({ dateKey, events, cycles = [], anniversaries = [], initialVie
         {view.type === 'list' ? (
           <div key="list" className="day-sheet-view">
             <div ref={scrollRef} className="day-sheet-scroll">
-              {events.length === 0 && cycles.length === 0 && anniversaries.length === 0 && <p className="day-sheet-empty">이 날은 아직 일정이 없어요.</p>}
+              {holiday && <p className="day-sheet-holiday">{holiday}</p>}
+              {!holiday && events.length === 0 && cycles.length === 0 && anniversaries.length === 0 && <p className="day-sheet-empty">이 날은 아직 일정이 없어요.</p>}
               {anniversaries.length > 0 && (
                 <ul className="day-sheet-list day-sheet-anniversaries" aria-label="기념일">
                   {anniversaries.map(label => (

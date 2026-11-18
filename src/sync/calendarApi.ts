@@ -1,4 +1,4 @@
-import type { CalendarEvent, CalendarEventInput, CalendarEventRef, RepeatScope } from '../domain/calendar'
+import type { CalendarEvent, CalendarEventInput, CalendarEventRef, Holiday, RepeatScope } from '../domain/calendar'
 import type { Person } from '../domain/types'
 import { unwrap } from './api'
 import type { Settings } from './settings'
@@ -34,7 +34,8 @@ export const fetchCalendar = async (settings: Settings, start: string, end: stri
   url.searchParams.set('token', settings.token)
   url.searchParams.set('start', start)
   url.searchParams.set('end', end)
-  return (await request<{ events: CalendarEvent[] }>(url)).events
+  // 공휴일을 보내기 전의 서버는 holidays가 없다.
+  return request<{ events: CalendarEvent[]; holidays?: Holiday[] }>(url)
 }
 
 // 서버가 새 일정을 상대방에게 알릴 때 "누가 추가했는지"를 쓴다.
