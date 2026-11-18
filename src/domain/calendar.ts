@@ -10,6 +10,8 @@ export type RepeatScope = 'one' | 'following' | 'all'
 // 구글 '대한민국의 휴일' 캘린더에서 쉬는 날만 받아 온다. 같은 날이 겹치면 이름을 이어 붙여 하루 한 줄로 둔다.
 export type Holiday = { date: string; name: string }
 
+const HOLIDAY_ID_PREFIX = 'holiday:'
+
 export type CalendarEvent = {
   id: string
   seriesId: string | null
@@ -200,3 +202,24 @@ export const targetLabel = (target: CalendarTarget, personName: (person: Person)
   if (target === '공동') return '우리'
   return personName(target)
 }
+
+// 달력 칸이 좁아서 '쉬는 날 개천절' 같은 대체공휴일은 짧게 적는다. 날짜 시트에는 원래 이름을 쓴다.
+const shortHolidayName = (name: string) => (name.startsWith('쉬는 날 ') ? '대체공휴일' : name)
+
+// 공휴일을 그날의 정보 일정처럼 달력 줄에 올린다. 앞에 두면 같은 순위끼리는 일정보다 먼저 자리를 잡는다.
+export const withHolidays = (events: CalendarEvent[], holidays: ReadonlyMap<string, string>): CalendarEvent[] => [
+  ...[...holidays].map(([date, name]) => ({
+    id: `${HOLIDAY_ID_PREFIX}${date}`,
+    seriesId: null,
+    originalStart: null,
+    title: shortHolidayName(name),
+    allDay: true,
+    start: date,
+    end: date,
+    target: '없음' as const,
+    repeat: 'none' as const,
+  })),
+  ...events,
+]
+
+export const isHolidayEvent = (event: CalendarEvent) => event.id.startsWith(HOLIDAY_ID_PREFIX)

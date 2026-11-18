@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useHolidays } from '../../db/calendar'
 import { useAnniversaries } from '../../db/hooks'
 import { anniversaryLabels, type Anniversaries } from '../../domain/anniversary'
-import { dayTone, monthGrid, weekLayout, type CalendarEvent } from '../../domain/calendar'
+import { dayTone, monthGrid, weekLayout, withHolidays, type CalendarEvent } from '../../domain/calendar'
 import CalendarEventChip from './CalendarEventChip'
 
 // 날짜 숫자 줄 높이와 주 아래쪽 여백.
@@ -27,6 +27,7 @@ function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }
   const [maxLanes, setMaxLanes] = useState(3)
 
   const weeks = monthGrid(monthKey)
+  const eventsWithHolidays = withHolidays(events, holidays)
 
   useEffect(() => {
     const grid = gridRef.current
@@ -46,7 +47,7 @@ function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }
           key={week[0]}
           week={week}
           monthKey={monthKey}
-          events={events}
+          events={eventsWithHolidays}
           maxLanes={maxLanes}
           focusedDate={focusedDate}
           cycleDates={cycleDates}

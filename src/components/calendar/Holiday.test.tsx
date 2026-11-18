@@ -19,7 +19,10 @@ const dayButton = (label: string) => container.querySelector(`.cal-day[aria-labe
 
 beforeEach(async () => {
   await Promise.all(db.tables.map(table => table.clear()))
-  await db.holidays.bulkPut([{ date: '2026-09-25', name: '추석' }])
+  await db.holidays.bulkPut([
+    { date: '2026-09-25', name: '추석' },
+    { date: '2026-10-05', name: '쉬는 날 개천절' },
+  ])
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -46,6 +49,22 @@ describe('공휴일', () => {
     expect(holiday.classList.contains('is-holiday')).toBe(true)
     expect(holiday.getAttribute('aria-label')).toBe('9월 25일, 추석')
     expect(dayButton('9월 24일').classList.contains('is-holiday')).toBe(false)
+  })
+
+  it('날짜 아래 첫 줄에 공휴일 이름을 일정보다 먼저 적는다', async () => {
+    const lunch = { id: 'e1', seriesId: null, originalStart: null, title: '점심', allDay: true, start: '2026-09-25', end: '2026-09-25', target: '공동', repeat: 'none' } as const
+    await render(<CalendarGrid monthKey="2026-09" events={[lunch]} focusedDate={null} onSelectDay={() => {}} />)
+
+    const chips = [...container.querySelectorAll('.cal-chip')]
+    expect(chips.map(chip => chip.textContent)).toEqual(['추석', '점심'])
+    expect(chips[0].classList.contains('is-holiday')).toBe(true)
+    expect((chips[0] as HTMLElement).style.gridRow).toBe('2')
+  })
+
+  it('칸이 좁아 대체공휴일은 달력에서 짧게 적는다', async () => {
+    await render(<CalendarGrid monthKey="2026-10" events={[]} focusedDate={null} onSelectDay={() => {}} />)
+
+    expect(container.querySelector('.cal-chip.is-holiday')?.textContent).toBe('대체공휴일')
   })
 
   it('날짜 시트 맨 위에 공휴일 이름을 보여 준다', async () => {

@@ -3165,6 +3165,13 @@ a {
   font-weight: 700;
 }
 
+/* 공휴일 이름은 빨간 날임을 알리는 보조 정보라, 일정 제목보다 작고 얇게 둔다. */
+.cal-chip.is-holiday {
+  color: var(--color-sunday);
+  font-size: 10px;
+  font-weight: 400;
+}
+
 .cal-chip.continues-before {
   margin-left: 0;
   border-top-left-radius: 0;

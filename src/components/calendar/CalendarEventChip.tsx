@@ -1,5 +1,5 @@
 import { CakeIcon, PushPinIcon } from '@phosphor-icons/react'
-import { isDayInfo, TARGET_TONE, type CalendarBar, type CalendarTarget } from '../../domain/calendar'
+import { isDayInfo, isHolidayEvent, TARGET_TONE, type CalendarBar, type CalendarTarget } from '../../domain/calendar'
 import PersonAvatar from '../PersonAvatar'
 
 type CalendarEventChipProps = {
@@ -15,6 +15,7 @@ function CalendarEventChip({ bar }: CalendarEventChipProps) {
     'cal-chip',
     TARGET_TONE[bar.event.target],
     isLight(bar) ? 'is-timed' : '',
+    isHolidayEvent(bar.event) ? 'is-holiday' : '',
     bar.continuesBefore ? 'continues-before' : '',
     bar.continuesAfter ? 'continues-after' : '',
   ]
