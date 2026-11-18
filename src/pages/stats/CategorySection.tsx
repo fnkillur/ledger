@@ -6,7 +6,9 @@ import EmptyState from '../../components/EmptyState'
 import Segmented from '../../components/Segmented'
 import { useCategoryIcons } from '../../db/hooks'
 import type { CategoryChange } from '../../domain/insights'
+import type { Transaction } from '../../domain/types'
 import { formatWon } from '../../utils/format'
+import CategoryDetailSheet from './CategoryDetailSheet'
 import MoreToggle from './MoreToggle'
 import { formatCompactWon, percent, TOOLTIP_STYLE } from './shared'
 
@@ -29,11 +31,14 @@ type CategorySectionProps = {
   total: number
   ranking: { category: string; amount: number }[]
   changes: Record<CompareTarget, { increased: CategoryChange[]; decreased: CategoryChange[] }>
+  transactions: Transaction[]
+  excludedCategories: Set<string>
 }
 
 // 어디에 썼나: 카테고리 비중(도넛 + 순위), 많이 달라진 카테고리.
-function CategorySection({ isMonthly, previousLabel, title, total, ranking, changes }: CategorySectionProps) {
+function CategorySection({ isMonthly, previousLabel, title, total, ranking, changes, transactions, excludedCategories }: CategorySectionProps) {
   const [compareTarget, setCompareTarget] = useState<CompareTarget>('이전 기간')
+  const [openCategory, setOpenCategory] = useState<string | null>(null)
 
   if (ranking.length === 0) {
     return (
@@ -48,8 +53,16 @@ function CategorySection({ isMonthly, previousLabel, title, total, ranking, chan
       <section className="card">
         <h2 className="card-title">{title}</h2>
         <CategoryDonut items={ranking} total={total} />
-        <CategoryRanking items={ranking} />
+        <CategoryRanking items={ranking} onSelect={setOpenCategory} />
       </section>
+      {openCategory && (
+        <CategoryDetailSheet
+          category={openCategory}
+          transactions={transactions}
+          excludedCategories={excludedCategories}
+          onClose={() => setOpenCategory(null)}
+        />
+      )}
 
       {previousLabel && (
         <section className="card">
@@ -127,7 +140,7 @@ function ChangeList({ changes }: { changes: { increased: CategoryChange[]; decre
   )
 }
 
-function CategoryRanking({ items }: { items: { category: string; amount: number }[] }) {
+function CategoryRanking({ items, onSelect }: { items: { category: string; amount: number }[]; onSelect: (category: string) => void }) {
   const icons = useCategoryIcons()
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -139,20 +152,22 @@ function CategoryRanking({ items }: { items: { category: string; amount: number 
     <>
       <ol className="bars">
         {shown.map((item, index) => (
-          <li key={item.category} className="bar-row">
-            <span className="bar-rank">{index + 1}</span>
-            <span className="bar-label">
-              <span className="legend-swatch" style={{ background: categoryColor(index) }} />
-              <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
-              <span className="label-text">{item.category}</span>
-            </span>
-            <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%`, background: categoryColor(index) }} />
-            </div>
-            <span className="bar-value">
-              {item.amount.toLocaleString('ko-KR')}
-              <span className="bar-share"> {percent(item.amount, total)}%</span>
-            </span>
+          <li key={item.category}>
+            <button type="button" className="bar-row" onClick={() => onSelect(item.category)}>
+              <span className="bar-rank">{index + 1}</span>
+              <span className="bar-label">
+                <span className="legend-swatch" style={{ background: categoryColor(index) }} />
+                <CategoryIcon name={item.category} emoji={icons.get(item.category)} size={12} />
+                <span className="label-text">{item.category}</span>
+              </span>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${Math.max(0, (item.amount / max) * 100)}%`, background: categoryColor(index) }} />
+              </div>
+              <span className="bar-value">
+                {item.amount.toLocaleString('ko-KR')}
+                <span className="bar-share"> {percent(item.amount, total)}%</span>
+              </span>
+            </button>
           </li>
         ))}
       </ol>

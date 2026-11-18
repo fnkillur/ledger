@@ -128,6 +128,7 @@ function StatsPage() {
         '작년 같은 달': categoryChanges(categoryCurrent, sameMonthLastYear.filter(inCategoryScope), excluded),
       },
       fixedVariable: fixedVsVariable(scopedCurrent, categories, excluded),
+      transactions: categoryCurrent,
     }
   }, [current, previous, sameMonthLastYear, scopedCurrent, categories, excluded, scopeFilter])
 
@@ -184,6 +185,8 @@ function StatsPage() {
               total={categoryData.total}
               ranking={categoryData.ranking}
               changes={categoryData.changes}
+              transactions={categoryData.transactions}
+              excludedCategories={excluded}
             />
             {periodType === '월별' && <MealCard split={lifestyle.meal} history={lifestyle.mealHistory} />}
 

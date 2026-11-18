@@ -629,7 +629,73 @@ a {
   grid-template-columns: 18px minmax(72px, 28%) 1fr auto;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
   padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 카테고리를 누르면 올라오는 그 기간 내역. 날짜 시트처럼 잡아 내려 닫고, 내역 수만큼만 올라온다. */
+.day-sheet.category-detail {
+  top: auto;
+  max-height: 85dvh;
+}
+
+.category-detail-header {
+  align-items: stretch;
+}
+
+.category-detail-header > .day-sheet-grabber {
+  align-self: center;
+}
+
+.category-detail-header h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.category-detail .day-sheet-scroll {
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+}
+
+.category-detail-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.category-detail-summary strong {
+  font-size: var(--font-xl);
+}
+
+.category-detail-summary span,
+.merchant-group-count {
+  color: var(--color-text-sub);
+}
+
+.merchant-group {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.merchant-group strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-group-amount {
+  font-weight: 700;
+  text-align: right;
 }
 
 .bar-label {
