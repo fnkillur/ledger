@@ -19,18 +19,23 @@ const renderAt = async (path: string) => {
       </MemoryRouter>,
     ),
   )
+  const labels = [...container.querySelectorAll('.tab-link')].map(link => link.textContent)
   const activeLabels = [...container.querySelectorAll('.tab-link.active')].map(link => link.textContent)
   root.unmount()
-  return activeLabels
+  return { labels, activeLabels }
 }
 
 describe('TabLayout', () => {
+  it('안드로이드 앱은 오른손 엄지가 닿도록 캘린더를 오른쪽 끝에 두어 설정·수집함·통계·내역·캘린더 순서로 보여 준다', async () => {
+    expect((await renderAt('/')).labels).toEqual(['설정', '수집함', '통계', '내역', '캘린더'])
+  })
+
   it('지금 있는 탭에 선택 표시를 한다', async () => {
-    expect(await renderAt('/list')).toEqual(['내역'])
-    expect(await renderAt('/')).toEqual(['캘린더'])
+    expect((await renderAt('/list')).activeLabels).toEqual(['내역'])
+    expect((await renderAt('/')).activeLabels).toEqual(['캘린더'])
   })
 
   it('주기 화면에서도 캘린더 탭을 선택된 것으로 보여 준다', async () => {
-    expect(await renderAt('/cycles')).toEqual(['캘린더'])
+    expect((await renderAt('/cycles')).activeLabels).toEqual(['캘린더'])
   })
 })

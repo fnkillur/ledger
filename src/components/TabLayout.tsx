@@ -2,8 +2,12 @@ import { CalendarBlankIcon, ChartBarIcon, GearSixIcon, ListBulletsIcon, TrayIcon
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { usePendingCaptures, useUncategorized } from '../db/hooks'
 import { LIST_PATH } from '../paths'
+import { IS_WEB_BUILD } from '../platform'
 import { currentMonthKey } from '../utils/format'
 import { setCalendarMonth } from '../utils/viewState'
+
+// 폴드를 펼치면 화면이 넓어 왼쪽 끝이 엄지에 닿지 않아서, 안드로이드 앱은 자주 가는 캘린더를 오른쪽 끝에 둔다.
+const orderTabs = (tabs: TabLinkProps[]) => (IS_WEB_BUILD ? tabs : [...tabs].reverse())
 
 function TabLayout() {
   const location = useLocation()
@@ -13,22 +17,28 @@ function TabLayout() {
 
   const inboxCount = captures.filter(capture => capture.status === '대기').length + uncategorized.length
 
+  const tabs: TabLinkProps[] = [
+    {
+      to: '/',
+      label: '캘린더',
+      icon: CalendarBlankIcon,
+      end: true,
+      isAlsoActive: location.pathname === '/cycles',
+      onClick: () => setCalendarMonth(currentMonthKey()),
+    },
+    { to: LIST_PATH, label: '내역', icon: ListBulletsIcon },
+    { to: '/stats', label: '통계', icon: ChartBarIcon },
+    { to: '/inbox', label: '수집함', icon: TrayIcon, badge: inboxCount },
+    { to: '/settings', label: '설정', icon: GearSixIcon },
+  ]
+
   return (
     <>
       <Outlet />
       <nav className="tab-bar" aria-label="주요 메뉴">
-        <TabLink
-          to="/"
-          label="캘린더"
-          icon={CalendarBlankIcon}
-          end
-          isAlsoActive={location.pathname === '/cycles'}
-          onClick={() => setCalendarMonth(currentMonthKey())}
-        />
-        <TabLink to={LIST_PATH} label="내역" icon={ListBulletsIcon} />
-        <TabLink to="/stats" label="통계" icon={ChartBarIcon} />
-        <TabLink to="/inbox" label="수집함" icon={TrayIcon} badge={inboxCount} />
-        <TabLink to="/settings" label="설정" icon={GearSixIcon} />
+        {orderTabs(tabs).map(tab => (
+          <TabLink key={tab.to} {...tab} />
+        ))}
       </nav>
     </>
   )
