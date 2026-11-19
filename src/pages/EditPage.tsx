@@ -1,9 +1,10 @@
-import { CameraIcon, ClipboardTextIcon, ImagesIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
+import { ClipboardTextIcon, MinusIcon, PlusIcon, ReceiptIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import ReceiptLoading from '../components/ReceiptLoading'
 import { ReceiptLineList } from '../components/ReceiptSheet'
+import ReceiptSourceSheet from '../components/ReceiptSourceSheet'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
 import { DateTimeRow } from '../components/calendar/DateTimePicker'
@@ -315,6 +316,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
 
       {receipt && receipt.status !== 'done' && (
         <ReceiptLoading
+          key={receipt.status}
           errorMessage={receipt.status === 'error' ? receipt.message : undefined}
           onRetry={() => handleReceiptFile(receipt.file)}
           onCancel={handleReceiptCancel}
@@ -554,12 +556,7 @@ type ReceiptPickerProps = {
 }
 
 function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (file) onPick(file)
-  }
+  const [isPicking, setIsPicking] = useState(false)
 
   if (hasReceipt) {
     return (
@@ -570,18 +567,13 @@ function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
   }
 
   return (
-    <div className="receipt-picker">
-      <label className="text-button text-primary tx-section-action">
-        <input type="file" accept="image/*" capture="environment" hidden onChange={handleChange} />
-        <CameraIcon size={16} weight="bold" aria-hidden="true" />
-        영수증 찍기
-      </label>
-      <label className="text-button text-primary tx-section-action">
-        <input type="file" accept="image/*" hidden onChange={handleChange} />
-        <ImagesIcon size={16} weight="bold" aria-hidden="true" />
-        앨범
-      </label>
-    </div>
+    <>
+      <button type="button" className="text-button text-primary tx-section-action" onClick={() => setIsPicking(true)}>
+        <ReceiptIcon size={16} weight="bold" aria-hidden="true" />
+        영수증 올리기
+      </button>
+      {isPicking && <ReceiptSourceSheet onPick={onPick} onClose={() => setIsPicking(false)} />}
+    </>
   )
 }
 

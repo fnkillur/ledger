@@ -19,7 +19,7 @@ afterEach(() => {
 })
 
 describe('AddMenu', () => {
-  it('영수증은 카메라로 바로 찍거나 앨범에서 고를 수 있다', async () => {
+  it('영수증으로 올리기를 누르면 카메라와 갤러리 중에 고른다', async () => {
     await act(async () =>
       root.render(
         <MemoryRouter>
@@ -28,9 +28,13 @@ describe('AddMenu', () => {
       ),
     )
     await act(async () => (container.querySelector('.fab') as HTMLButtonElement).click())
+    const receiptItem = [...container.querySelectorAll('.add-menu-item')].find(item => item.textContent?.includes('영수증으로 올리기')) as HTMLButtonElement
+    expect(container.querySelectorAll('.add-menu-item input[type="file"]')).toHaveLength(0)
+    await act(async () => receiptItem.click())
 
-    const inputOf = (title: string) => [...container.querySelectorAll('.add-menu-item')].find(item => item.textContent?.includes(title))?.querySelector('input')
-    expect(inputOf('영수증 찍기')?.getAttribute('capture')).toBe('environment')
-    expect(inputOf('영수증 사진')?.hasAttribute('capture')).toBe(false)
+    const sheet = document.querySelector('[role="dialog"][aria-label="영수증 올리기"]')
+    const inputOf = (title: string) => [...(sheet?.querySelectorAll('label') ?? [])].find(label => label.textContent?.includes(title))?.querySelector('input')
+    expect(inputOf('카메라')?.getAttribute('capture')).toBe('environment')
+    expect(inputOf('갤러리')?.hasAttribute('capture')).toBe(false)
   })
 })
