@@ -434,6 +434,15 @@ a {
   transition: background 100ms;
 }
 
+.tx-row:is(button) {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .tx-row:active {
   background: var(--color-pressed);
 }
@@ -4163,6 +4172,30 @@ button.pill-input {
   font-variant-numeric: tabular-nums;
 }
 
+.receipt-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--font-sm);
+}
+
+.receipt-lines li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.receipt-lines li span:last-child {
+  color: var(--color-text-sub);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .category-chips {
   display: flex;
   flex-wrap: wrap;
@@ -5182,4 +5215,154 @@ button.pill-input {
 
 .day-sheet-anniversaries {
   margin-bottom: var(--space-2);
+}
+
+.grocery-items {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grocery-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.grocery-items li + li .grocery-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.grocery-item strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grocery-item-count {
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
+
+.grocery-item-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.grocery-more {
+  margin-top: var(--space-2);
+}
+
+.grocery-price-change {
+  margin: 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
+
+.grocery-history {
+  margin: 0;
+  padding: 0 var(--space-4);
+  list-style: none;
+}
+
+.grocery-history li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.grocery-history li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.grocery-history-date,
+.grocery-history-merchant {
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
+
+.grocery-history-merchant {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grocery-history strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-lines small,
+.grocery-history-merchant small {
+  display: block;
+  color: var(--color-text-sub);
+  font-size: var(--font-xs);
+}
+
+.receipt-sheet-meta {
+  align-self: flex-start;
+  margin: 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+}
+
+.receipt-sheet-body {
+  padding: 0 var(--space-4);
+}
+
+.receipt-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.receipt-card-name {
+  overflow: hidden;
+  font-size: var(--font-md);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-card-price {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.receipt-card-detail {
+  grid-column: 2;
+  color: var(--color-text-sub);
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.receipt-sheet-body + .day-sheet-footer {
+  padding-inline: var(--space-4);
+}
+
+.receipt-sheet-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-decoration: none;
 }

@@ -1,7 +1,11 @@
-export type ReceiptItem = { name: string; amount: number; category: string }
+import type { ReceiptLine } from './types'
+
+export type ReceiptItem = { name: string; amount: number; quantity?: number; category: string }
 export type ReceiptGroup = { category: string; amount: number; items: ReceiptItem[] }
 
 const MEMO_ITEM_COUNT = 3
+// 장바구니 물가를 보려고 식재료 품목만 남긴다.
+export const GROCERY_CATEGORY = '식재료'
 
 // 품목을 카테고리별로 묶고, 결제 금액을 품목 금액 비율대로 나눈다. 반올림 차이는 가장 큰 묶음에 붙인다.
 export const groupReceipt = (items: ReceiptItem[], total: number): ReceiptGroup[] => {
@@ -25,7 +29,7 @@ export const groupReceipt = (items: ReceiptItem[], total: number): ReceiptGroup[
   return groups
 }
 
-export const receiptMemo = (items: ReceiptItem[]) => {
+export const receiptMemo = (items: { name: string }[]) => {
   const names = items.map(item => item.name)
   if (names.length <= MEMO_ITEM_COUNT) return names.join(', ')
   return `${names.slice(0, MEMO_ITEM_COUNT).join(', ')} 외 ${names.length - MEMO_ITEM_COUNT}개`
@@ -47,3 +51,8 @@ export const receiptPaidAt = (paidAt: string | undefined, fallback: string) => {
   if (date.getMonth() !== month - 1 || date.getDate() !== day || hour > 23 || minute > 59) return null
   return date.toISOString()
 }
+
+export const receiptLinesOf = (group: ReceiptGroup): ReceiptLine[] =>
+  group.category === GROCERY_CATEGORY
+    ? group.items.map(item => (item.quantity ? { name: item.name, amount: item.amount, quantity: item.quantity } : { name: item.name, amount: item.amount }))
+    : []

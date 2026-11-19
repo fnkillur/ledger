@@ -2,6 +2,7 @@ import { ClipboardTextIcon, MinusIcon, PlusIcon, ReceiptIcon } from '@phosphor-i
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
+import { ReceiptLineList } from '../components/ReceiptSheet'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
 import { DateTimeRow } from '../components/calendar/DateTimePicker'
@@ -21,7 +22,7 @@ import { cheerSubline } from '../domain/celebration'
 import { classifyMerchant, findSameMerchant, suggestCategory } from '../domain/classify'
 import type { ParsedPayment } from '../domain/notificationParser'
 import { parsePastedPayment } from '../domain/pastedPayment'
-import { groupReceipt, moveReceiptItem, receiptMemo, receiptPaidAt, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
+import { groupReceipt, moveReceiptItem, receiptLinesOf, receiptMemo, receiptPaidAt, type ReceiptGroup, type ReceiptItem } from '../domain/receipt'
 import { myShare } from '../domain/stats'
 import { KINDS, PEOPLE, SCOPES, scopeLabel, UNCATEGORIZED, type Category, type Kind, type Person, type Rule, type Transaction } from '../domain/types'
 import { useBackHandler } from '../navigation/back'
@@ -117,10 +118,13 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
 
   const [draft, setDraft] = useState(initial)
   const [amountText, setAmountText] = useState(initial.amount ? String(initial.amount) : '')
-  const [shouldSaveRule, setShouldSaveRule] = useState(true)
-  const [shouldUpdatePast, setShouldUpdatePast] = useState(true)
+  // 자동 분류·지난 내역 바꾸기는 잘못 켜 두면 다른 내역까지 바뀌어서, 꼭 필요할 때만 켜도록 꺼 둔다.
+  const [shouldSaveRule, setShouldSaveRule] = useState(false)
+  const [shouldUpdatePast, setShouldUpdatePast] = useState(false)
   const [sheet, setSheet] = useState<'delete' | 'paste' | null>(null)
   const [receipt, setReceipt] = useState<ReceiptState | null>(null)
+  // 마트처럼 여러 카테고리가 섞이는 가맹점을 한 카테고리로 묶지 않도록, 영수증을 한 번이라도 쓴 내역은 자동 분류를 묻지 않는다.
+  const [hasUsedReceipt, setHasUsedReceipt] = useState(!!receiptFile || !!transaction?.receiptItems)
   const [openedPicker, setOpenedPicker] = useState<string | null>(null)
 
   // 입력 중인 가맹점·카테고리에 따라 달라지므로 지역 상태 뒤에 둔다.
@@ -141,7 +145,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   const receiptGroups = receipt?.status === 'done' && amount !== null ? groupReceipt(receipt.items, amount) : []
   const isSplitByReceipt = receiptGroups.length > 0
   const canSave = amount !== null && amount !== 0 && (isSplitByReceipt || draft.category !== '')
-  const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && receipt === null
+  const isRuleOffered = canOfferRule && existingRuleCategory !== draft.category && !hasUsedReceipt
   const canUseReceipt = !transaction && draft.kind === '지출'
   // 수입은 나눠 받거나 통계에서 뺄 일이 없다(돌려받은 돈은 '정산' 카테고리가 빠진다). 예전에 넣어 둔 값만 되돌릴 수 있게 보여 준다.
   // 공금 지출은 누구 용돈도 아니라 누가 썼는지 고르지 않는다(결제한 사람은 그대로 저장된다).
@@ -213,6 +217,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   }
 
   const handleReceiptFile = async (file: File) => {
+    setHasUsedReceipt(true)
     setReceipt({ status: 'reading' })
     try {
       const settings = getSettings()
@@ -242,7 +247,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
     const saved = []
     for (const group of receiptGroups) {
       const memo = [draft.memo.trim(), receiptMemo(group.items)].filter(Boolean).join(' · ')
-      saved.push(await saveTransaction({ ...draft, merchant, amount: group.amount, category: group.category, scope: defaultScopeOf(group.category), memo }))
+      saved.push(await saveTransaction({ ...draft, merchant, amount: group.amount, category: group.category, scope: defaultScopeOf(group.category), memo, receiptItems: receiptLinesOf(group) }))
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved[0])
     syncNow().catch(() => {})
@@ -460,6 +465,13 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
           </div>
         </section>
 
+        {transaction?.receiptItems && transaction.receiptItems.length > 0 && (
+          <section className="tx-section" aria-label="영수증 품목">
+            <h2 className="tx-section-title">영수증 품목</h2>
+            <ReceiptLineList items={transaction.receiptItems} />
+          </section>
+        )}
+
         {draft.rawText && (
           <details className="raw-text">
             <summary>원본 알림</summary>
@@ -595,7 +607,8 @@ function ReceiptPanel({ receipt, groups, amount, categories, onMove, onClear }: 
             <div className="receipt-items">
               {group.items.map(item => (
                 <button key={receipt.items.indexOf(item)} type="button" className="receipt-item" onClick={() => setMovingItem(item)}>
-                  {item.name} <span>{formatWon(item.amount)}</span>
+                  {item.name}
+                  {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''} <span>{formatWon(item.amount)}</span>
                 </button>
               ))}
             </div>

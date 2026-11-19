@@ -58,3 +58,9 @@ export const formatShortDateTime = (iso: string) => {
   const date = new Date(iso)
   return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(iso)}`
 }
+
+// 날짜 시트 제목: 11월 18일 (수)
+export const formatDayTitle = (dateKey: string) => {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return `${month}월 ${day}일 (${WEEKDAYS[new Date(year, month - 1, day).getDay()]})`
+}

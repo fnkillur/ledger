@@ -10,6 +10,7 @@ import {
   topMerchants,
   weekdayTimeMatrix,
 } from '../domain/insights'
+import { groceryPurchases } from '../domain/groceryItems'
 import { mealSplit, monthlyMealSplits, seasonalByMonth, SEASONAL_CATEGORIES, type SeasonalCategory, type SeasonalSeries } from '../domain/lifestyle'
 import { EARLIEST_MONTH_KEY, monthKeysOfYear, previousComparison, shiftPeriod, toRange, type Period } from '../domain/period'
 import { savingTips } from '../domain/savingTips'
@@ -30,6 +31,7 @@ import {
 import { currentMonthKey, shiftMonth } from '../utils/format'
 import { useViewState } from '../utils/viewState'
 import CategorySection, { FixedVariableCard } from './stats/CategorySection'
+import GroceryItemsCard from './stats/GroceryItemsCard'
 import { MealCard, SeasonalCard } from './stats/LifestyleCards'
 import OverviewSection, { TrendCard } from './stats/OverviewSection'
 import PatternSection from './stats/PatternSection'
@@ -137,6 +139,9 @@ function StatsPage() {
     const scopedAllTime = (allTime ?? []).filter(transaction => matchesScope(transaction, scopeFilter))
     return {
       meal: mealSplit(scopedCurrent, excluded),
+      groceries: groceryPurchases(scopedCurrent),
+      // 가격 변화는 고른 기간과 상관없이 처음 산 때부터 본다.
+      allGroceries: groceryPurchases(scopedAllTime),
       mealHistory: monthlyMealSplits(scopedLoaded, recentMonthKeys(monthKey, TREND_MONTHS), excluded),
       seasonal: Object.fromEntries(SEASONAL_CATEGORIES.map(category => [category, seasonalByMonth(scopedAllTime, category, excluded)])) as Record<
         SeasonalCategory,
@@ -189,6 +194,7 @@ function StatsPage() {
               excludedCategories={excluded}
             />
             {periodType === '월별' && <MealCard split={lifestyle.meal} history={lifestyle.mealHistory} />}
+            <GroceryItemsCard purchases={lifestyle.groceries} allPurchases={lifestyle.allGroceries} />
 
             <h2 className="stats-section-title">어떻게 썼나</h2>
             <PatternSection {...patternData} />

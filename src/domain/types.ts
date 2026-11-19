@@ -17,6 +17,13 @@ export const SCOPES: Scope[] = ['공동', '개인']
 // 시트에 저장된 값 '공동'·'개인'은 그대로 두고, 화면에는 '공금'·'용돈'으로 보여 준다.
 export const scopeLabel = (scope: Scope) => (scope === '공동' ? '공금' : '용돈')
 
+// amount는 영수증 한 줄 금액(개수만큼 산 값)이다. 개수를 모르던 예전 기록에는 quantity가 없다.
+export type ReceiptLine = { name: string; amount: number; quantity?: number }
+
+export const quantityOf = (line: ReceiptLine) => (line.quantity && line.quantity > 0 ? line.quantity : 1)
+
+export const unitPriceOf = (line: ReceiptLine) => Math.round(line.amount / quantityOf(line))
+
 export type Transaction = {
   id: string
   occurredAt: string
@@ -33,6 +40,8 @@ export type Transaction = {
   deleted: boolean
   updatedAt: string
   scope: Scope
+  // 영수증으로 저장한 내역에만 있다. 품목은 식재료 묶음만 남기고(영수증에 찍힌 금액 그대로), 나머지는 빈 목록이다.
+  receiptItems?: ReceiptLine[]
 }
 
 export type Category = {

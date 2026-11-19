@@ -59,7 +59,7 @@ export const push = async (
     }),
   )
 
-export type ReceiptResult = { merchant: string; total: number; paidAt?: string; items: { name: string; amount: number; category: string }[] }
+export type ReceiptResult = { merchant: string; total: number; paidAt?: string; items: { name: string; amount: number; quantity?: number; category: string }[] }
 
 export const analyzeReceipt = async (settings: Settings, payload: { image: string; mimeType: string; categories: string[] }) => {
   const result = await unwrap<{ receipt: ReceiptResult }>(

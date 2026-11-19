@@ -32,7 +32,12 @@ function analyzeReceipt_(body) {
   if (!text) throw new Error('영수증에서 품목을 찾지 못했어요.')
   const receipt = JSON.parse(text)
   const items = (receipt.items || [])
-    .map(item => ({ name: String(item.name || '').trim(), amount: Math.round(Number(item.amount) || 0), category: String(item.category || '') }))
+    .map(item => ({
+      name: String(item.name || '').trim(),
+      amount: Math.round(Number(item.amount) || 0),
+      quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
+      category: String(item.category || ''),
+    }))
     .filter(item => item.name && item.amount !== 0)
     .map(item => (categories.includes(item.category) ? item : { ...item, category: categories[0] }))
   if (items.length === 0) throw new Error('영수증에서 품목을 찾지 못했어요.')
@@ -59,6 +64,7 @@ function receiptPrompt_(categories) {
     '- 생활: 휴지, 세제, 위생용품, 주방·욕실 소모품 같은 생활용품',
     '- 위 셋에 안 맞으면 목록의 다른 카테고리, 그래도 애매하면 편의점·마트·잡화',
     '할인 줄은 따로 품목으로 만들지 말고 해당 품목 금액에서 빼 주세요. 어느 품목 할인인지 모르면 가장 비싼 품목에서 빼요.',
+    'quantity는 그 줄의 수량(개수)이에요. 수량이 안 적혀 있거나 무게로 판 품목이면 1로 둬요. amount는 수량만큼 산 그 줄의 금액이에요.',
     'merchant는 가게 이름, total은 카드로 실제 결제한 합계예요. 품목 이름은 영수증에 적힌 그대로 짧게 써 주세요.',
     'paidAt은 영수증에 찍힌 결제 일시를 YYYY-MM-DDTHH:mm(24시간)으로, 시각이 없으면 YYYY-MM-DD로 써 주세요. 날짜가 안 보이면 빈 문자열로 둬요.',
   ].join('\n')
@@ -75,8 +81,8 @@ function receiptSchema_(categories) {
         type: 'ARRAY',
         items: {
           type: 'OBJECT',
-          properties: { name: { type: 'STRING' }, amount: { type: 'INTEGER' }, category: { type: 'STRING', enum: categories } },
-          required: ['name', 'amount', 'category'],
+          properties: { name: { type: 'STRING' }, amount: { type: 'INTEGER' }, quantity: { type: 'INTEGER' }, category: { type: 'STRING', enum: categories } },
+          required: ['name', 'amount', 'quantity', 'category'],
         },
       },
     },

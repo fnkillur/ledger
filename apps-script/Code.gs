@@ -24,6 +24,8 @@ const TRANSACTION_COLUMNS = [
   '수정시각',
   '동기화시각',
   '공동개인',
+  // 영수증으로 저장한 내역만 채운다. 식재료 품목은 [{name, amount}] JSON, 나머지는 []다.
+  '영수증품목',
 ]
 
 const CATEGORY_COLUMNS = ['구분', '이름', '순서', '통계제외', '고정비', '아이콘', '개인지출']
@@ -412,7 +414,9 @@ function push_(body) {
   const lock = LockService.getScriptLock()
   lock.waitLock(20000)
   try {
-    upsert_(book.getSheetByName(SHEETS.transactions), 'id', (body.transactions || []).map(item => toRow_(item, now)))
+    const transactionSheet = book.getSheetByName(SHEETS.transactions)
+    addMissingTransactionColumns_(transactionSheet)
+    upsert_(transactionSheet, 'id', (body.transactions || []).map(item => toRow_(item, now)))
     upsert_(
       book.getSheetByName(SHEETS.rules),
       '키워드',
@@ -490,6 +494,7 @@ function toRow_(item, syncedAt) {
     item.updatedAt,
     syncedAt,
     item.scope === '개인' ? '개인' : '공동',
+    Array.isArray(item.receiptItems) ? JSON.stringify(item.receiptItems) : '',
   ]
 }
 
@@ -510,6 +515,17 @@ function fromRow_(row) {
     deleted: row['삭제'] === true,
     updatedAt: toIso_(row['수정시각']),
     scope: row['공동개인'] === '개인' ? '개인' : '공동',
+    ...receiptItemsOf_(row['영수증품목']),
+  }
+}
+
+function receiptItemsOf_(value) {
+  if (!value) return {}
+  try {
+    const items = JSON.parse(String(value))
+    return Array.isArray(items) ? { receiptItems: items } : {}
+  } catch (error) {
+    return {}
   }
 }
 

@@ -7,13 +7,12 @@ import { usePersonName } from '../../db/hooks'
 import type { CycleItem } from '../../domain/cycle'
 import { isDayInfo, REPEAT_LABEL, TARGET_TONE, targetLabel, type CalendarEvent } from '../../domain/calendar'
 import { IS_WEB_BUILD } from '../../platform'
-import { formatTime, toDateKey } from '../../utils/format'
+import { formatDayTitle, formatTime, toDateKey } from '../../utils/format'
 import CalendarEventForm from './CalendarEventForm'
 import { DayInfoIcon, TargetAvatars } from './CalendarEventChip'
 import { useBackHandler } from '../../navigation/back'
 import useSheetDrag from '../useSheetDrag'
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 웹(아이폰)은 우사기, 안드로이드 앱은 쿠리만쥬가 일정 추가 버튼을 지킨다.
 const ADD_STICKER = IS_WEB_BUILD ? usagiSigh : kurimanjuThinking
 
@@ -27,11 +26,6 @@ type DaySheetProps = {
   anniversaries?: string[]
   initialView?: DaySheetView
   onClose: () => void
-}
-
-const formatDayTitle = (dateKey: string) => {
-  const [year, month, day] = dateKey.split('-').map(Number)
-  return `${month}월 ${day}일 (${WEEKDAYS[new Date(year, month - 1, day).getDay()]})`
 }
 
 const formatShortDate = (dateKey: string) => `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`

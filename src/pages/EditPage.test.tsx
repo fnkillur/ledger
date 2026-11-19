@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../db/database'
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
-import { UNCATEGORIZED } from '../domain/types'
+import { UNCATEGORIZED, type Transaction } from '../domain/types'
 import { analyzeReceipt } from '../sync/api'
 import { saveSettings } from '../sync/settings'
 import EditPage from './EditPage'
@@ -17,6 +17,64 @@ let container: HTMLDivElement
 let root: Root
 
 const wait = () => act(() => new Promise(resolve => setTimeout(resolve, 30)))
+
+const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
+  id: 'tx-1',
+  occurredAt: '2026-11-10T03:00:00.000Z',
+  person: '쿠리만쥬',
+  kind: '지출',
+  amount: 5000,
+  shareCount: 1,
+  merchant: '롯데마트',
+  category: '식재료',
+  excluded: false,
+  source: '수동',
+  memo: '',
+  rawText: '',
+  deleted: false,
+  updatedAt: '2026-11-10T03:00:00.000Z',
+  scope: '공동',
+  ...overrides,
+})
+
+const renderAt = async (entry: string | { pathname: string; state: unknown }) => {
+  await act(async () =>
+    root.render(
+      <MemoryRouter initialEntries={['/', entry]} initialIndex={1}>
+        <Routes>
+          <Route path="/" element={<p>목록</p>} />
+          <Route path="/tx/new" element={<EditPage />} />
+          <Route path="/tx/:id" element={<EditPage />} />
+        </Routes>
+      </MemoryRouter>,
+    ),
+  )
+  await wait()
+}
+
+const typeInto = async (label: string, value: string) => {
+  const input = container.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+}
+
+const pickCategory = async (name: string) => {
+  const findChip = () => [...container.querySelectorAll('[role="radiogroup"][aria-label="카테고리"] button')].find(chip => chip.textContent?.includes(name)) as HTMLButtonElement | undefined
+  // 저장소에서 내역을 읽어 와야 화면이 그려지므로, 카테고리가 보일 때까지 기다린다.
+  for (let attempt = 0; attempt < 20 && !container.querySelector('.category-chip'); attempt += 1) await wait()
+  if (!findChip()) await act(async () => (container.querySelector('.category-chip.is-more') as HTMLButtonElement).click())
+  await act(async () => findChip()!.click())
+  await wait()
+}
+
+const switchOf = (label: string) => container.querySelector(`[role="switch"][aria-label="${label}"]`)
+
+const clickSave = async () => {
+  await act(async () => (container.querySelector('.bottom-cta .button-primary') as HTMLButtonElement).click())
+  await wait()
+}
 
 beforeEach(async () => {
   await Promise.all(db.tables.map(table => table.clear()))
@@ -70,6 +128,70 @@ describe('영수증으로 나누기', () => {
 
     expect(container.textContent).toContain('11월 10일')
     expect(container.textContent).toContain('오후 6:42')
+  })
+})
+
+describe('식재료 영수증 품목', () => {
+  it('영수증으로 나눠 저장하면 식재료 묶음에만 품목과 영수증 금액을 남긴다', async () => {
+    vi.mocked(analyzeReceipt).mockResolvedValue({
+      merchant: '롯데마트',
+      total: 5000,
+      items: [
+        { name: '호박고구마', amount: 3000, quantity: 2, category: '식재료' },
+        { name: '키친타월', amount: 2000, quantity: 1, category: '편의점·마트·잡화' },
+      ],
+    })
+    await renderAt({ pathname: '/tx/new', state: { receiptFile: new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' }) } })
+
+    await clickSave()
+
+    const saved = await db.transactions.toArray()
+    expect(saved.find(item => item.category === '식재료')?.receiptItems).toEqual([{ name: '호박고구마', amount: 3000, quantity: 2 }])
+    expect(saved.find(item => item.category === '편의점·마트·잡화')?.receiptItems).toEqual([])
+  })
+
+  it('품목이 남은 내역을 열면 품목과 금액을 보여 준다', async () => {
+    await db.transactions.put(transaction({ receiptItems: [{ name: '호박고구마', amount: 3000 }, { name: '두부', amount: 2000 }] }))
+    await renderAt('/tx/tx-1')
+
+    const items = [...container.querySelectorAll('.receipt-lines li')].map(item => item.textContent)
+    expect(items).toEqual(['호박고구마3,000원', '두부2,000원'])
+  })
+})
+
+describe('자동 분류·지난 내역 바꾸기', () => {
+  beforeEach(async () => {
+    await db.transactions.put(transaction({ id: 'past', merchant: '스타벅스', category: '편의점·마트·잡화' }))
+  })
+
+  it('자동 분류도 지난 내역 바꾸기도 꺼진 채로 시작해서, 필요할 때만 켠다', async () => {
+    await renderAt('/tx/new')
+    await typeInto('가맹점·내용', '스타벅스')
+    await pickCategory('식재료')
+
+    expect(switchOf('자동 분류 규칙 저장')?.getAttribute('aria-checked')).toBe('false')
+    expect(switchOf('지난 내역도 바꾸기')).toBeNull()
+
+    await act(async () => (switchOf('자동 분류 규칙 저장') as HTMLButtonElement).click())
+    expect(switchOf('지난 내역도 바꾸기')?.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('영수증 읽기에 실패해 직접 고르더라도 자동 분류를 묻지 않는다', async () => {
+    vi.mocked(analyzeReceipt).mockRejectedValue(new Error('영수증을 읽지 못했어요.'))
+    await renderAt({ pathname: '/tx/new', state: { receiptFile: new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' }) } })
+    await act(async () => ([...container.querySelectorAll('button')].find(button => button.textContent === '직접 고르기') as HTMLButtonElement).click())
+    await typeInto('가맹점·내용', '스타벅스')
+    await pickCategory('식재료')
+
+    expect(switchOf('자동 분류 규칙 저장')).toBeNull()
+  })
+
+  it('영수증으로 저장한 내역을 고칠 때도 자동 분류를 묻지 않는다', async () => {
+    await db.transactions.put(transaction({ merchant: '스타벅스', receiptItems: [] }))
+    await renderAt('/tx/tx-1')
+    await pickCategory('편의점·마트·잡화')
+
+    expect(switchOf('자동 분류 규칙 저장')).toBeNull()
   })
 })
 
