@@ -1,7 +1,8 @@
-import { ClipboardTextIcon, MinusIcon, PlusIcon, ReceiptIcon } from '@phosphor-icons/react'
+import { CameraIcon, ClipboardTextIcon, ImagesIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
+import ReceiptLoading from '../components/ReceiptLoading'
 import { ReceiptLineList } from '../components/ReceiptSheet'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -51,7 +52,7 @@ const saveLabel = (amount: number | null, category: string, splitCount: number) 
   return `${formatWon(amount)} 저장`
 }
 
-type ReceiptState = { status: 'reading' } | { status: 'error'; message: string } | { status: 'done'; total: number; items: ReceiptItem[] }
+type ReceiptState = { status: 'reading'; file: File } | { status: 'error'; file: File; message: string } | { status: 'done'; total: number; items: ReceiptItem[] }
 
 // 마지막 글자에 받침이 있으면 '이에요', 없으면 '예요'. 한글이 아니면 받침 없는 쪽으로 본다.
 const withCopula = (word: string) => {
@@ -63,6 +64,7 @@ const withCopula = (word: string) => {
 const toReceiptErrorMessage = (error: unknown) => {
   const message = error instanceof Error ? error.message : '영수증을 읽지 못했어요.'
   if (/429|RESOURCE_EXHAUSTED/.test(message)) return '오늘 쓸 수 있는 영수증 분석을 다 썼어요. 잠시 뒤 다시 하거나, 카테고리를 직접 골라 주세요.'
+  if (/503|UNAVAILABLE/.test(message)) return '영수증 분석 서버가 붐벼요. 잠시 뒤 다시 시도해 주세요.'
   return message
 }
 
@@ -216,9 +218,13 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
     setSheet(null)
   }
 
+  // 읽는 중에 그만두면 늦게 온 결과가 입력을 덮어쓰지 않도록, 마지막으로 보낸 요청만 반영한다.
+  const receiptRequest = useRef(0)
+
   const handleReceiptFile = async (file: File) => {
+    const request = ++receiptRequest.current
     setHasUsedReceipt(true)
-    setReceipt({ status: 'reading' })
+    setReceipt({ status: 'reading', file })
     try {
       const settings = getSettings()
       if (!settings.endpoint) throw new Error('구글 시트와 연결돼야 영수증을 읽을 수 있어요.')
@@ -227,6 +233,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
         .filter(category => category.kind === draft.kind && !category.excluded && category.name !== UNCATEGORIZED)
         .map(category => category.name)
       const result = await analyzeReceipt(settings, { image: await toJpegBase64(file), mimeType: 'image/jpeg', categories: names })
+      if (request !== receiptRequest.current) return
       const itemSum = result.items.reduce((sum, item) => sum + item.amount, 0)
       if (amount === null || amount === 0) setAmountText(String(result.total || itemSum))
       if (!draft.merchant.trim() && result.merchant) update({ merchant: result.merchant })
@@ -235,8 +242,14 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
       if (!transaction && draft.source === '수동' && paidAt) update({ occurredAt: paidAt })
       setReceipt({ status: 'done', total: result.total || itemSum, items: result.items })
     } catch (caught) {
-      setReceipt({ status: 'error', message: toReceiptErrorMessage(caught) })
+      if (request !== receiptRequest.current) return
+      setReceipt({ status: 'error', file, message: toReceiptErrorMessage(caught) })
     }
+  }
+
+  const handleReceiptCancel = () => {
+    receiptRequest.current += 1
+    setReceipt(null)
   }
 
   const handleReceiptMove = (index: number, category: string) =>
@@ -300,13 +313,21 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
         }
       />
 
+      {receipt && receipt.status !== 'done' && (
+        <ReceiptLoading
+          errorMessage={receipt.status === 'error' ? receipt.message : undefined}
+          onRetry={() => handleReceiptFile(receipt.file)}
+          onCancel={handleReceiptCancel}
+        />
+      )}
+
       <main className="page-content tx-form">
         <section className="tx-hero">
           <div className="tx-hero-top">
             <div className="tx-kind">
               <Segmented label="구분" options={KINDS} value={draft.kind} onChange={handleKindChange} />
             </div>
-            {canUseReceipt && <ReceiptPicker hasReceipt={receipt !== null} onPick={handleReceiptFile} onClear={() => setReceipt(null)} />}
+            {canUseReceipt && <ReceiptPicker hasReceipt={receipt?.status === 'done'} onPick={handleReceiptFile} onClear={() => setReceipt(null)} />}
           </div>
           <AmountInput text={amountText} kind={draft.kind} onChange={setAmountText} autoFocus={!transaction && !captureKey && !receiptFile} />
           <AmountHint text={amountText} amount={amount} shareCount={showsSplitOptions ? draft.shareCount : 1} />
@@ -343,8 +364,8 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
           <div className="tx-section-header">
             <h2 className="tx-section-title">카테고리</h2>
           </div>
-          {receipt ? (
-            <ReceiptPanel receipt={receipt} groups={receiptGroups} amount={amount} categories={kindCategories} onMove={handleReceiptMove} onClear={() => setReceipt(null)} />
+          {receipt?.status === 'done' ? (
+            <ReceiptPanel receipt={receipt} groups={receiptGroups} amount={amount} categories={kindCategories} onMove={handleReceiptMove} />
           ) : (
             <CategoryChips categories={kindCategories} recent={recent.categories} value={draft.category} onChange={handleCategoryChange} />
           )}
@@ -533,7 +554,6 @@ type ReceiptPickerProps = {
 }
 
 function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -550,42 +570,35 @@ function ReceiptPicker({ hasReceipt, onPick, onClear }: ReceiptPickerProps) {
   }
 
   return (
-    <>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={handleChange} />
-      <button type="button" className="text-button text-primary tx-section-action" onClick={() => inputRef.current?.click()}>
-        <ReceiptIcon size={16} weight="bold" aria-hidden="true" />
-        영수증 사진
-      </button>
-    </>
+    <div className="receipt-picker">
+      <label className="text-button text-primary tx-section-action">
+        <input type="file" accept="image/*" capture="environment" hidden onChange={handleChange} />
+        <CameraIcon size={16} weight="bold" aria-hidden="true" />
+        영수증 찍기
+      </label>
+      <label className="text-button text-primary tx-section-action">
+        <input type="file" accept="image/*" hidden onChange={handleChange} />
+        <ImagesIcon size={16} weight="bold" aria-hidden="true" />
+        앨범
+      </label>
+    </div>
   )
 }
 
 type ReceiptPanelProps = {
-  receipt: ReceiptState
+  receipt: Extract<ReceiptState, { status: 'done' }>
   groups: ReceiptGroup[]
   amount: number | null
   categories: Category[]
   onMove: (index: number, category: string) => void
-  onClear: () => void
 }
 
 // 영수증 품목을 카테고리별로 묶어 보여준다. 품목을 누르면 다른 카테고리로 옮길 수 있다.
-function ReceiptPanel({ receipt, groups, amount, categories, onMove, onClear }: ReceiptPanelProps) {
+function ReceiptPanel({ receipt, groups, amount, categories, onMove }: ReceiptPanelProps) {
   const [movingItem, setMovingItem] = useState<ReceiptItem | null>(null)
 
   useBackHandler(() => setMovingItem(null), movingItem !== null)
 
-  if (receipt.status === 'reading') return <p className="receipt-status">영수증을 읽고 있어요…</p>
-  if (receipt.status === 'error') {
-    return (
-      <div className="receipt-error">
-        <FieldHint tone="error">{receipt.message}</FieldHint>
-        <button type="button" className="button" onClick={onClear}>
-          직접 고르기
-        </button>
-      </div>
-    )
-  }
   if (groups.length === 0) return <FieldHint tone="error">금액을 입력하면 영수증대로 나눠요.</FieldHint>
 
   const isAdjusted = amount !== null && amount !== receipt.total

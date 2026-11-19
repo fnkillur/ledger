@@ -179,11 +179,34 @@ describe('자동 분류·지난 내역 바꾸기', () => {
   it('영수증 읽기에 실패해 직접 고르더라도 자동 분류를 묻지 않는다', async () => {
     vi.mocked(analyzeReceipt).mockRejectedValue(new Error('영수증을 읽지 못했어요.'))
     await renderAt({ pathname: '/tx/new', state: { receiptFile: new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' }) } })
-    await act(async () => ([...container.querySelectorAll('button')].find(button => button.textContent === '직접 고르기') as HTMLButtonElement).click())
+    await act(async () => ([...document.querySelectorAll('button')].find(button => button.textContent === '직접 입력하기') as HTMLButtonElement).click())
     await typeInto('가맹점·내용', '스타벅스')
     await pickCategory('식재료')
 
     expect(switchOf('자동 분류 규칙 저장')).toBeNull()
+  })
+
+  it('영수증을 읽는 동안 입력 화면을 가리는 로딩 화면을 띄운다', async () => {
+    vi.mocked(analyzeReceipt).mockReturnValue(new Promise(() => {}))
+    await renderAt({ pathname: '/tx/new', state: { receiptFile: new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' }) } })
+
+    const loading = document.querySelector('[role="dialog"][aria-label="영수증 읽는 중"]')
+    expect(loading?.querySelector('video')).not.toBeNull()
+    expect(loading?.textContent).toContain('영수증을 읽고 있어요')
+  })
+
+  it('읽기에 실패하면 같은 사진으로 다시 시도할 수 있다', async () => {
+    vi.mocked(analyzeReceipt).mockRejectedValueOnce(new Error('영수증을 읽지 못했어요. (503 UNAVAILABLE This model is currently experiencing high demand.)'))
+    await renderAt({ pathname: '/tx/new', state: { receiptFile: new File(['jpeg'], 'receipt.jpg', { type: 'image/jpeg' }) } })
+
+    const failed = document.querySelector('[role="dialog"][aria-label="영수증 읽기 실패"]')
+    expect(failed?.textContent).toContain('영수증 분석 서버가 붐벼요')
+    await act(async () => ([...document.querySelectorAll('button')].find(button => button.textContent === '다시 시도') as HTMLButtonElement).click())
+    await wait()
+
+    expect(analyzeReceipt).toHaveBeenCalledTimes(2)
+    expect(document.querySelector('[role="dialog"][aria-label^="영수증 읽"]')).toBeNull()
+    expect(container.querySelector('.receipt-panel')?.textContent).toContain('호박고구마')
   })
 
   it('영수증으로 저장한 내역을 고칠 때도 자동 분류를 묻지 않는다', async () => {

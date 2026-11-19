@@ -58,6 +58,10 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- 영수증을 카메라로 바로 찍을 때 카메라 앱을 찾을 수 있어야 한다 -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
     </queries>
 
     <!-- Permissions -->

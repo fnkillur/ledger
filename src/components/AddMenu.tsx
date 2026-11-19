@@ -1,13 +1,14 @@
-import { CameraIcon, CaretRightIcon, ChatCircleTextIcon, PencilSimpleLineIcon, PlusIcon, ReceiptIcon, type Icon } from '@phosphor-icons/react'
+import { CameraIcon, CaretRightIcon, ChatCircleTextIcon, ImagesIcon, PencilSimpleLineIcon, PlusIcon, ReceiptIcon, type Icon } from '@phosphor-icons/react'
 import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useBackHandler } from '../navigation/back'
 
-type AddOption = { to: string; title: string; description: string; Glyph: Icon; tone: string; picksPhoto?: boolean }
+type AddOption = { to: string; title: string; description: string; Glyph: Icon; tone: string; picksPhoto?: 'camera' | 'album' }
 
 const ADD_OPTIONS: AddOption[] = [
   { to: '/tx/new', title: '직접 입력', description: '한 건씩 바로 기록', Glyph: PencilSimpleLineIcon, tone: 'blue' },
-  { to: '/tx/new', title: '영수증 사진', description: '품목을 읽어 카테고리별로 나눠 기록', Glyph: ReceiptIcon, tone: 'orange', picksPhoto: true },
+  { to: '/tx/new', title: '영수증 찍기', description: '카메라로 찍어 품목을 카테고리별로 나눠 기록', Glyph: ReceiptIcon, tone: 'orange', picksPhoto: 'camera' },
+  { to: '/tx/new', title: '영수증 사진', description: '앨범에 있는 영수증 사진으로 기록', Glyph: ImagesIcon, tone: 'orange', picksPhoto: 'album' },
   { to: '/import', title: '카톡 알림 캡처', description: '카드사 알림톡 캡처로 여러 건 한꺼번에', Glyph: ChatCircleTextIcon, tone: 'yellow' },
   { to: '/monthly', title: '토스 월 합계', description: '토스 캡처로 한 달 치 카테고리별 금액', Glyph: CameraIcon, tone: 'green' },
 ]
@@ -65,7 +66,7 @@ function AddMenu() {
                   <li key={title}>
                     {picksPhoto ? (
                       <label className="add-menu-item">
-                        <input type="file" accept="image/*" hidden onChange={handlePhoto} />
+                        <input type="file" accept="image/*" capture={picksPhoto === 'camera' ? 'environment' : undefined} hidden onChange={handlePhoto} />
                         {content}
                       </label>
                     ) : (
