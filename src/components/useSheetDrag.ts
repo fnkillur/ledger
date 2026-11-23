@@ -6,7 +6,8 @@ const FLICK_VELOCITY = 0.11
 const FLICK_MIN_DISTANCE = 20
 const CLOSE_MS = 300
 
-type Drag = { startY: number; time: number; isDragging: boolean }
+// isInList: 손가락이 스크롤되는 내역 목록 안에서 시작했나. 목록 밖(요약·정렬)은 목록 위치와 상관없이 늘 시트를 끈다.
+type Drag = { startY: number; time: number; isDragging: boolean; isInList: boolean }
 
 // 위로는 더 올라갈 곳이 없으니, 끌수록 덜 따라오게 해서 막힌 느낌 대신 고무줄처럼 버티게 한다.
 const resist = (distance: number) => (distance >= 0 ? distance : -Math.sqrt(-distance) * 3)
@@ -67,7 +68,7 @@ function useSheetDrag({ sheetRef, scrollRef, onClose }: SheetDragOptions) {
     }
   }, [])
 
-  // 시트 어디를 잡아도 내려서 닫을 수 있다. 다만 안쪽 목록이 스크롤된 상태면 먼저 목록을 올리고,
+  // 시트 어디를 잡아도 내려서 닫을 수 있다. 다만 목록 안을 잡았는데 목록이 스크롤된 상태면 먼저 목록을 올리고,
   // 맨 위에 닿은 뒤 더 내릴 때부터 시트가 따라온다. 그래서 touchmove를 직접 막아야 해서 passive가 아니다.
   useEffect(() => {
     const sheet = sheetRef.current
@@ -75,14 +76,15 @@ function useSheetDrag({ sheetRef, scrollRef, onClose }: SheetDragOptions) {
 
     const handleTouchStart = (event: TouchEvent) => {
       if (isFormControl(event.target)) return
-      dragRef.current = { startY: event.touches[0].clientY, time: event.timeStamp, isDragging: false }
+      const isInList = event.target instanceof Node && !!scrollRef.current?.contains(event.target)
+      dragRef.current = { startY: event.touches[0].clientY, time: event.timeStamp, isDragging: false, isInList }
     }
 
     const handleTouchMove = (event: TouchEvent) => {
       const drag = dragRef.current
       if (!drag) return
       const distance = event.touches[0].clientY - drag.startY
-      const isScrolled = (scrollRef.current?.scrollTop ?? 0) > 0
+      const isScrolled = drag.isInList && (scrollRef.current?.scrollTop ?? 0) > 0
       if (!drag.isDragging) {
         if (isScrolled || distance <= 0) {
           dragRef.current = null
@@ -117,7 +119,7 @@ function useSheetDrag({ sheetRef, scrollRef, onClose }: SheetDragOptions) {
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
       if (event.pointerType !== 'mouse') return
       event.currentTarget.setPointerCapture(event.pointerId)
-      dragRef.current = { startY: event.clientY, time: event.timeStamp, isDragging: true }
+      dragRef.current = { startY: event.clientY, time: event.timeStamp, isDragging: true, isInList: false }
     },
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current
