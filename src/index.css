@@ -451,6 +451,15 @@ a {
   opacity: 0.55;
 }
 
+/* 카테고리 아이콘(36px 원) 자리에 공금·용돈 주인 얼굴을 같은 크기로 둔다. */
+.tx-row-lead {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+}
+
 .tx-row-main {
   display: flex;
   flex: 1;
@@ -2408,20 +2417,21 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* 수입 대비 지출은 상태(여유·빠듯·초과)에 따라 숫자·칩·막대 색을 함께 바꾼다. */
-[data-level='여유'] {
+/* 수입 대비 지출은 목표 비율과 견줘 숫자·칩·막대 색을 함께 바꾼다. */
+[data-level='목표 안'] {
   --ratio-fg: var(--color-success-text);
   --ratio-bg: var(--color-success-bg);
   --ratio-bar: var(--status-good);
 }
 
-[data-level='빠듯'] {
+[data-level='목표 넘음'] {
   --ratio-fg: var(--color-warning-text);
   --ratio-bg: var(--color-warning-bg);
   --ratio-bar: var(--status-warning);
 }
 
-[data-level='초과'] {
+[data-level='많이 넘음'],
+[data-level='수입 초과'] {
   --ratio-fg: var(--color-error-text);
   --ratio-bg: var(--color-error-bg);
   --ratio-bar: var(--status-critical);
@@ -2509,6 +2519,37 @@ a {
 .stat-tile .estimate-tooltip {
   right: 0;
   left: auto;
+}
+
+/* 막대는 수입 100%까지 그리고, 목표 비율 자리에 눈금을 세운다. */
+.ratio-meter-wrap {
+  position: relative;
+}
+
+.ratio-target-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--color-text);
+}
+
+.ratio-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ratio-foot .estimate-tooltip {
+  right: 0;
+  left: auto;
+}
+
+.stat-label .target-note {
+  margin-left: var(--space-1);
 }
 
 .ratio-message {

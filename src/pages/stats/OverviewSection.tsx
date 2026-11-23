@@ -4,6 +4,8 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import Sticker, { type StickerName } from '../../components/Sticker'
 import SalaryEstimateNote from '../../components/SalaryEstimateNote'
 import ScopeSplit from '../../components/ScopeSplit'
+import TargetRatioNote from '../../components/TargetRatioNote'
+import { useTargetRatio } from '../../db/hooks'
 import { budgetPace } from '../../domain/insights'
 import type { Period } from '../../domain/period'
 import type { SavingTip, SavingTipId } from '../../domain/savingTips'
@@ -35,6 +37,8 @@ type OverviewSectionProps = {
 function OverviewSection({ period, previousLabel, scopeFilter, totals, previousTotals, householdExpense, byScope, tips, pendingSalaries }: OverviewSectionProps) {
   const [today] = useState(() => new Date())
 
+  const target = useTargetRatio()
+
   const isAll = scopeFilter === '전체'
   const pace = period.type === '월별' ? budgetPace(totals.지출, period.monthKey, today) : null
   const estimate = withExpectedSalary(totals, pendingSalaries)
@@ -52,8 +56,11 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
           {isAll && <ScopeSplit items={byScope} />}
         </div>
         {isAll ? (
-          <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio)}>
-            <span className="stat-label">수입 대비 지출</span>
+          <div className="stat-tile" data-level={ratio === null ? undefined : ratioLevel(ratio, target)}>
+            <span className="stat-label">
+              수입 대비 지출
+              <TargetRatioNote target={target} />
+            </span>
             <StatValue className="ratio-tile-value" text={ratio === null ? '–' : `${ratio}%`} />
             <span className="stat-delta">
               {ratio !== null && previousRatio !== null
@@ -62,7 +69,7 @@ function OverviewSection({ period, previousLabel, scopeFilter, totals, previousT
             </span>
             <span className="stat-delta">남은 돈 {formatWon(totals.수입 - totals.지출)}</span>
             {estimate.isEstimate && <SalaryEstimateNote pending={pendingSalaries} />}
-            <RatioMood ratio={ratio} previousRatio={previousRatio} />
+            <RatioMood ratio={ratio} previousRatio={previousRatio} target={target} />
           </div>
         ) : (
           <div className="stat-tile">
@@ -162,24 +169,25 @@ function ExpenseDelta({ label, delta }: { label: string; delta: number }) {
 
 // 번 것보다 많이 쓴 달은 울고, 지난 기간보다 지출률이 줄면 축하한다.
 const moodSticker = (level: RatioLevel, isImproved: boolean): StickerName => {
-  if (level === '초과') return 'cry'
+  if (level === '수입 초과') return 'cry'
   if (isImproved) return 'rolling'
-  if (level === '여유') return 'victory'
+  if (level === '목표 안') return 'victory'
   return 'thinking'
 }
 
 // 좁은 칸에서도 한 줄로 끝나도록 짧게 쓴다. 칸 높이가 달마다 달라지지 않게 하려는 것.
 const moodMessage = (level: RatioLevel, isImproved: boolean) => {
-  if (level === '초과') return '수입을 넘었어요'
+  if (level === '수입 초과') return '수입을 넘었어요'
   if (isImproved) return '지출이 줄었어요'
-  if (level === '빠듯') return '조금 빠듯해요'
-  return '여유 있어요'
+  if (level === '많이 넘음') return '목표를 많이 넘었어요'
+  if (level === '목표 넘음') return '목표를 넘었어요'
+  return '목표 안이에요'
 }
 
-function RatioMood({ ratio, previousRatio }: { ratio: number | null; previousRatio: number | null }) {
+function RatioMood({ ratio, previousRatio, target }: { ratio: number | null; previousRatio: number | null; target: number }) {
   if (ratio === null) return null
 
-  const level = ratioLevel(ratio)
+  const level = ratioLevel(ratio, target)
   const isImproved = previousRatio !== null && ratio < previousRatio
   return (
     <div className="tile-mood">

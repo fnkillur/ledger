@@ -42,4 +42,26 @@ describe('공유 설정 동기화', () => {
 
     expect((await db.shared.get('shared'))?.기념일).toEqual({ 사귄날: '2019-01-02', 결혼한날: '2023-04-05' })
   })
+
+  it('시트 설정의 지출목표비율을 받아 저장한다', async () => {
+    vi.mocked(pull).mockResolvedValue(emptyPull({ 월예산: 0, 월저축목표: 0, 지출목표비율: 50 }))
+
+    await syncNow()
+
+    expect((await db.shared.get('shared'))?.지출목표비율).toBe(50)
+    expect(await db.outbox.get('shared')).toBeUndefined()
+  })
+
+  it('시트에 지출목표비율이 없으면 60%로 두고, 시트에서 고칠 수 있게 다음 동기화 때 칸을 만든다', async () => {
+    vi.mocked(pull).mockResolvedValue(emptyPull({ 월예산: 0, 월저축목표: 0 }))
+
+    await syncNow()
+
+    expect((await db.shared.get('shared'))?.지출목표비율).toBe(60)
+    expect(await db.outbox.get('shared')).toBeDefined()
+
+    await syncNow()
+
+    expect(vi.mocked(push).mock.calls[0][1].settings).toMatchObject({ 지출목표비율: 60 })
+  })
 })

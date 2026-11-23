@@ -69,7 +69,7 @@ function CategoryDetailSheet({ category, transactions, excludedCategories, onClo
           ) : (
             <ul className="tx-list">
               {sortCategoryItems(detail.items, sort).map(transaction => (
-                <TransactionRow key={transaction.id} transaction={transaction} />
+                <TransactionRow key={transaction.id} transaction={transaction} isCategoryShown={false} />
               ))}
             </ul>
           )}

@@ -41,19 +41,30 @@ export const withExpectedSalary = <Totals extends Pick<KindTotals, '수입'>>(to
   return { totals: { ...totals, 수입: totals.수입 + expected }, isEstimate: expected > 0 }
 }
 
-export type RatioLevel = '여유' | '빠듯' | '초과'
+export type RatioLevel = '목표 안' | '목표 넘음' | '많이 넘음' | '수입 초과'
 
-// 번 돈의 70%까지는 여유, 100%까지는 빠듯, 그 이상은 번 것보다 더 쓴 달로 본다.
-export const ratioLevel = (ratio: number): RatioLevel => {
-  if (ratio > 100) return '초과'
-  if (ratio > 70) return '빠듯'
-  return '여유'
+// 번 돈의 40%는 남겨 보자는 우리 집 목표(시트 설정 탭의 지출목표비율). 소득 상위 20% 가구의 소비성향(약 55%, 2025년 4분기)을 보고 잡았다.
+export const DEFAULT_TARGET_RATIO = 60
+const OVER_TARGET_MARGIN = 20
+
+export const targetRatioOf = (settings: Record<string, unknown>) => {
+  const value = settings.지출목표비율
+  const ratio = value === '' || value === null || value === undefined ? NaN : Number(value)
+  return Number.isFinite(ratio) && ratio > 0 && ratio <= 100 ? ratio : DEFAULT_TARGET_RATIO
 }
 
-export const ratioMessage = (level: RatioLevel) => {
-  if (level === '초과') return '번 것보다 더 썼어요'
-  if (level === '빠듯') return '수입 대부분을 쓰고 있어요'
-  return '수입 안에서 여유 있게 쓰고 있어요'
+export const ratioLevel = (ratio: number, target: number): RatioLevel => {
+  if (ratio > 100) return '수입 초과'
+  if (ratio > target + OVER_TARGET_MARGIN) return '많이 넘음'
+  if (ratio > target) return '목표 넘음'
+  return '목표 안'
+}
+
+export const ratioMessage = (level: RatioLevel, target: number) => {
+  if (level === '수입 초과') return '번 것보다 더 썼어요'
+  if (level === '많이 넘음') return '목표보다 많이 쓰고 있어요'
+  if (level === '목표 넘음') return `목표 ${target}%를 넘었어요`
+  return `수입의 ${100 - target}% 이상 남기고 있어요`
 }
 
 export const sumByKind = (transactions: Transaction[], excludedCategories: Set<string>): KindTotals =>
@@ -117,9 +128,6 @@ export const matchesScope = (transaction: Transaction, filter: ScopeFilter) => {
   if (filter === '공동') return transaction.scope === '공동'
   return transaction.scope === '개인' && transaction.person === filter
 }
-
-// 카테고리 분포는 생활비가 어디로 가는지 보려는 것이라, 전체를 고르면 각자 용돈은 빼고 공금만 본다.
-export const categoryScopeOf = (filter: ScopeFilter): Exclude<ScopeFilter, '전체'> => (filter === '전체' ? '공동' : filter)
 
 export const expenseByScope = (transactions: Transaction[], excludedCategories: Set<string>) =>
   (['공동', ...PEOPLE] as const).map(filter => ({

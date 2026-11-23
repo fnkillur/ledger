@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { evaluateAmount, formatAmountText } from './amountExpression'
 import { classifyMerchant } from './classify'
 import { isSamePayment, parsePaymentNotification, type CapturedNotification } from './notificationParser'
-import { categoryScopeOf, expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
+import { expenseByScope, matchesScope, monthlyTotals, myShare, recentMonthKeys, sumByCategory, sumByKind, toSlices, topExpenses } from './stats'
 import { scopeLabel, type Transaction } from './types'
 
 describe('evaluateAmount', () => {
@@ -295,12 +295,6 @@ describe('공금·용돈', () => {
     expect(scopeLabel('개인')).toBe('용돈')
   })
 
-  it('카테고리 분포는 전체를 고르면 공금만, 사람을 고르면 그 사람 용돈만 본다', () => {
-    expect(categoryScopeOf('전체')).toBe('공동')
-    expect(categoryScopeOf('공동')).toBe('공동')
-    expect(categoryScopeOf('우사기')).toBe('우사기')
-  })
-
   it('지출을 공금·각자 용돈으로 나눈다', () => {
     expect(expenseByScope(items, new Set())).toEqual([
       { filter: '공동', amount: 60000 },
@@ -361,9 +355,20 @@ describe('expenseRatio', () => {
     expect(expenseRatio({ 지출: 1000, 수입: 0 })).toBeNull()
   })
 
-  it('지출률 70%까지 여유, 100%까지 빠듯, 넘으면 초과', async () => {
+  it('목표 비율까지는 목표 안, 목표+20%p까지 목표 넘음, 100%까지 많이 넘음, 넘으면 수입 초과', async () => {
     const { ratioLevel } = await import('./stats')
-    expect([70, 71, 100, 101].map(ratioLevel)).toEqual(['여유', '빠듯', '빠듯', '초과'])
+    expect([40, 41, 60, 61, 100, 101].map(ratio => ratioLevel(ratio, 40))).toEqual(['목표 안', '목표 넘음', '목표 넘음', '많이 넘음', '많이 넘음', '수입 초과'])
+    expect([50, 51].map(ratio => ratioLevel(ratio, 50))).toEqual(['목표 안', '목표 넘음'])
+  })
+
+  it('시트 설정의 지출목표비율을 읽고, 없거나 1~100이 아니면 60%로 본다', async () => {
+    const { targetRatioOf } = await import('./stats')
+    expect(targetRatioOf({ 지출목표비율: 50 })).toBe(50)
+    expect(targetRatioOf({ 지출목표비율: '45' })).toBe(45)
+    expect(targetRatioOf({})).toBe(60)
+    expect(targetRatioOf({ 지출목표비율: 0 })).toBe(60)
+    expect(targetRatioOf({ 지출목표비율: 150 })).toBe(60)
+    expect(targetRatioOf({ 지출목표비율: '' })).toBe(60)
   })
 })
 

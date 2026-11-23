@@ -16,7 +16,6 @@ import { EARLIEST_MONTH_KEY, monthKeysOfYear, previousComparison, shiftPeriod, t
 import { savingTips } from '../domain/savingTips'
 import type { Transaction } from '../domain/types'
 import {
-  categoryScopeOf,
   expenseByScope,
   matchesScope,
   monthlyTotals,
@@ -118,21 +117,19 @@ function StatsPage() {
   }, [loaded, current, previous, scopedCurrent, scopedPrevious, ranges, excluded, scopeFilter, periodType, monthKey, categories, today])
 
   const categoryData = useMemo(() => {
-    const categoryScope = categoryScopeOf(scopeFilter)
-    const inCategoryScope = (transaction: Transaction) => matchesScope(transaction, categoryScope)
-    const categoryCurrent = current.filter(inCategoryScope)
+    const inScope = (transaction: Transaction) => matchesScope(transaction, scopeFilter)
     return {
-      title: scopeFilter === '전체' ? '공금 카테고리별 지출' : '카테고리별 지출',
-      total: sumByKind(categoryCurrent, excluded).지출,
-      ranking: sumByCategory(categoryCurrent, '지출', excluded),
+      title: '카테고리별 지출',
+      total: sumByKind(scopedCurrent, excluded).지출,
+      ranking: sumByCategory(scopedCurrent, '지출', excluded),
       changes: {
-        '이전 기간': categoryChanges(categoryCurrent, (previous ?? []).filter(inCategoryScope), excluded),
-        '작년 같은 달': categoryChanges(categoryCurrent, sameMonthLastYear.filter(inCategoryScope), excluded),
+        '이전 기간': categoryChanges(scopedCurrent, scopedPrevious, excluded),
+        '작년 같은 달': categoryChanges(scopedCurrent, sameMonthLastYear.filter(inScope), excluded),
       },
       fixedVariable: fixedVsVariable(scopedCurrent, categories, excluded),
-      transactions: categoryCurrent,
+      transactions: scopedCurrent,
     }
-  }, [current, previous, sameMonthLastYear, scopedCurrent, categories, excluded, scopeFilter])
+  }, [scopedCurrent, scopedPrevious, sameMonthLastYear, categories, excluded, scopeFilter])
 
   const lifestyle = useMemo(() => {
     const scopedLoaded = loaded.filter(transaction => matchesScope(transaction, scopeFilter))

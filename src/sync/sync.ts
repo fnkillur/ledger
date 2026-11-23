@@ -4,6 +4,7 @@ import { anniversariesFromSettings, anniversariesToSettings } from '../domain/an
 import { DEFAULT_CATEGORIES } from '../domain/defaultCategories'
 import { nicknamesFromSettings, nicknamesToSettings } from '../domain/nickname'
 import type { CycleItem } from '../domain/cycle'
+import { DEFAULT_TARGET_RATIO, targetRatioOf } from '../domain/stats'
 import type { Rule, Transaction } from '../domain/types'
 import { isCaptureSupported } from '../native/notificationCapture'
 import { pull, push } from './api'
@@ -48,6 +49,7 @@ const pushOutbox = async () => {
     settings: shared && {
       월예산: shared.월예산,
       월저축목표: shared.월저축목표,
+      지출목표비율: shared.지출목표비율 ?? DEFAULT_TARGET_RATIO,
       ...nicknamesToSettings(shared.닉네임 ?? {}),
       ...(shared.기념일 ? anniversariesToSettings(shared.기념일) : {}),
     },
@@ -92,10 +94,13 @@ const pullChanges = async () => {
         key: 'shared',
         월예산: Number(response.settings.월예산) || 0,
         월저축목표: Number(response.settings.월저축목표) || 0,
+        지출목표비율: targetRatioOf(response.settings),
         닉네임: nicknamesFromSettings(response.settings),
         기념일: anniversariesFromSettings(response.settings),
         updatedAt: response.serverTime,
       })
+      // 시트 설정 탭에 목표 칸이 없으면 기본값으로 한 번 보내 칸을 만들어, 시트에서 바로 고칠 수 있게 한다.
+      if (!('지출목표비율' in response.settings)) await db.outbox.put({ id: 'shared', type: 'settings' })
     }
     // 안드로이드 앱은 폰 알림에서 직접 모으므로, 아이폰 단축어가 보낸 문자는 받지 않는다.
     if (response.captures?.length && !isCaptureSupported()) await ingestSheetCaptures(response.captures, pendingIds)

@@ -4,6 +4,7 @@ import type { Anniversaries } from '../domain/anniversary'
 import { cycleState } from '../domain/cycle'
 import { frequentEntries } from '../domain/insights'
 import { displayName } from '../domain/nickname'
+import { DEFAULT_TARGET_RATIO } from '../domain/stats'
 import { isAggregate, UNCATEGORIZED, type Kind, type Person } from '../domain/types'
 import { db } from './database'
 
@@ -81,6 +82,10 @@ export function useSyncStatus() {
 
 export function useSharedSettings() {
   return useLiveQuery(async () => (await db.shared.get('shared')) ?? { key: 'shared' as const, 월예산: 0, 월저축목표: 0, updatedAt: '' })
+}
+
+export function useTargetRatio() {
+  return useSharedSettings()?.지출목표비율 ?? DEFAULT_TARGET_RATIO
 }
 
 export function useAnniversaries(): Anniversaries {

@@ -57,6 +57,8 @@ export type Category = {
 export type SharedSettings = {
   월예산: number
   월저축목표: number
+  // 수입 대비 지출 목표(%). 시트 설정 탭에서 바꾼다.
+  지출목표비율?: number
   닉네임?: Partial<Record<Person, string>>
   기념일?: Anniversaries
 }

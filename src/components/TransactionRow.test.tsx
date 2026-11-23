@@ -25,21 +25,26 @@ const transaction = (overrides: Partial<Transaction>): Transaction => ({
   ...overrides,
 })
 
-const personLabel = async (item: Transaction) => {
+const renderRow = async (item: Transaction, options: { isCategoryShown?: boolean } = {}) => {
   const container = document.createElement('div')
   const root = createRoot(container)
   await act(async () =>
     root.render(
       <MemoryRouter>
         <ul>
-          <TransactionRow transaction={item} />
+          <TransactionRow transaction={item} {...options} />
         </ul>
       </MemoryRouter>,
     ),
   )
+  return { container, unmount: () => act(() => root.unmount()) }
+}
+
+const personLabel = async (item: Transaction) => {
+  const { container, unmount } = await renderRow(item)
   const label = container.querySelector('.tx-row-person')?.textContent
   const badges = [...container.querySelectorAll('.tx-badge')].map(badge => badge.textContent)
-  root.unmount()
+  unmount()
   return { label, badges }
 }
 
@@ -52,6 +57,16 @@ describe('TransactionRow', () => {
     expect(await personLabel(transaction({ scope: '개인' }))).toEqual({ label: '쿠리만쥬', badges: ['용돈'] })
     expect((await personLabel(transaction({ kind: '수입', scope: '공동' }))).label).toBe('쿠리만쥬')
   })
+
+  it('카테고리 상세처럼 카테고리가 같은 목록에서는 카테고리 대신 공금·용돈 주인 얼굴을 앞에 둔다', async () => {
+    const { container, unmount } = await renderRow(transaction({ scope: '개인' }), { isCategoryShown: false })
+
+    expect(container.querySelector('.category-icon')).toBeNull()
+    expect(container.querySelector('.tx-row-category')).toBeNull()
+    expect(container.querySelector('.tx-row-lead .avatar')).not.toBeNull()
+    expect(container.querySelector('.tx-row-person')?.textContent).toBe('쿠리만쥬')
+    unmount()
+  })
 })
 
 const ITEMS = [
@@ -60,21 +75,6 @@ const ITEMS = [
   { name: '두부', amount: 1500 },
   { name: '대파', amount: 1520 },
 ]
-
-const renderRow = async (item: Transaction) => {
-  const container = document.createElement('div')
-  const root = createRoot(container)
-  await act(async () =>
-    root.render(
-      <MemoryRouter>
-        <ul>
-          <TransactionRow transaction={item} />
-        </ul>
-      </MemoryRouter>,
-    ),
-  )
-  return { container, unmount: () => act(() => root.unmount()) }
-}
 
 describe('영수증 품목이 있는 내역', () => {
   it('목록에는 다른 내역처럼 한 줄만 보이고, 누르면 영수증 시트가 열려 품목과 수정 버튼을 보여 준다', async () => {

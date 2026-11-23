@@ -6,9 +6,10 @@ import EmptyState from '../components/EmptyState'
 import PeriodHeader from '../components/PeriodHeader'
 import PersonAvatar from '../components/PersonAvatar'
 import SalaryEstimateNote from '../components/SalaryEstimateNote'
+import TargetRatioNote from '../components/TargetRatioNote'
 import ScopeSplit from '../components/ScopeSplit'
 import TransactionRow from '../components/TransactionRow'
-import { useCategoriesQuery, useCategoryIcons, usePersonName, useTransactionsBetween } from '../db/hooks'
+import { useCategoriesQuery, useCategoryIcons, usePersonName, useTargetRatio, useTransactionsBetween } from '../db/hooks'
 import { monthKeysOfYear, toRange } from '../domain/period'
 import {
   aggregateByCategory,
@@ -258,6 +259,7 @@ const formatRatio = (ratio: number | null) => (ratio === null ? '–' : `${ratio
 // 월급 전에는 번 돈이 적어 비율이 늘 높게 나오므로, 아직 안 들어온 월급은 지난달 금액으로 채워 본다.
 function ExpenseRatio({ totals, pending }: { totals: KindTotals; pending: PendingSalary[] }) {
   const personName = usePersonName()
+  const target = useTargetRatio()
 
   const estimate = withExpectedSalary(totals, pending)
   const isEstimate = estimate.isEstimate
@@ -274,7 +276,7 @@ function ExpenseRatio({ totals, pending }: { totals: KindTotals; pending: Pendin
     )
   }
 
-  const level = ratioLevel(ratio)
+  const level = ratioLevel(ratio, target)
   return (
     <div className="ratio-hero" data-level={level}>
       <div className="ratio-head">
@@ -285,10 +287,16 @@ function ExpenseRatio({ totals, pending }: { totals: KindTotals; pending: Pendin
         <span className="ratio-chip">{level}</span>
       </div>
       <strong className="ratio-value">{ratio}%</strong>
-      <div className="meter ratio-meter" aria-hidden="true">
-        <div className="meter-fill" style={{ width: `${Math.min(100, ratio)}%` }} />
+      <div className="ratio-meter-wrap">
+        <div className="meter ratio-meter" aria-hidden="true">
+          <div className="meter-fill" style={{ width: `${Math.min(100, ratio)}%` }} />
+        </div>
+        <span className="ratio-target-mark" style={{ left: `${target}%` }} aria-hidden="true" />
       </div>
-      <span className="ratio-message">{ratioMessage(level)}</span>
+      <span className="ratio-foot">
+        <span className="ratio-message">{ratioMessage(level, target)}</span>
+        <TargetRatioNote target={target} />
+      </span>
     </div>
   )
 }
