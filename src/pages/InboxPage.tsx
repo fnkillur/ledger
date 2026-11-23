@@ -232,8 +232,7 @@ function QuickClassifyCard({ transaction }: { transaction: Transaction }) {
   }, [categories, recent.categories, transaction.kind])
 
   const handlePick = async (categoryName: string) => {
-    const category = categories.find(item => item.name === categoryName)
-    await saveTransaction({ ...transaction, category: categoryName, scope: category?.personal ? '개인' : '공동' }, transaction.id)
+    await saveTransaction({ ...transaction, category: categoryName }, transaction.id)
     if (transaction.merchant.trim()) await saveRule(transaction.merchant, categoryName)
     syncNow().catch(() => {})
   }

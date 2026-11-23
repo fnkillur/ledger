@@ -234,4 +234,26 @@ describe('공금·용돈', () => {
     const options = [...container.querySelectorAll('[aria-label="공금·용돈"] button')].map(option => option.textContent)
     expect(options).toEqual(['공금', '용돈'])
   })
+
+  it('저장된 내역의 카테고리를 바꿔도 공금·용돈은 그대로 둔다', async () => {
+    await db.transactions.put(transaction({ category: '식재료', scope: '개인' }))
+    await renderAt('/tx/tx-1')
+
+    await pickCategory('쇼핑')
+    await pickCategory('외식')
+    await clickSave()
+
+    expect(await db.transactions.get('tx-1')).toMatchObject({ category: '외식', scope: '개인' })
+  })
+
+  it('새로 쓸 때 카테고리를 골라도 공금·용돈은 고른 그대로다', async () => {
+    await renderAt('/tx/new')
+    await typeInto('금액', '12000')
+
+    await pickCategory('쇼핑')
+    const chosen = container.querySelector('[aria-label="공금·용돈"] [aria-checked="true"]')
+
+    expect(chosen?.textContent).toBe('공금')
+  })
 })
+

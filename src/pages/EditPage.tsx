@@ -174,10 +174,8 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
   // 단축어로 이 화면부터 열렸으면 돌아갈 화면이 없으므로 목록으로 간다.
   const goBack = () => (location.key === 'default' ? navigate(LIST_PATH, { replace: true }) : navigate(-1))
 
-  const defaultScopeOf = (categoryName: string) =>
-    categories.find(category => category.name === categoryName)?.personal ? '개인' : '공동'
-
-  const handleCategoryChange = (category: string) => update({ category, scope: defaultScopeOf(category) })
+  // 공금·용돈은 카테고리와 따로 고른다. 카테고리를 바꿔도 다른 칸은 그대로 둔다.
+  const handleCategoryChange = (category: string) => update({ category })
 
   const handleKindChange = (kind: Kind) => {
     const keepsCategory = categories.some(category => category.kind === kind && category.name === draft.category)
@@ -211,7 +209,6 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
       merchant: parsed.merchant || draft.merchant,
       occurredAt: parsed.occurredAt,
       category: matched ?? (keepsCategory ? draft.category : ''),
-      scope: defaultScopeOf(matched ?? (keepsCategory ? draft.category : '')),
       source: '붙여넣기',
       memo: parsed.isCancel ? '결제 취소' : draft.memo,
       rawText: text.trim(),
@@ -261,7 +258,7 @@ function TransactionForm({ initial, transaction, captureKey, receiptFile }: Tran
     const saved = []
     for (const group of receiptGroups) {
       const memo = [draft.memo.trim(), receiptMemo(group.items)].filter(Boolean).join(' · ')
-      saved.push(await saveTransaction({ ...draft, merchant, amount: group.amount, category: group.category, scope: defaultScopeOf(group.category), memo, receiptItems: receiptLinesOf(group) }))
+      saved.push(await saveTransaction({ ...draft, merchant, amount: group.amount, category: group.category, memo, receiptItems: receiptLinesOf(group) }))
     }
     if (captureKey) await markCapture(captureKey, '기록됨', saved[0])
     syncNow().catch(() => {})
