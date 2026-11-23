@@ -77,4 +77,16 @@ describe('공휴일', () => {
     expect(document.querySelector('.day-sheet-holiday')?.textContent).toBe('추석')
     expect(document.querySelector('.day-sheet-empty')).toBeNull()
   })
+
+  it('날짜 시트의 교체할 것에는 주기 이름만 적는다', async () => {
+    const filter = { id: 'c1', name: '정수기 필터', icon: '💧', target: '공동', keyword: '', anchor: null, period: null, memo: '', deleted: false, updatedAt: '' } as const
+    await render(
+      <MemoryRouter>
+        <DaySheet dateKey="2026-09-24" events={[]} cycles={[filter]} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+
+    expect(document.querySelector('.day-sheet-cycle')?.textContent).toBe('💧정수기 필터')
+  })
 })
+

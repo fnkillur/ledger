@@ -88,7 +88,7 @@ function DaySheet({ dateKey, events, cycles = [], holiday, anniversaries = [], i
                     <li key={item.id}>
                       <Link to={`/cycles?id=${item.id}`} className="day-sheet-cycle">
                         <span aria-hidden="true">{item.icon || '🔁'}</span>
-                        {item.name} 바꾸는 날
+                        {item.name}
                       </Link>
                     </li>
                   ))}
