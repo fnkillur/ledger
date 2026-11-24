@@ -146,8 +146,13 @@ describe('titleSuggestions', () => {
     expect(titleSuggestions(events, '  ')).toEqual([])
   })
 
-  it('친 글자가 들어간 제목을 자주 쓴 순으로, 같으면 최근 순으로 하나씩 고르고 가장 최근 일정을 대표로 둔다', () => {
-    expect(titleSuggestions(events, '필').map(event => event.id)).toEqual(['b', 'c', 'w-2026-10-16'])
+  it('친 글자가 들어간 일정을 자주 쓴 순으로, 같으면 최근 순으로 하나씩 고르고 가장 최근 일정을 대표로 둔다', () => {
+    const again = pastEvent('f', { title: '필라테스', start: '2026-10-15T19:00:00+09:00', end: '2026-10-15T20:00:00+09:00' })
+    expect(titleSuggestions([...events, again], '필').map(event => event.id)).toEqual(['f', 'c', 'w-2026-10-16', 'a'])
+  })
+
+  it('제목이 같아도 시간이 다르면 따로 추천한다', () => {
+    expect(titleSuggestions(events, '필라테스').map(event => event.id)).toEqual(['b', 'a'])
   })
 
   it('기념일은 추천하지 않고, 대소문자는 가리지 않는다', () => {

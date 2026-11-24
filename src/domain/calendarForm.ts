@@ -88,7 +88,14 @@ const SUGGESTION_LIMIT = 5
 
 const daySpan = (start: string, end: string) => Math.round((toLocalDate(end, '00:00').getTime() - toLocalDate(start, '00:00').getTime()) / 86400000)
 
-// 친 글자가 들어간 예전 일정 제목을 자주 쓴 순으로 추천한다. 반복 일정은 회차가 많아도 한 번으로 세고, 기념일은 빼며, 제목마다 가장 최근 일정을 대표로 둔다.
+// 제목이 같아도 시간이 다르면(오전 필라테스·저녁 필라테스) 따로 추천한다.
+const suggestionKey = (event: CalendarEvent) => {
+  const form = formFromEvent(event)
+  const time = form.allDay ? '하루 종일' : `${form.startTime}-${form.endTime}`
+  return `${event.title.trim()}|${time}`
+}
+
+// 친 글자가 들어간 예전 일정을 제목·시간별로 자주 쓴 순으로 추천한다. 반복 일정은 회차가 많아도 한 번으로 세고, 기념일은 빼며, 묶음마다 가장 최근 일정을 대표로 둔다.
 export const titleSuggestions = (events: CalendarEvent[], query: string) => {
   const keyword = query.trim().toLowerCase()
   if (!keyword) return []
@@ -96,11 +103,11 @@ export const titleSuggestions = (events: CalendarEvent[], query: string) => {
   events
     .filter(event => event.target !== '기념일' && event.title.toLowerCase().includes(keyword))
     .forEach(event => {
-      const title = event.title.trim()
-      const group = groups.get(title) ?? { latest: event, series: new Set<string>() }
+      const key = suggestionKey(event)
+      const group = groups.get(key) ?? { latest: event, series: new Set<string>() }
       group.series.add(event.seriesId ?? event.id)
       if (event.start > group.latest.start) group.latest = event
-      groups.set(title, group)
+      groups.set(key, group)
     })
   return [...groups.values()]
     .sort((left, right) => right.series.size - left.series.size || right.latest.start.localeCompare(left.latest.start))
