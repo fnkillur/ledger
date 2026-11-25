@@ -1,5 +1,5 @@
 import { HeartIcon } from '@phosphor-icons/react'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useHolidays } from '../../db/calendar'
 import { useAnniversaries } from '../../db/hooks'
 import { anniversaryLabels, type Anniversaries } from '../../domain/anniversary'
@@ -9,6 +9,7 @@ import CalendarEventChip from './CalendarEventChip'
 // 날짜 숫자 줄 높이와 주 아래쪽 여백.
 const WEEK_CHROME_HEIGHT = 26
 const LANE_STEP = 20
+const DEFAULT_LANES = 3
 
 type CalendarGridProps = {
   monthKey: string
@@ -24,21 +25,23 @@ function CalendarGrid({ monthKey, events, focusedDate, cycleDates, onSelectDay }
 
   const gridRef = useRef<HTMLDivElement>(null)
 
-  const [maxLanes, setMaxLanes] = useState(3)
+  const [gridHeight, setGridHeight] = useState<number | null>(null)
 
   const weeks = monthGrid(monthKey)
   const eventsWithHolidays = withHolidays(events, holidays)
+  // 달 높이는 그대로고 주 수(5·6주)만 바뀌므로, 줄 수를 그릴 때 바로 계산해야 달을 넘긴 직후 한 번 접혔다 펴지지 않는다.
+  const maxLanes = gridHeight === null ? DEFAULT_LANES : Math.max(1, Math.floor((gridHeight / weeks.length - WEEK_CHROME_HEIGHT) / LANE_STEP))
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const grid = gridRef.current
     if (!grid) return
-    const observer = new ResizeObserver(() => {
-      const weekHeight = grid.clientHeight / weeks.length
-      setMaxLanes(Math.max(1, Math.floor((weekHeight - WEEK_CHROME_HEIGHT) / LANE_STEP)))
-    })
+    // 아직 화면에 펼쳐지지 않아 높이가 0이면 모르는 것으로 둔다.
+    const measure = () => setGridHeight(grid.clientHeight || null)
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(grid)
     return () => observer.disconnect()
-  }, [weeks.length])
+  }, [])
 
   return (
     <div ref={gridRef} className="cal-grid" style={{ '--weeks': weeks.length } as CSSProperties}>
