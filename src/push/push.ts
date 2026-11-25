@@ -102,9 +102,14 @@ export const refreshPush = async () => {
 // 알림이 가리키는 앱 안 주소. 주기 알림은 link, 일정 알림은 date를 보낸다.
 type PushOpenHandler = (path: string) => void
 
-// 안드로이드에서 알림을 누르면 알림이 가리키는 화면을 열고, 앱을 보는 중에 알림이 오면 캘린더를 새로 맞춘다.
+// 안드로이드에서 알림을 누르면 알림이 가리키는 화면을 열고, 앱을 보는 중에 알림이 오면(아이폰 웹앱 포함) 캘린더를 새로 맞춘다.
 export const listenNativePush = (onOpen: PushOpenHandler, onReceive: () => void) => {
-  if (!Capacitor.isNativePlatform()) return
+  if (!Capacitor.isNativePlatform()) {
+    navigator.serviceWorker?.addEventListener('message', event => {
+      if (event.data?.type === 'push') onReceive()
+    })
+    return
+  }
   PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
     const { link, date } = notification.data ?? {}
     if (typeof link === 'string' && link) return onOpen(link)

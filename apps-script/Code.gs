@@ -275,6 +275,7 @@ function doGet(e) {
   return handle_(() => {
     authorize_(e.parameter.token)
     if (e.parameter.action === 'calendar') return calendarEvents_(e.parameter.start, e.parameter.end)
+    if (e.parameter.action === 'calendarChanges') return calendarChanges_(e.parameter.syncToken || '')
     if (e.parameter.action !== 'pull') throw new Error('알 수 없는 요청이에요.')
     return pull_(e.parameter.since || '')
   })
@@ -290,10 +291,16 @@ function doPost(e) {
     if (body.action === 'calendarSave') {
       const result = saveCalendarEvent_(body)
       // 다시 보낸 요청으로 이미 만든 일정이면 추가 알림도 다시 보내지 않는다.
-      if (!body.event.ref && result.isNew) notifyCalendarAdded_(body.actor, body.event)
+      if (!body.event.ref && result.isNew) notifyCalendar_(body.actor, 'added', body.event)
+      if (body.event.ref) notifyCalendar_(body.actor, 'changed', body.event)
       return { id: result.id }
     }
-    if (body.action === 'calendarDelete') return deleteCalendarEvent_(body)
+    if (body.action === 'calendarDelete') {
+      // 다시 보낸 요청이라 이미 지워진 일정이면 알릴 게 없다.
+      const deleted = deleteCalendarEvent_(body)
+      if (deleted) notifyCalendar_(body.actor, 'deleted', deleted)
+      return {}
+    }
     if (body.action === 'pushRegister') return registerPushToken_(body)
     if (body.action === 'pushUnregister') return unregisterPushToken_(body)
     if (body.action === 'calendarImport') return importCalendarEvents_(body)

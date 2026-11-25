@@ -187,13 +187,53 @@ export const weekLayout = (week: string[], events: CalendarEvent[], maxLanes: nu
 
 export const overlapsRange = (event: CalendarEvent, start: string, end: string) => startDayOf(event) <= end && lastDayOf(event) >= start
 
-// 앱에 받아 두는 범위: 기준 달의 앞뒤 12개월.
-export const WINDOW_MONTHS = 12
+// 서버의 '바뀐 것 확인'이 알려 주는 바뀐 일정. 지운 일정은 날짜 없이 번호만 온다.
+export type CalendarChange = {
+  id: string
+  seriesId: string | null
+  isSeries: boolean
+  start: string | null
+  end: string | null
+  originalStart: string | null
+}
 
-export const calendarWindow = (monthKey: string) => ({
-  start: gridRange(shiftMonth(monthKey, -WINDOW_MONTHS)).start,
-  end: gridRange(shiftMonth(monthKey, WINDOW_MONTHS)).end,
-})
+const dayOf = (value: string) => (value.length === 10 ? value : toDateKey(value))
+const monthOf = (dateKey: string) => dateKey.slice(0, 7)
+
+export const monthsBetween = (startDay: string, endDay: string) => {
+  const months = [monthOf(startDay)]
+  while (months.at(-1)! < monthOf(endDay)) months.push(shiftMonth(months.at(-1)!, 1))
+  return months
+}
+
+export const monthsAround = (monthKey: string, before: number, after: number) =>
+  Array.from({ length: before + after + 1 }, (_, index) => shiftMonth(monthKey, index - before))
+
+// 바뀐 일정이 걸친 달 중 앱에 받아 둔 달만 다시 받는다. 지운 일정은 받아 둔 일정에서 그 번호로 달을 찾고,
+// 반복 시리즈 자체가 바뀌면 회차가 어느 달에 생길지 몰라 시작 달 이후 받아 둔 달을 모두 다시 받는다.
+export const changedMonths = (changes: CalendarChange[], events: CalendarEvent[], loaded: string[]) => {
+  const months = new Set<string>()
+  const add = (month: string) => months.add(month)
+  changes.forEach(change => {
+    if (change.start) monthsBetween(dayOf(change.start), dayOf(change.end ?? change.start)).forEach(add)
+    if (change.originalStart) add(monthOf(dayOf(change.originalStart)))
+    events
+      .filter(event => event.id === change.id || event.seriesId === change.id)
+      .forEach(event => monthsBetween(startDayOf(event), lastDayOf(event)).forEach(add))
+    if (change.isSeries) loaded.filter(month => !change.start || month >= monthOf(dayOf(change.start))).forEach(add)
+  })
+  const loadedMonths = new Set(loaded)
+  return [...months].filter(month => loadedMonths.has(month)).sort()
+}
+
+// 이어진 달끼리 묶어 한 번에 받는다. 한 번에 너무 많이 받으면 서버가 느려서 묶음 길이를 제한한다.
+export const monthRuns = (months: string[], maxLength = Infinity) =>
+  [...new Set(months)].sort().reduce<string[][]>((runs, month) => {
+    const last = runs.at(-1)
+    if (last && last.length < maxLength && shiftMonth(last.at(-1)!, 1) === month) last.push(month)
+    else runs.push([month])
+    return runs
+  }, [])
 
 // 대상 값 '공동'·'없음'은 시트·구글에 저장된 키라 그대로 두고, 캘린더 화면에는 '우리'·'지정일'로 보여 준다.
 export const targetLabel = (target: CalendarTarget, personName: (person: Person) => string) => {

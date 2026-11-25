@@ -37,33 +37,127 @@ function calendarEvents_(start, end) {
     pageToken = page.nextPageToken
   } while (pageToken)
 
-  const repeatBySeries = {}
-  items
-    .filter(item => item.recurringEventId && !(item.recurringEventId in repeatBySeries))
-    .forEach(item => {
-      repeatBySeries[item.recurringEventId] = repeatOf_(Calendar.Events.get(id, item.recurringEventId).recurrence)
-    })
-
+  const repeatBySeries = seriesRepeats_(id, items.map(item => item.recurringEventId).filter(Boolean))
   return { events: items.filter(item => item.status !== 'cancelled').map(item => toCalendarEvent_(item, repeatBySeries)), holidays: holidays_(start, end) }
 }
 
+// 반복 종류는 시리즈 원본을 따로 물어봐야 알 수 있어서, 한 번 물어본 건 서버에 기억해 둔다.
+// 시리즈를 고치거나 지우면(앱에서든 구글 캘린더에서든) 바뀐 것 확인 때 지운다.
+const REPEAT_CACHE_SECONDS = 6 * 60 * 60
+const repeatCacheKey_ = seriesId => `repeat:${seriesId}`
+
+function seriesRepeats_(calendar, seriesIds) {
+  const ids = [...new Set(seriesIds)]
+  if (ids.length === 0) return {}
+  const cache = CacheService.getScriptCache()
+  const cached = cache.getAll(ids.map(repeatCacheKey_))
+  const repeats = {}
+  const fresh = {}
+  ids.forEach(seriesId => {
+    const hit = cached[repeatCacheKey_(seriesId)]
+    if (hit) {
+      repeats[seriesId] = hit
+      return
+    }
+    repeats[seriesId] = repeatOf_(Calendar.Events.get(calendar, seriesId).recurrence)
+    fresh[repeatCacheKey_(seriesId)] = repeats[seriesId]
+  })
+  if (Object.keys(fresh).length > 0) cache.putAll(fresh, REPEAT_CACHE_SECONDS)
+  return repeats
+}
+
+function forgetRepeats_(seriesIds) {
+  const keys = seriesIds.filter(Boolean).map(repeatCacheKey_)
+  if (keys.length > 0) CacheService.getScriptCache().removeAll(keys)
+}
+
+// 지난번 확인 이후 바뀐 일정(앱·구글 캘린더 어디서 바꿨든)만 알려 준다. 앱은 이걸로 다시 받을 달만 고른다.
+// 처음이거나 구글이 확인 번호를 버렸으면(410) 새 번호만 주고, 앱이 보고 있는 달부터 새로 받게 한다.
+// 구글은 확인 번호를 받을 때와 쓸 때 조건이 같아야 해서, 처음 받을 때도 maxResults 말고는 아무 조건을 걸지 않는다.
+function calendarChanges_(syncToken) {
+  const id = calendarId_()
+  if (!syncToken) return { syncToken: freshSyncToken_(id) }
+  const items = []
+  let pageToken
+  let nextSyncToken
+  try {
+    do {
+      const page = Calendar.Events.list(id, {
+        syncToken,
+        pageToken,
+        maxResults: 2500,
+        fields: 'nextPageToken,nextSyncToken,items(id,status,start,end,originalStartTime,recurringEventId,recurrence)',
+      })
+      items.push(...(page.items || []))
+      pageToken = page.nextPageToken
+      nextSyncToken = page.nextSyncToken
+    } while (pageToken)
+  } catch (error) {
+    if (!/410|sync token|full sync/i.test(String(error && error.message))) throw error
+    return { reset: true, syncToken: freshSyncToken_(id) }
+  }
+  forgetRepeats_(items.filter(item => item.recurrence || item.status === 'cancelled').map(item => item.id))
+  return { syncToken: nextSyncToken, changes: items.map(toCalendarChange_) }
+}
+
+function freshSyncToken_(calendar) {
+  let pageToken
+  for (;;) {
+    const page = Calendar.Events.list(calendar, { pageToken, maxResults: 2500, fields: 'nextPageToken,nextSyncToken' })
+    if (page.nextSyncToken) return page.nextSyncToken
+    pageToken = page.nextPageToken
+  }
+}
+
+const eventTime_ = (time, isEnd) => {
+  if (!time) return null
+  if (time.date) return isEnd ? addDays_(time.date, -1) : time.date
+  return time.dateTime || null
+}
+
+// 지운 일정은 번호만 오고 날짜가 없다. 앱이 받아 둔 일정에서 그 번호로 달을 찾는다.
+function toCalendarChange_(item) {
+  return {
+    id: item.id,
+    seriesId: item.recurringEventId || null,
+    isSeries: !!item.recurrence,
+    start: eventTime_(item.start, false),
+    end: eventTime_(item.end, true),
+    originalStart: item.originalStartTime ? item.originalStartTime.date || item.originalStartTime.dateTime : null,
+  }
+}
+
 // 구글 공휴일 캘린더는 어버이날 같은 기념일도 섞여 있어서, 설명이 '공휴일'인 쉬는 날만 고른다.
+// 공휴일은 거의 안 바뀌어서 해마다 받아 서버에 기억해 둔다.
 // 공휴일을 못 받아도 일정은 보여야 하니 실패하면 비워 두고, 앱은 받아 둔 공휴일을 그대로 쓴다.
+const HOLIDAY_CACHE_SECONDS = 6 * 60 * 60
+
 function holidays_(start, end) {
   try {
-    const page = Calendar.Events.list(HOLIDAY_CALENDAR_ID, {
-      timeMin: `${start}T00:00:00+09:00`,
-      timeMax: `${addDays_(end, 1)}T00:00:00+09:00`,
-      singleEvents: true,
-      maxResults: 2500,
-    })
-    return (page.items || [])
-      .filter(item => item.start.date && String(item.description || '').trim() === '공휴일')
-      .map(item => ({ date: item.start.date, name: item.summary || '공휴일' }))
+    const years = []
+    for (let year = Number(start.slice(0, 4)); year <= Number(end.slice(0, 4)); year += 1) years.push(year)
+    return years.flatMap(holidaysOfYear_).filter(holiday => holiday.date >= start && holiday.date <= end)
   } catch (error) {
     console.warn(`공휴일을 받지 못했어요: ${error}`)
     return undefined
   }
+}
+
+function holidaysOfYear_(year) {
+  const cache = CacheService.getScriptCache()
+  const cached = cache.get(`holidays:${year}`)
+  if (cached) return JSON.parse(cached)
+  const page = Calendar.Events.list(HOLIDAY_CALENDAR_ID, {
+    timeMin: `${year}-01-01T00:00:00+09:00`,
+    timeMax: `${year + 1}-01-01T00:00:00+09:00`,
+    singleEvents: true,
+    maxResults: 2500,
+  })
+  const holidays = (page.items || [])
+    .filter(item => item.start.date && String(item.description || '').trim() === '공휴일')
+    .map(item => ({ date: item.start.date, name: item.summary || '공휴일' }))
+  cache.put(`holidays:${year}`, JSON.stringify(holidays), HOLIDAY_CACHE_SECONDS)
+  return holidays
 }
 
 function saveCalendarEvent_(body) {
@@ -90,6 +184,7 @@ function saveCalendarEvent_(body) {
   return { id: updateWhole_(id, master.id, isEndingRepeat ? input : shiftToSeriesStart_(input, master, ref), true).id }
 }
 
+// 지운 일정의 제목과 날짜를 돌려줘 상대에게 알린다. 이미 지워진 일정이면(다시 보낸 요청) null.
 function deleteCalendarEvent_(body) {
   const ref = body.ref || {}
   if (!ref.id) throw new Error('지울 일정을 찾지 못했어요.')
@@ -97,16 +192,31 @@ function deleteCalendarEvent_(body) {
   const scope = body.scope || 'all'
 
   if (!ref.seriesId || scope === 'one') {
+    const event = findEvent_(id, ref.id)
     removeOnce_(id, ref.id)
-    return {}
+    return event && deletedNotice_(event)
   }
   const master = Calendar.Events.get(id, ref.seriesId)
   if (scope === 'following' && !isFirstOccurrence_(master, ref)) {
     Calendar.Events.patch({ recurrence: endRecurrenceBefore_(master.recurrence, ref.originalStart) }, id, master.id)
-    return {}
+    return { title: master.summary || '', start: ref.start || ref.originalStart }
   }
   removeOnce_(id, master.id)
-  return {}
+  // 반복 일정은 시리즈 첫날 대신 지운 사람이 보던 회차 날짜로 알린다.
+  return { title: master.summary || '', start: ref.start || ref.originalStart || dateKeyOfEventTime_(master.start) }
+}
+
+function findEvent_(calendar, eventId) {
+  try {
+    const event = Calendar.Events.get(calendar, eventId)
+    return event.status === 'cancelled' ? null : event
+  } catch (error) {
+    return null
+  }
+}
+
+function deletedNotice_(event) {
+  return { title: event.summary || '', start: event.start.date || event.start.dateTime }
 }
 
 // 앱은 응답을 못 받은 작업을 다시 보낸다. 앱이 정한 번호로 만들어서, 다시 온 요청이면 이미 만든 일정을 돌려준다.

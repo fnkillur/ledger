@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { dayTone, eventsOnDay, gridRange, monthGrid, targetLabel, weekLayout, type CalendarEvent } from './calendar'
+import { changedMonths, dayTone, eventsOnDay, gridRange, monthGrid, monthRuns, monthsAround, targetLabel, weekLayout, type CalendarChange, type CalendarEvent } from './calendar'
 
 const event = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   id: 'event',
@@ -130,5 +130,39 @@ describe('targetLabel', () => {
       '기념일',
       '지정일',
     ])
+  })
+})
+
+describe('changedMonths', () => {
+  const change = (overrides: Partial<CalendarChange>): CalendarChange => ({ id: 'x', seriesId: null, isSeries: false, start: null, end: null, originalStart: null, ...overrides })
+  const loaded = ['2026-09', '2026-10', '2026-11', '2026-12']
+
+  it('바뀐 일정이 걸친 달 중 받아 둔 달만 고른다', () => {
+    const changes = [change({ start: '2026-10-30', end: '2026-11-02' }), change({ id: 'y', start: '2027-03-01T09:00:00+09:00', end: '2027-03-01T10:00:00+09:00' })]
+
+    expect(changedMonths(changes, [], loaded)).toEqual(['2026-10', '2026-11'])
+  })
+
+  it('옮긴 일정은 받아 둔 예전 자리의 달도 다시 받는다', () => {
+    const moved = change({ id: 'a', start: '2026-12-01', end: '2026-12-01' })
+
+    expect(changedMonths([moved], [event({ id: 'a' })], loaded)).toEqual(['2026-10', '2026-12'])
+  })
+
+  it('지운 일정은 날짜가 없어서 받아 둔 일정에서 번호로 달을 찾고, 지운 반복 시리즈는 회차들의 달을 찾는다', () => {
+    const events = [event({ id: 'a', start: '2026-09-10T09:00:00+09:00', end: '2026-09-10T10:00:00+09:00' }), event({ id: 'w-1', seriesId: 's', start: '2026-11-03T09:00:00+09:00', end: '2026-11-03T10:00:00+09:00' })]
+
+    expect(changedMonths([change({ id: 'a' }), change({ id: 's' })], events, loaded)).toEqual(['2026-09', '2026-11'])
+  })
+
+  it('반복 시리즈 자체가 바뀌면 시작 달 이후 받아 둔 달을 모두 다시 받는다', () => {
+    expect(changedMonths([change({ id: 's', isSeries: true, start: '2026-10-07', end: '2026-10-07' })], [], loaded)).toEqual(['2026-10', '2026-11', '2026-12'])
+  })
+})
+
+describe('monthRuns', () => {
+  it('이어진 달끼리 묶고, 묶음 길이를 넘으면 나눈다', () => {
+    expect(monthRuns(['2026-12', '2026-10', '2026-11', '2027-03', '2027-01'])).toEqual([['2026-10', '2026-11', '2026-12', '2027-01'], ['2027-03']])
+    expect(monthRuns(monthsAround('2026-11', 2, 2), 2)).toEqual([['2026-09', '2026-10'], ['2026-11', '2026-12'], ['2027-01']])
   })
 })

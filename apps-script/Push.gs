@@ -36,11 +36,14 @@ function writePushTokens_(tokens) {
   PropertiesService.getScriptProperties().setProperty(PUSH_TOKENS_KEY, JSON.stringify(tokens))
 }
 
+const CALENDAR_VERBS = { added: '추가했어요', changed: '바꿨어요', deleted: '지웠어요' }
+
+// 일정을 추가·수정·삭제하면 상대에게 알린다. 알림을 받은 앱은 바뀐 것을 확인해 그 달만 새로 받는다.
 // 알림이 실패해도 일정 저장은 성공으로 돌려준다.
-function notifyCalendarAdded_(actor, event) {
+function notifyCalendar_(actor, kind, event) {
   try {
     if (!actor || !PUSH_PEOPLE.includes(actor.person) || !event || !event.title) return
-    const title = `${actor.name || actor.person}님이 '${event.title}' 일정을 추가했어요`
+    const title = `${actor.name || actor.person}님이 '${event.title}' 일정을 ${CALENDAR_VERBS[kind]}`
     sendPushToOthers_(actor.person, { title, body: formatPushDate_(event.start), date: dateKeyOf_(event.start) })
   } catch (error) {
     console.error('알림을 보내지 못했어요', error)

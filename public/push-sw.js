@@ -7,12 +7,16 @@ self.addEventListener('push', event => {
   const payload = event.data ? event.data.json() : {}
   const data = payload.data || {}
   event.waitUntil(
-    self.registration.showNotification(data.title || '새 일정', {
-      body: data.body || '',
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
-      data: { date: data.date || '', link: data.link || '' },
-    }),
+    Promise.all([
+      self.registration.showNotification(data.title || '새 일정', {
+        body: data.body || '',
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
+        data: { date: data.date || '', link: data.link || '' },
+      }),
+      // 앱을 보는 중이면 알림과 함께 캘린더를 새로 맞추게 알린다.
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => windows.forEach(client => client.postMessage({ type: 'push' }))),
+    ]),
   )
 })
 

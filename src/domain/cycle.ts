@@ -33,6 +33,12 @@ export type CycleState = {
   days: number | null
 }
 
+// 주기 하나가 몇 달에 걸치는지(올림). 앱에 미리 받아 둘 지난 일정 범위를 정할 때 쓴다.
+const MONTHS_PER_UNIT: Record<CycleUnit, number> = { day: 1 / 30, week: 7 / 30, month: 1, year: 12 }
+
+export const longestPeriodMonths = (items: CycleItem[]) =>
+  Math.max(0, ...items.filter(item => !item.deleted && item.period).map(item => Math.ceil(item.period!.amount * MONTHS_PER_UNIT[item.period!.unit])))
+
 const DAY_MS = 24 * 60 * 60 * 1000
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000
 

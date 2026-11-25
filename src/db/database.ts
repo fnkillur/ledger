@@ -34,7 +34,11 @@ export type CalendarOp =
   | { seq?: number; type: 'save'; input: CalendarEventInput; scope?: RepeatScope; localId?: string; createId?: string }
   | { seq?: number; type: 'delete'; ref: CalendarEventRef; scope: RepeatScope }
 
-export type CalendarMeta = { key: 'window'; start: string; end: string; fetchedAt: string; error?: string }
+// syncToken: 구글 캘린더가 준 확인 번호. 다음 확인 때 이 뒤로 바뀐 일정만 받는다.
+export type CalendarMeta = { key: 'sync'; syncToken?: string; error?: string }
+
+// 한 번 받아 둔 달. 바뀐 것 확인에서 바뀌었다고 나올 때만 다시 받는다.
+export type CalendarLoadedMonth = { monthKey: string; fetchedAt: string }
 
 export const db = new Dexie('ledger') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
@@ -47,6 +51,7 @@ export const db = new Dexie('ledger') as Dexie & {
   calendarEvents: EntityTable<CalendarEvent, 'id'>
   calendarOutbox: EntityTable<CalendarOp, 'seq'>
   calendarMeta: EntityTable<CalendarMeta, 'key'>
+  calendarLoaded: EntityTable<CalendarLoadedMonth, 'monthKey'>
   holidays: EntityTable<Holiday, 'date'>
   cycles: EntityTable<CycleItem, 'id'>
 }
@@ -126,3 +131,9 @@ db.version(9)
   )
 
 db.version(10).stores({ holidays: 'date' })
+
+// 매번 앞뒤 12개월을 받던 방식에서, 받아 둔 달을 기록하고 바뀐 달만 다시 받는 방식으로 바꿨다.
+// 받아 둔 일정은 그대로 두고 확인 번호부터 새로 받는다.
+db.version(11)
+  .stores({ calendarLoaded: 'monthKey' })
+  .upgrade(transaction => transaction.table('calendarMeta').clear())

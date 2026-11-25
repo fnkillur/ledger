@@ -1,4 +1,4 @@
-import type { CalendarEvent, CalendarEventInput, CalendarEventRef, Holiday, RepeatScope } from '../domain/calendar'
+import type { CalendarChange, CalendarEvent, CalendarEventInput, CalendarEventRef, Holiday, RepeatScope } from '../domain/calendar'
 import type { Person } from '../domain/types'
 import { unwrap } from './api'
 import type { Settings } from './settings'
@@ -38,7 +38,16 @@ export const fetchCalendar = async (settings: Settings, start: string, end: stri
   return request<{ events: CalendarEvent[]; holidays?: Holiday[] }>(url)
 }
 
-// 서버가 새 일정을 상대방에게 알릴 때 "누가 추가했는지"를 쓴다.
+// 확인 번호 없이 부르면 새 번호만 준다. 구글이 번호를 버렸으면 reset과 함께 새 번호를 준다.
+export const fetchCalendarChanges = async (settings: Settings, syncToken: string | undefined) => {
+  const url = new URL(settings.endpoint)
+  url.searchParams.set('action', 'calendarChanges')
+  url.searchParams.set('token', settings.token)
+  if (syncToken) url.searchParams.set('syncToken', syncToken)
+  return request<{ syncToken: string; reset?: boolean; changes?: CalendarChange[] }>(url)
+}
+
+// 서버가 상대방에게 알릴 때 "누가 바꿨는지"를 쓴다.
 export type CalendarActor = { person: Person; name: string }
 
 export const saveCalendarEvent = async (
@@ -49,8 +58,8 @@ export const saveCalendarEvent = async (
   createId: string | undefined,
 ) => (await post<{ id: string }>(settings, { action: 'calendarSave', event: input, scope, actor, createId })).id
 
-export const deleteCalendarEvent = async (settings: Settings, ref: CalendarEventRef, scope: RepeatScope) => {
-  await post(settings, { action: 'calendarDelete', ref, scope })
+export const deleteCalendarEvent = async (settings: Settings, ref: CalendarEventRef, scope: RepeatScope, actor: CalendarActor) => {
+  await post(settings, { action: 'calendarDelete', ref, scope, actor })
 }
 
 export const registerPushToken = async (settings: Settings, body: { pushToken: string; person: Person; platform: 'android' | 'web' }) => {

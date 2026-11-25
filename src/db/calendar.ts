@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo } from 'react'
 import {
-  calendarWindow,
+  changedMonths,
   gridRange,
+  monthRuns,
+  monthsAround,
   overlapsRange,
   type CalendarEvent,
   type CalendarEventInput,
@@ -10,13 +12,14 @@ import {
   type Holiday,
   type RepeatScope,
 } from '../domain/calendar'
+import { longestPeriodMonths } from '../domain/cycle'
 import { displayName } from '../domain/nickname'
 import { DEVICE_PERSON } from '../platform'
 import { ServerResponseError } from '../sync/api'
-import { deleteCalendarEvent, fetchCalendar, RequestTimeoutError, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
+import { deleteCalendarEvent, fetchCalendar, fetchCalendarChanges, RequestTimeoutError, saveCalendarEvent, type CalendarActor } from '../sync/calendarApi'
 import { getSettings, isSyncConfigured } from '../sync/settings'
 import { currentMonthKey } from '../utils/format'
-import { db, type CalendarOp } from './database'
+import { db, type CalendarMeta, type CalendarOp } from './database'
 
 const LOCAL_ID_PREFIX = 'local-'
 
@@ -78,7 +81,7 @@ const currentActor = async (): Promise<CalendarActor> => ({
 
 const sendOp = async (op: CalendarOp) => {
   if (op.type === 'save') return saveCalendarEvent(getSettings(), op.input, op.scope, await currentActor(), op.createId)
-  return deleteCalendarEvent(getSettings(), op.ref, op.scope)
+  return deleteCalendarEvent(getSettings(), op.ref, op.scope, await currentActor())
 }
 
 const pushOutbox = async () => {
@@ -96,39 +99,82 @@ const pushOutbox = async () => {
   }
 }
 
-const recordError = async (error: unknown) => {
-  const meta = await db.calendarMeta.get('window')
-  await db.calendarMeta.put({ key: 'window', start: meta?.start ?? '', end: meta?.end ?? '', fetchedAt: meta?.fetchedAt ?? '', error: toCalendarError(error) })
+const META_KEY = 'sync'
+
+const readMeta = async (): Promise<CalendarMeta> => (await db.calendarMeta.get(META_KEY)) ?? { key: META_KEY }
+
+const writeMeta = async (patch: Partial<CalendarMeta>) => db.calendarMeta.put({ ...(await readMeta()), ...patch })
+
+// 오류 안내의 닫기 버튼. 다음에 보내기가 실패하면 다시 보인다.
+export const dismissCalendarError = () => writeMeta({ error: undefined })
+
+// 처음 볼 달과 그 앞뒤 한 달은 먼저 받고, 지난 4개월도 앱에 없으면 미리 받아 둔다.
+// 주기 탭은 지난 일정으로 계산해서, 그보다 긴 주기 항목이 있으면 그 주기만큼(최대 1년) 더 받는다.
+const VISIBLE_MONTHS = { before: 1, after: 1 }
+const PAST_MONTHS = { min: 4, max: 12 }
+const BACKFILL_RUN = 4
+
+const pastMonthsToKeep = async () => Math.min(PAST_MONTHS.max, Math.max(PAST_MONTHS.min, longestPeriodMonths(await db.cycles.toArray())))
+
+const loadedMonths = async () => (await db.calendarLoaded.toCollection().primaryKeys()) as string[]
+
+// 이어진 달끼리 한 번에 받아 그 범위를 서버 기준으로 바꿔 끼우고, 받아 둔 달로 기록한다.
+const loadMonths = async (months: string[], maxRun?: number) => {
+  for (const run of monthRuns(months, maxRun)) {
+    const { start } = gridRange(run[0])
+    const { end } = gridRange(run.at(-1)!)
+    const { events, holidays } = await fetchCalendar(getSettings(), start, end)
+    await replaceHolidays(start, end, holidays)
+    await replaceRange(start, end, events)
+    const fetchedAt = new Date().toISOString()
+    await db.calendarLoaded.bulkPut(run.map(monthKey => ({ monthKey, fetchedAt })))
+  }
 }
 
-// 오류 안내의 닫기 버튼. 다음 동기화가 실패하면 다시 보인다.
-export const dismissCalendarError = async () => {
-  const meta = await db.calendarMeta.get('window')
-  if (meta?.error) await db.calendarMeta.put({ ...meta, error: undefined })
+// 확인 번호를 먼저 받아 두고 달을 받아야, 그 사이에 바뀐 일정도 다음 확인 때 잡힌다.
+const startOver = async (syncToken: string) => {
+  await db.calendarLoaded.clear()
+  await loadMonths(monthsAround(currentMonthKey(), VISIBLE_MONTHS.before, VISIBLE_MONTHS.after))
+  await writeMeta({ syncToken })
+}
+
+// 지난 확인 이후 바뀐 일정이 있는 달만 다시 받는다. 다 받은 뒤에야 확인 번호를 넘겨서, 중간에 실패하면 다음에 다시 받는다.
+const refresh = async () => {
+  const { syncToken } = await readMeta()
+  const result = await fetchCalendarChanges(getSettings(), syncToken)
+  if (!syncToken || result.reset) {
+    await startOver(result.syncToken)
+  } else {
+    await loadMonths(changedMonths(result.changes ?? [], await db.calendarEvents.toArray(), await loadedMonths()))
+    await writeMeta({ syncToken: result.syncToken })
+  }
+  const loaded = new Set(await loadedMonths())
+  const missing = monthsAround(currentMonthKey(), await pastMonthsToKeep(), VISIBLE_MONTHS.after).filter(month => !loaded.has(month))
+  await loadMonths(missing, BACKFILL_RUN)
 }
 
 const MAX_SYNC_ROUNDS = 3
 
 let running: Promise<void> | null = null
 
-// 대기열을 먼저 보내고, 다 보냈을 때만 받아 둔 범위를 서버 기준으로 새로 맞춘다.
+// 보낼 작업을 먼저 보내고, 바뀐 것을 확인해 그 달만 받는다.
+// 받기는 조용히 하고 실패하면 다음 확인 때 다시 하며, 사용자에게는 보내지 못한 작업이 있을 때만 알린다.
 export const syncCalendar = () => {
   running ??= (async () => {
     try {
       if (!isSyncConfigured(getSettings())) return
-      // 받는 동안 새 작업이 쌓였으면 그것까지 보낸 뒤 다시 받는다.
       for (let round = 0; round < MAX_SYNC_ROUNDS; round += 1) {
-        await pushOutbox()
-        const { start, end } = calendarWindow(currentMonthKey())
-        const { events, holidays } = await fetchCalendar(getSettings(), start, end)
-        await replaceHolidays(start, end, holidays)
-        if ((await db.calendarOutbox.count()) > 0) continue
-        await replaceRange(start, end, events)
-        await db.calendarMeta.put({ key: 'window', start, end, fetchedAt: new Date().toISOString() })
-        return
+        try {
+          await pushOutbox()
+        } catch (error) {
+          await writeMeta({ error: toCalendarError(error) })
+          return
+        }
+        await writeMeta({ error: undefined })
+        await refresh().catch(() => {})
+        // 받는 동안 새 작업이 쌓였으면 그것까지 보낸다.
+        if ((await db.calendarOutbox.count()) === 0) return
       }
-    } catch (error) {
-      await recordError(error)
     } finally {
       running = null
     }
@@ -136,15 +182,12 @@ export const syncCalendar = () => {
   return running
 }
 
-// 받아 둔 범위 밖의 달로 가면 그 달만 받아 둔다.
+// 아직 받지 않은 달로 넘기면 그 달만 받는다. 처음 확인이 끝나기 전에는 기다렸다가, 확인 번호가 생긴 뒤에 받는다.
 export const ensureMonth = async (monthKey: string) => {
-  const meta = await db.calendarMeta.get('window')
-  const range = gridRange(monthKey)
-  if (meta?.start && range.start >= meta.start && range.end <= meta.end) return
   if (!isSyncConfigured(getSettings())) return
-  const { events, holidays } = await fetchCalendar(getSettings(), range.start, range.end)
-  await replaceHolidays(range.start, range.end, holidays)
-  await replaceRange(range.start, range.end, events)
+  await running
+  if (!(await readMeta()).syncToken || (await db.calendarLoaded.get(monthKey))) return
+  await loadMonths([monthKey])
 }
 
 const seriesTargets = async (ref: CalendarEventRef, scope: RepeatScope) => {
@@ -228,12 +271,12 @@ export function useHolidays() {
 }
 
 export function useCalendarStatus() {
-  const meta = useLiveQuery(() => db.calendarMeta.get('window'), [])
+  const meta = useLiveQuery(() => db.calendarMeta.get(META_KEY), [])
   const pendingCount = useLiveQuery(() => db.calendarOutbox.count(), []) ?? 0
   return { error: meta?.error ?? null, pendingCount }
 }
 
-// 화면을 열 때·앱으로 돌아올 때·인터넷이 다시 연결될 때 동기화하고, 범위 밖 달은 따로 받는다.
+// 화면을 열 때·앱으로 돌아올 때·인터넷이 다시 연결될 때 바뀐 것을 확인하고, 아직 받지 않은 달은 넘길 때 받는다.
 export function useCalendarSync(monthKey: string) {
   useEffect(() => {
     syncCalendar()
